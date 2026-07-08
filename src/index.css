@@ -1,0 +1,81 @@
+@import '@fontsource/archivo/500.css';
+@import '@fontsource/archivo/600.css';
+@import '@fontsource/archivo/700.css';
+@import '@fontsource/inter/400.css';
+@import '@fontsource/inter/500.css';
+@import '@fontsource/inter/600.css';
+@import '@fontsource/inter/700.css';
+@import '@fontsource/ibm-plex-mono/400.css';
+@import '@fontsource/ibm-plex-mono/500.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Design tokens ──────────────────────────────────────────────
+   Light theme (default) — Kinetic Line ERP palette              */
+:root {
+  --bg: #FAFBFC;            /* primary background — never pure white   */
+  --surface: #FFFFFF;       /* cards                                   */
+  --surface-2: #F5F7FA;     /* sidebar / secondary panels / dropdowns  */
+  --line: #E8EDF3;          /* subtle 1px borders                      */
+  --heading: #111827;
+  --body: #475569;
+  --muted: #94A3B8;
+  --link: #2563EB;
+  --primary: #10B981;       /* emerald                                 */
+  --primary-hover: #059669;
+  --icon: #64748B;
+  --icon-hover: #334155;
+  --sidebar-hover: #F1F5F9;
+  --shadow-card: 0 4px 20px rgba(15, 23, 42, 0.05);
+}
+
+.dark {
+  --bg: #0F172A;
+  --surface: #162032;
+  --surface-2: #111827;
+  --line: #263244;
+  --heading: #F8FAFC;
+  --body: #CBD5E1;
+  --muted: #94A3B8;
+  --link: #60A5FA;
+  --primary: #34D399;
+  --primary-hover: #10B981;
+  --icon: #94A3B8;
+  --icon-hover: #E2E8F0;
+  --sidebar-hover: #1E293B;
+  --shadow-card: 0 4px 20px rgba(0, 0, 0, 0.25);
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  @apply bg-bg text-body font-sans antialiased;
+  font-size: 14px;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  @apply font-display text-heading;
+}
+
+/* Thin, unobtrusive scrollbars */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--line) transparent;
+}
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--line);
+  border-radius: 999px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}

@@ -1,0 +1,31 @@
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { Layout } from './components/layout/Layout'
+import { DashboardPage } from './pages/DashboardPage'
+import { DesignSystemPage } from './pages/DesignSystemPage'
+import { PlaceholderPage } from './pages/PlaceholderPage'
+
+export default function App() {
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route element={<Layout />}>
+          <Route path="/" element={<Navigate to="/dashboard" replace />} />
+          <Route path="/dashboard" element={<DashboardPage />} />
+          <Route path="/nvocc" element={<PlaceholderPage title="NVOCC (FCL)" />} />
+          <Route path="/freight" element={<PlaceholderPage title="Freight FWD" />} />
+          <Route path="/mnr" element={<PlaceholderPage title="MNR (Container)" />} />
+          <Route path="/accounts" element={<PlaceholderPage title="Accounts" />} />
+          <Route path="/master" element={<PlaceholderPage title="Master Data" />} />
+          <Route path="/approvals" element={<PlaceholderPage title="Approvals" />} />
+          <Route path="/portal/customer" element={<PlaceholderPage title="Customer Portal" />} />
+          <Route path="/portal/agent" element={<PlaceholderPage title="Agent Portal" />} />
+          <Route path="/reports" element={<PlaceholderPage title="Reports" />} />
+          <Route path="/hr" element={<PlaceholderPage title="HR" />} />
+          <Route path="/settings" element={<PlaceholderPage title="Settings" />} />
+          <Route path="/design-system" element={<DesignSystemPage />} />
+          <Route path="*" element={<Navigate to="/dashboard" replace />} />
+        </Route>
+      </Routes>
+    </BrowserRouter>
+  )
+}
