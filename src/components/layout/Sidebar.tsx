@@ -2,6 +2,7 @@ import { NavLink } from 'react-router-dom'
 import { Ship, ChevronsLeft, ChevronsRight } from 'lucide-react'
 import { NAV_ITEMS } from './nav'
 import { useUiStore } from '../../store/useUiStore'
+import { useDataStore } from '../../store/useDataStore'
 
 function BrandMark({ collapsed }: { collapsed: boolean }) {
   return (
@@ -24,7 +25,9 @@ function BrandMark({ collapsed }: { collapsed: boolean }) {
 }
 
 export function SidebarContent({ collapsed = false }: { collapsed?: boolean }) {
-  const approvalsPending = 12 // TODO: wire to approvals store when module lands
+  const approvalsPending = useDataStore(
+    (s) => s.approvals.filter((a) => a.status === 'Pending').length,
+  )
   const { theme, setTheme, toggleCollapsed } = useUiStore()
 
   return (

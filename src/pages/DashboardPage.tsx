@@ -21,15 +21,19 @@ import {
   Users2,
   BarChart3,
 } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { fetchDashboard } from '../lib/api'
 import type { DashboardData } from '../lib/types'
 import { Card, CardHeader } from '../components/ui/Card'
 import { KpiCard, KPI_TINTS } from '../components/ui/KpiCard'
 import { StatusChip } from '../components/ui/StatusChip'
 import { ProgressBar } from '../components/ui/ProgressBar'
+import { useDataStore } from '../store/useDataStore'
+import { deriveStatus, toChipStatus } from '../lib/milestones'
 
 export function DashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null)
+  const { bookings, milestones } = useDataStore()
 
   useEffect(() => {
     fetchDashboard().then(setData)
@@ -43,7 +47,8 @@ export function DashboardPage() {
     )
   }
 
-  const { kpis, overview, byType, byTypeTotal, tradeLanes, recentBookings, tasks, totalBookings } = data
+  const { kpis, overview, byType, byTypeTotal, tradeLanes, tasks } = data
+  const recentBookings = bookings.slice(0, 7)
 
   return (
     <div className="space-y-6">
@@ -226,27 +231,33 @@ export function DashboardPage() {
                 </tr>
               </thead>
               <tbody>
-                {recentBookings.map((b) => (
-                  <tr key={b.id} className="border-b border-line last:border-0 hover:bg-surface-2/60">
-                    <td className="px-5 py-3 font-mono text-xs font-medium text-link">{b.bookingRef}</td>
-                    <td className="px-3 py-3 text-xs text-body">{b.type}</td>
-                    <td className="px-3 py-3 text-xs text-body">{b.pol}</td>
-                    <td className="px-3 py-3 text-xs text-body">{b.pod}</td>
-                    <td className="px-3 py-3 text-xs text-body">{b.vesselVoyage}</td>
-                    <td className="px-3 py-3 text-xs text-body">
-                      {new Date(b.etd).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
-                    </td>
-                    <td className="px-3 py-3">
-                      <StatusChip status={b.chipStatus} />
-                    </td>
-                    <td className="px-5 py-3 text-xs text-body">{b.customerName}</td>
-                  </tr>
-                ))}
+                {recentBookings.map((b) => {
+                  const entries = milestones.filter((m) => m.bookingId === b.id)
+                  const chip = toChipStatus(deriveStatus(b.direction, entries, b.cancelled))
+                  return (
+                    <tr key={b.id} className="border-b border-line last:border-0 hover:bg-surface-2/60">
+                      <td className="px-5 py-3 font-mono text-xs font-medium text-link">
+                        <Link to={`/nvocc/${b.id}`} className="hover:underline">{b.bookingRef}</Link>
+                      </td>
+                      <td className="px-3 py-3 text-xs text-body">FCL ({b.direction === 'Export' ? 'EXP' : 'IMP'})</td>
+                      <td className="px-3 py-3 text-xs text-body">{b.pol}</td>
+                      <td className="px-3 py-3 text-xs text-body">{b.pod}</td>
+                      <td className="px-3 py-3 text-xs text-body">{b.vesselName} / {b.voyageNo}</td>
+                      <td className="px-3 py-3 text-xs text-body">
+                        {new Date(b.etd).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                      </td>
+                      <td className="px-3 py-3">
+                        <StatusChip status={chip} />
+                      </td>
+                      <td className="px-5 py-3 text-xs text-body">{b.bookingPartyName}</td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>
           <div className="flex items-center justify-between border-t border-line px-5 py-3 text-xs text-muted">
-            <span>Showing 1 to {recentBookings.length} of {totalBookings.toLocaleString()} entries</span>
+            <span>Showing 1 to {recentBookings.length} of {bookings.length.toLocaleString()} entries</span>
             <Pagination />
           </div>
         </Card>
