@@ -191,10 +191,15 @@ export const useDataStore = create<DataState>((set, get) => ({
   },
 
   createBooking: (b, chargeLines) => {
-    const id = uid('b')
-    const prefix = b.direction === 'Export' ? 'KINEXP' : 'KINIMP'
-    const num = 127 + get().bookings.length
-    const bookingRef = `${prefix}-${String(num).padStart(4, '0')}`
+    // Real numbering scheme from the live tracker: KLNVO2627XXXXXX
+    const existing = get().bookings
+    const maxSeq = existing.reduce((max, x) => {
+      const m = x.bookingRef.match(/^KLNVO2627(\d{6})$/)
+      return m ? Math.max(max, +m[1]) : max
+    }, 0)
+    const bookingRef = `KLNVO2627${String(maxSeq + 1).padStart(6, '0')}`
+    const id = bookingRef
+    const num = maxSeq + 1
     const booking: Booking = {
       ...b,
       id,

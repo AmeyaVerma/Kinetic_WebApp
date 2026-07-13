@@ -141,7 +141,9 @@ export interface Booking {
   eta: string
   freightTerms: FreightTerms
   surveyorId: string | null
-  emptyYardId: string | null
+  emptyYardId: string | null | undefined
+  terminal?: string | null
+  mblNo?: string | null
   // Container / product info tabs
   containerType: string // e.g. "40HC"
   containerQty: number

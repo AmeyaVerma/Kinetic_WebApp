@@ -188,9 +188,10 @@ function ShipmentDetailsTab({
         <FieldPill label="POL" value={booking.pol} />
         <FieldPill label="POD" value={booking.pod} />
         <FieldPill label="Vessel / voyage" value={`${booking.vesselName} / ${booking.voyageNo}`} />
-        <FieldPill label="ETD" value={booking.etd} />
+        <FieldPill label="ETD / SOB" value={booking.etd} />
         <FieldPill label="ETA" value={booking.eta} />
-        <FieldPill label="Transit time" value={`${booking.transitTime} days`} />
+        <FieldPill label="Terminal" value={booking.terminal ?? ''} />
+        <FieldPill label="MBL No." value={booking.mblNo ?? ''} />
       </div>
 
       <div>

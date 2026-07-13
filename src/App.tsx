@@ -14,6 +14,7 @@ export default function App() {
         <Route element={<Layout />}>
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
           <Route path="/dashboard" element={<DashboardPage />} />
+          {/* NVOCC */}
           <Route path="/nvocc" element={<NvoccPage />} />
           <Route path="/nvocc/:id" element={<BookingDetailPage />} />
           <Route path="/freight" element={<PlaceholderPage title="Freight FWD" />} />

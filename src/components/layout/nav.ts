@@ -23,7 +23,7 @@ export interface NavItem {
 
 export const NAV_ITEMS: NavItem[] = [
   { label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
-  { label: 'NVOCC (FCL)', path: '/nvocc', icon: Anchor },
+  { label: 'NVOCC', path: '/nvocc', icon: Anchor },
   { label: 'Freight FWD', path: '/freight', icon: Boxes },
   { label: 'MNR (Container)', path: '/mnr', icon: Container },
   { label: 'Accounts', path: '/accounts', icon: Wallet },
