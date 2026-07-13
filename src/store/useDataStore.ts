@@ -15,13 +15,22 @@ import type {
   ChargeLine,
   ContainerActivity,
   CroDocument,
+  DamagePoint,
+  FleetContainer,
   Invoice,
   InvoiceStatus,
   Lead,
   MilestoneEntry,
+  MnrEstimate,
+  MnrJob,
+  MnrOutcome,
   Quote,
+  ResponsibleParty,
   Role,
+  WarrantyClaimStatus,
 } from '../lib/types'
+import { INSPECTION_CHECKLIST, approverBand, latestEstimate } from '../lib/mnr'
+import { mockFleet, mockMnrJobs } from '../mocks/mnrSeed'
 import {
   mockActivities,
   mockApprovals,
@@ -108,6 +117,42 @@ interface DataState {
 
   // Approvals (doc §11)
   decideApproval: (approvalId: string, decision: 'Approved' | 'Rejected') => void
+
+  // ── MNR (Requirements v2 + flowchart) ──
+  fleet: FleetContainer[]
+  mnrJobs: MnrJob[]
+  registerGateIn: (input: {
+    containerNo: string
+    bookingRef: string | null
+    depotId: string
+    sealIntact: boolean | null
+    gateInPhotos: number
+    eirSigned: boolean
+    overrideReason: string | null
+  }) => string | null
+  setChecklistItem: (jobId: string, key: string, pass: boolean) => void
+  completeInspection: (
+    jobId: string,
+    extra: { cleanliness: MnrJob['cleanliness']; ptiPass: boolean | null; contamination: boolean },
+  ) => void
+  addDamagePoint: (jobId: string, dp: Omit<DamagePoint, 'id' | 'qcPass'>) => void
+  completeSurvey: (jobId: string) => void
+  submitMnrEstimate: (
+    jobId: string,
+    est: { vendorId: string; labour: number; material: number; tax: number; validUntil: string; revisionReason: string | null },
+  ) => void
+  setRepairProgress: (jobId: string, pct: number, materialsDeviation: boolean) => void
+  submitAdditionalDamage: (jobId: string, amount: number, desc: string) => void
+  vendorCompleteRepair: (jobId: string) => void
+  setQcLine: (jobId: string, dpId: string, pass: boolean) => void
+  qcRework: (jobId: string) => void
+  qcSignoff: (jobId: string, extra: { cscRecertDone: boolean; ptiRepeatDone: boolean; punchList: string[] }) => void
+  postFinance: (
+    jobId: string,
+    fin: { vendorBill: number; rootCause: ResponsibleParty; costClass: 'Capitalize' | 'Expense'; warrantyClaim: WarrantyClaimStatus },
+  ) => void
+  issueDebitNote: (jobId: string) => void
+  closeMnrJob: (jobId: string, outcome: MnrOutcome) => void
 }
 
 function log(activities: ActivityEntry[], bookingId: string, actor: string, action: string): ActivityEntry[] {
@@ -447,11 +492,415 @@ export const useDataStore = create<DataState>((set, get) => ({
       }
     }),
 
+  /* ── MNR actions ─────────────────────────────────────────── */
+
+  fleet: mockFleet,
+  mnrJobs: mockMnrJobs,
+
+  registerGateIn: (input) => {
+    // Flow 1 gates: min 6 photos + signed EIR before gate-in can finalize
+    if (input.gateInPhotos < 6 || !input.eirSigned) return null
+    const s = get()
+    const container = s.fleet.find((f) => f.containerNo === input.containerNo)
+    const id = uid('mnr')
+    const job: MnrJob = {
+      id,
+      containerId: container?.id ?? '',
+      containerNo: input.containerNo,
+      bookingRef: input.bookingRef,
+      depotId: input.depotId,
+      stage: 'Initial Inspection',
+      ocrMatched: !!input.bookingRef,
+      overrideReason: input.overrideReason,
+      sealIntact: input.sealIntact,
+      gateInPhotos: input.gateInPhotos,
+      eirSigned: true,
+      gateInAt: now(),
+      checklist: INSPECTION_CHECKLIST.map((c) => ({ ...c, pass: null })),
+      cleanliness: null,
+      cscExpiringSoon: container
+        ? new Date(container.cscExpiry).getTime() - Date.now() < 90 * 86400000
+        : false,
+      ptiPass: null,
+      contamination: false,
+      damagePoints: [],
+      engineeringRequired: false,
+      estimates: [],
+      lessorNotified: false,
+      progressPct: 0,
+      materialsDeviation: false,
+      additionalDamagePending: false,
+      cscRecertDone: false,
+      ptiRepeatDone: false,
+      punchList: [],
+      qcSignedOff: false,
+      vendorBill: null,
+      rootCause: null,
+      debitNoteIssued: false,
+      warrantyClaim: 'None',
+      costClass: null,
+      outcome: null,
+    }
+    set((st) => ({
+      mnrJobs: [job, ...st.mnrJobs],
+      fleet: container
+        ? st.fleet.map((f) =>
+            f.id === container.id ? { ...f, status: 'Hold', depotId: input.depotId, custodianBookingRef: null } : f,
+          )
+        : st.fleet,
+      activities: log(
+        st.activities,
+        id,
+        'Depot clerk',
+        `Gate-in: ${input.containerNo}${input.bookingRef ? ` (booking ${input.bookingRef})` : ' (free-in)'}${
+          input.sealIntact === false ? ' — SEAL BROKEN, cargo-claim event raised, priority inspection' : ''
+        }${input.overrideReason ? ` — OCR override: ${input.overrideReason}` : ''} · EIR signed`,
+      ),
+    }))
+    return id
+  },
+
+  setChecklistItem: (jobId, key, pass) =>
+    set((s) => ({
+      mnrJobs: s.mnrJobs.map((j) =>
+        j.id === jobId
+          ? { ...j, checklist: j.checklist.map((c) => (c.key === key ? { ...c, pass } : c)) }
+          : j,
+      ),
+    })),
+
+  completeInspection: (jobId, extra) =>
+    set((s) => {
+      const job = s.mnrJobs.find((j) => j.id === jobId)
+      if (!job || job.checklist.some((c) => c.pass === null)) return s
+      const allPass =
+        job.checklist.every((c) => c.pass) && !extra.contamination && extra.ptiPass !== false
+      if (allPass) {
+        // Fast path — bypasses Survey/Estimate/Approval/Repair/QC entirely
+        return {
+          mnrJobs: s.mnrJobs.map((j) =>
+            j.id === jobId ? { ...j, ...extra, stage: 'Closed', outcome: 'Available' } : j,
+          ),
+          fleet: s.fleet.map((f) =>
+            f.id === job.containerId ? { ...f, status: 'Available' } : f,
+          ),
+          activities: log(s.activities, jobId, 'Depot Inspector', 'Initial inspection passed — fast path to Available Inventory'),
+        }
+      }
+      return {
+        mnrJobs: s.mnrJobs.map((j) =>
+          j.id === jobId ? { ...j, ...extra, stage: 'Damage Survey' } : j,
+        ),
+        fleet: s.fleet.map((f) =>
+          f.id === job.containerId ? { ...f, status: 'Under Repair' } : f,
+        ),
+        activities: log(
+          s.activities,
+          jobId,
+          'Depot Inspector',
+          `Inspection failed ${job.checklist.filter((c) => c.pass === false).length} item(s)${
+            extra.contamination ? ' — contamination flag, allocation blocked' : ''
+          }${extra.ptiPass === false ? ' — PTI FAIL, routed to reefer-specialist vendor' : ''} — routed to Damage Survey`,
+        ),
+      }
+    }),
+
+  addDamagePoint: (jobId, dp) =>
+    set((s) => {
+      if (dp.photos < 2) return s // min 2 photos per damage point (flow 2)
+      return {
+        mnrJobs: s.mnrJobs.map((j) =>
+          j.id === jobId
+            ? {
+                ...j,
+                damagePoints: [...j.damagePoints, { ...dp, id: uid('dp'), qcPass: null }],
+                engineeringRequired: j.engineeringRequired || dp.severity === 'Structural',
+              }
+            : j,
+        ),
+        activities: log(s.activities, jobId, 'Surveyor', `Damage point: ${dp.panel} · ${dp.damageCode} · ${dp.severity}${dp.preExisting ? ' (pre-existing, already logged)' : ' (new damage)'}`),
+      }
+    }),
+
+  completeSurvey: (jobId) =>
+    set((s) => {
+      const job = s.mnrJobs.find((j) => j.id === jobId)
+      if (!job || job.damagePoints.length === 0) return s
+      return {
+        mnrJobs: s.mnrJobs.map((j) => (j.id === jobId ? { ...j, stage: 'Estimate' } : j)),
+        activities: log(s.activities, jobId, 'Surveyor', `Digitally signed DSR generated — ${job.damagePoints.length} damage point(s)${job.engineeringRequired ? ' · Engineering sign-off flagged (structural)' : ''}`),
+      }
+    }),
+
+  submitMnrEstimate: (jobId, est) =>
+    set((s) => {
+      const job = s.mnrJobs.find((j) => j.id === jobId)
+      if (!job) return s
+      const total = est.labour + est.material + est.tax
+      const band = approverBand(total)
+      const container = s.fleet.find((f) => f.id === job.containerId)
+      const leased = container?.ownership !== 'Owned'
+      const autoApproved = total < 300
+      const version = job.estimates.length + 1
+      const newEst: MnrEstimate = {
+        version,
+        vendorId: est.vendorId,
+        labour: est.labour,
+        material: est.material,
+        tax: est.tax,
+        total,
+        validUntil: est.validUntil,
+        revisionReason: est.revisionReason,
+        status: autoApproved ? 'Auto-approved' : 'Submitted',
+        approverBand: band,
+      }
+      const patch: Partial<DataState> = {
+        mnrJobs: s.mnrJobs.map((j) =>
+          j.id === jobId
+            ? {
+                ...j,
+                estimates: [...j.estimates, newEst],
+                stage: autoApproved ? 'Repair Execution' : 'Approval',
+                lessorNotified: leased,
+              }
+            : j,
+        ),
+        activities: log(
+          s.activities,
+          jobId,
+          'Vendor / Ops',
+          `Estimate v${version} — $${total.toLocaleString()} → ${band}${job.engineeringRequired ? ' + Engineering' : ''}${leased ? ' + Lessor notified (48-hr SLA)' : ''}${est.revisionReason ? ` · revision: ${est.revisionReason}` : ''}`,
+        ),
+      }
+      if (!autoApproved) {
+        patch.approvals = [
+          {
+            id: uid('ap'),
+            entityType: 'repair_estimate' as const,
+            entityId: jobId,
+            bookingId: null,
+            summary: `Repair estimate ${job.containerNo} — $${total.toLocaleString()} (${band}${job.engineeringRequired ? ' + Engineering' : ''})`,
+            requestedBy: 'MNR',
+            requestedAt: now(),
+            status: 'Pending' as const,
+          },
+          ...s.approvals,
+        ]
+      }
+      return patch
+    }),
+
+  setRepairProgress: (jobId, pct, materialsDeviation) =>
+    set((s) => ({
+      mnrJobs: s.mnrJobs.map((j) =>
+        j.id === jobId ? { ...j, progressPct: pct, materialsDeviation } : j,
+      ),
+      activities: materialsDeviation
+        ? log(s.activities, jobId, 'System', 'Material usage deviation alert — exceeds approved BOM by >10%')
+        : s.activities,
+    })),
+
+  submitAdditionalDamage: (jobId, amount, desc) =>
+    set((s) => {
+      const job = s.mnrJobs.find((j) => j.id === jobId)
+      if (!job) return s
+      return {
+        mnrJobs: s.mnrJobs.map((j) => (j.id === jobId ? { ...j, additionalDamagePending: true } : j)),
+        approvals: [
+          {
+            id: uid('ap'),
+            entityType: 'repair_estimate' as const,
+            entityId: `${jobId}:delta`,
+            bookingId: null,
+            summary: `Additional damage delta ${job.containerNo} — $${amount.toLocaleString()}: ${desc}`,
+            requestedBy: 'Vendor (mid-repair)',
+            requestedAt: now(),
+            status: 'Pending' as const,
+          },
+          ...s.approvals,
+        ],
+        activities: log(s.activities, jobId, 'Vendor', `Additional Damage Request — $${amount.toLocaleString()} delta routed to Approval Engine (approved items continue in parallel)`),
+      }
+    }),
+
+  vendorCompleteRepair: (jobId) =>
+    set((s) => {
+      const job = s.mnrJobs.find((j) => j.id === jobId)
+      if (!job || job.progressPct < 100 || job.additionalDamagePending) return s
+      return {
+        mnrJobs: s.mnrJobs.map((j) => (j.id === jobId ? { ...j, stage: 'Quality Control' } : j)),
+        activities: log(s.activities, jobId, 'Vendor', 'Repair complete — QC begins (independent inspector, system-enforced)'),
+      }
+    }),
+
+  setQcLine: (jobId, dpId, pass) =>
+    set((s) => ({
+      mnrJobs: s.mnrJobs.map((j) =>
+        j.id === jobId
+          ? { ...j, damagePoints: j.damagePoints.map((d) => (d.id === dpId ? { ...d, qcPass: pass } : d)) }
+          : j,
+      ),
+    })),
+
+  qcRework: (jobId) =>
+    set((s) => ({
+      mnrJobs: s.mnrJobs.map((j) =>
+        j.id === jobId
+          ? {
+              ...j,
+              stage: 'Repair Execution',
+              progressPct: 80,
+              damagePoints: j.damagePoints.map((d) => (d.qcPass === false ? { ...d, qcPass: null } : d)),
+            }
+          : j,
+      ),
+      activities: log(s.activities, jobId, 'QC Inspector', 'QC FAIL on one or more lines — routed back to Repair Execution (vendor-liability flag, rework not billable)'),
+    })),
+
+  qcSignoff: (jobId, extra) =>
+    set((s) => {
+      const job = s.mnrJobs.find((j) => j.id === jobId)
+      if (!job || job.damagePoints.some((d) => d.qcPass !== true)) return s
+      return {
+        mnrJobs: s.mnrJobs.map((j) =>
+          j.id === jobId ? { ...j, ...extra, qcSignedOff: true, stage: 'Finance Posting' } : j,
+        ),
+        activities: log(
+          s.activities,
+          jobId,
+          'QC Inspector',
+          `QC sign-off (digital signature)${extra.cscRecertDone ? ' · CSC re-certified' : ''}${extra.ptiRepeatDone ? ' · repeat PTI passed' : ''}${extra.punchList.length ? ` · punch-list: ${extra.punchList.length} item(s), 5-day window` : ''}`,
+        ),
+      }
+    }),
+
+  postFinance: (jobId, fin) =>
+    set((s) => {
+      const job = s.mnrJobs.find((j) => j.id === jobId)
+      if (!job) return s
+      const est = latestEstimate(job)
+      const approved = est?.total ?? 0
+      const variancePct = approved > 0 ? ((fin.vendorBill - approved) / approved) * 100 : 0
+      const overTolerance = Math.abs(variancePct) > 10
+      const patch: Partial<DataState> = {
+        mnrJobs: s.mnrJobs.map((j) => (j.id === jobId ? { ...j, ...fin } : j)),
+        activities: log(
+          s.activities,
+          jobId,
+          'Finance',
+          `Vendor bill $${fin.vendorBill.toLocaleString()} matched vs approved $${approved.toLocaleString()} (${variancePct.toFixed(1)}%)${overTolerance ? ' — OVER TOLERANCE, routed to Approvals Queue' : ''} · ${fin.costClass} · root-cause ${fin.rootCause}${fin.warrantyClaim !== 'None' ? ` · warranty: ${fin.warrantyClaim}` : ''}`,
+        ),
+      }
+      if (overTolerance) {
+        patch.approvals = [
+          {
+            id: uid('ap'),
+            entityType: 'invoice' as const,
+            entityId: jobId,
+            bookingId: null,
+            summary: `MNR vendor bill variance ${job.containerNo} — billed $${fin.vendorBill.toLocaleString()} vs approved $${approved.toLocaleString()}`,
+            requestedBy: 'Finance (auto)',
+            requestedAt: now(),
+            status: 'Pending' as const,
+          },
+          ...s.approvals,
+        ]
+      }
+      return patch
+    }),
+
+  issueDebitNote: (jobId) =>
+    set((s) => {
+      const job = s.mnrJobs.find((j) => j.id === jobId)
+      if (!job || job.rootCause !== 'Customer' || job.debitNoteIssued) return s
+      const amount = job.vendorBill ?? latestEstimate(job)?.total ?? 0
+      const invoiceNo = `KLDN-26-${String(100 + s.invoices.length)}`
+      return {
+        mnrJobs: s.mnrJobs.map((j) => (j.id === jobId ? { ...j, debitNoteIssued: true } : j)),
+        invoices: [
+          {
+            id: uid('inv'),
+            invoiceNo,
+            bookingId: job.bookingRef ?? '',
+            type: 'AR' as const,
+            status: 'Draft' as const,
+            lines: [{ chargeLineId: '', chargeName: `Damage recovery — ${job.containerNo} (DSR + photos attached)`, amount, currency: 'USD' as const }],
+            zohoInvoiceId: null,
+            createdAt: now(),
+          },
+          ...s.invoices,
+        ],
+        activities: log(s.activities, jobId, 'Ops/CS', `Customer debit note ${invoiceNo} confirmed and issued via shared Invoicing engine — $${amount.toLocaleString()}`),
+      }
+    }),
+
+  closeMnrJob: (jobId, outcome) =>
+    set((s) => {
+      const job = s.mnrJobs.find((j) => j.id === jobId)
+      if (!job) return s
+      const statusMap: Record<MnrOutcome, FleetContainer['status']> = {
+        Available: 'Available',
+        'Off-Hire': 'Off Hire',
+        Scrap: 'Scrapped',
+      }
+      return {
+        mnrJobs: s.mnrJobs.map((j) => (j.id === jobId ? { ...j, stage: 'Closed', outcome } : j)),
+        fleet: s.fleet.map((f) =>
+          f.id === job.containerId ? { ...f, status: statusMap[outcome] } : f,
+        ),
+        activities: log(
+          s.activities,
+          jobId,
+          'System',
+          `MNR cycle closed — ${outcome}${outcome === 'Available' ? ' (returns to Empty Yard pool, feeds CRO allocation)' : outcome === 'Off-Hire' ? ' (redelivery certificate issued, lease closed)' : ' (de-registered, GL write-off posted)'} · immutable history entry appended`,
+        ),
+      }
+    }),
+
   decideApproval: (approvalId, decision) =>
     set((s) => {
       const ap = s.approvals.find((a) => a.id === approvalId)
       if (!ap || ap.status !== 'Pending') return s
       let patch: Partial<DataState> = {}
+      if (ap.entityType === 'repair_estimate') {
+        const isDelta = ap.entityId.endsWith(':delta')
+        const jobId = isDelta ? ap.entityId.split(':')[0] : ap.entityId
+        if (decision === 'Approved') {
+          patch = {
+            mnrJobs: s.mnrJobs.map((j) => {
+              if (j.id !== jobId) return j
+              if (isDelta) return { ...j, additionalDamagePending: false }
+              return {
+                ...j,
+                stage: 'Repair Execution',
+                estimates: j.estimates.map((e, i) =>
+                  i === j.estimates.length - 1 ? { ...e, status: 'Approved' } : e,
+                ),
+              }
+            }),
+            activities: log(s.activities, jobId, 'Approver', isDelta ? 'Additional damage delta approved — work order updated' : 'Estimate approved — work order auto-generated, sent to vendor'),
+          }
+        } else {
+          patch = {
+            mnrJobs: s.mnrJobs.map((j) => {
+              if (j.id !== jobId) return j
+              if (isDelta) return { ...j, additionalDamagePending: false }
+              return {
+                ...j,
+                stage: 'Estimate',
+                estimates: j.estimates.map((e, i) =>
+                  i === j.estimates.length - 1 ? { ...e, status: 'Rejected' } : e,
+                ),
+              }
+            }),
+            activities: log(s.activities, jobId, 'Approver', isDelta ? 'Additional damage delta rejected' : 'Estimate rejected — loops back to vendor for re-quote'),
+          }
+        }
+        return {
+          ...patch,
+          approvals: s.approvals.map((a) => (a.id === approvalId ? { ...a, status: decision } : a)),
+        }
+      }
       if (decision === 'Approved') {
         if (ap.entityType === 'bl_edit' && ap.bookingId && ap.payload) {
           patch = {

@@ -341,6 +341,127 @@ export interface ActivityEntry {
   action: string
 }
 
+/* ── MNR module (MNR Requirements v2 + flowchart) ────────────── */
+
+export type ContainerStatus =
+  | 'Available'
+  | 'On Hire'
+  | 'Under Repair'
+  | 'Off Hire'
+  | 'Hold'
+  | 'Scrapped'
+  | 'Lost'
+
+export type OwnershipType = 'Owned' | 'Leased-in' | 'Sub-leased'
+
+export interface FleetContainer {
+  id: string
+  containerNo: string // ISO 6346
+  isoType: string // 20GP / 40HC / 40RF / OT / FR / Tank
+  ownership: OwnershipType
+  lessor: string | null
+  manufactureDate: string
+  cscExpiry: string
+  status: ContainerStatus
+  depotId: string | null
+  custodianBookingRef: string | null
+  insuredValue: number
+  warrantyRef: string | null
+  isReefer: boolean
+}
+
+export type MnrStage =
+  | 'Initial Inspection'
+  | 'Damage Survey'
+  | 'Estimate'
+  | 'Approval'
+  | 'Repair Execution'
+  | 'Quality Control'
+  | 'Finance Posting'
+  | 'Closed'
+
+export type DamageSeverity = 'Minor' | 'Major' | 'Structural'
+export type ResponsibleParty = 'Carrier' | 'Customer' | 'Terminal' | 'Unknown'
+
+export interface DamagePoint {
+  id: string
+  panel: string // front / rear / left / right / roof / floor / doors / corner castings
+  damageCode: string
+  component: string
+  dims: string // L×W×D
+  severity: DamageSeverity
+  photos: number // min 2 gate
+  preExisting: boolean
+  responsibleParty: ResponsibleParty
+  qcPass: boolean | null
+}
+
+export interface MnrEstimate {
+  version: number
+  vendorId: string
+  labour: number
+  material: number
+  tax: number
+  total: number
+  validUntil: string
+  revisionReason: string | null
+  status: 'Submitted' | 'Auto-approved' | 'Approved' | 'Rejected'
+  approverBand: string
+}
+
+export interface ChecklistItem {
+  key: string
+  label: string
+  pass: boolean | null
+}
+
+export type WarrantyClaimStatus = 'None' | 'Claimed' | 'Under Review' | 'Reimbursed' | 'Rejected'
+export type MnrOutcome = 'Available' | 'Off-Hire' | 'Scrap'
+
+export interface MnrJob {
+  id: string
+  containerId: string
+  containerNo: string
+  bookingRef: string | null // null = free-in movement
+  depotId: string
+  stage: MnrStage
+  // Gate-in (flow 1)
+  ocrMatched: boolean
+  overrideReason: string | null
+  sealIntact: boolean | null // null = not an import full container
+  gateInPhotos: number // min 6 gate
+  eirSigned: boolean
+  gateInAt: string
+  // Initial inspection
+  checklist: ChecklistItem[]
+  cleanliness: 'Clean' | 'Broom clean' | 'Requires cleaning' | 'Requires washing' | null
+  cscExpiringSoon: boolean
+  ptiPass: boolean | null // reefer only
+  contamination: boolean
+  // Survey (flow 2)
+  damagePoints: DamagePoint[]
+  engineeringRequired: boolean
+  // Estimate / approval (flows 2–3)
+  estimates: MnrEstimate[]
+  lessorNotified: boolean
+  // Repair execution (flow 4)
+  progressPct: number
+  materialsDeviation: boolean
+  additionalDamagePending: boolean
+  // QC (flow 4)
+  cscRecertDone: boolean
+  ptiRepeatDone: boolean
+  punchList: string[]
+  qcSignedOff: boolean
+  // Finance (flow 5)
+  vendorBill: number | null
+  rootCause: ResponsibleParty | null
+  debitNoteIssued: boolean
+  warrantyClaim: WarrantyClaimStatus
+  costClass: 'Capitalize' | 'Expense' | null
+  outcome: MnrOutcome | null
+}
+
 /* ── Dashboard aggregates (unchanged consumers) ──────────────── */
 
 export type ChipStatus =
