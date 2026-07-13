@@ -7,6 +7,7 @@ import { NvoccPage } from './pages/NvoccPage'
 import { BookingDetailPage } from './pages/BookingDetailPage'
 import { ApprovalsPage } from './pages/ApprovalsPage'
 import { MnrPage } from './pages/MnrPage'
+import { FreightPage } from './pages/FreightPage'
 
 export default function App() {
   return (
@@ -18,7 +19,7 @@ export default function App() {
           {/* NVOCC */}
           <Route path="/nvocc" element={<NvoccPage />} />
           <Route path="/nvocc/:id" element={<BookingDetailPage />} />
-          <Route path="/freight" element={<PlaceholderPage title="Freight FWD" />} />
+          <Route path="/freight" element={<FreightPage />} />
           <Route path="/mnr" element={<MnrPage />} />
           <Route path="/accounts" element={<PlaceholderPage title="Accounts" />} />
           <Route path="/master" element={<PlaceholderPage title="Master Data" />} />

@@ -315,6 +315,7 @@ export type ApprovalEntityType =
   | 'repair_estimate'
   | 'booking_request'
   | 'credit_note'
+  | 'credit_hold'
 
 export type ApprovalStatus = 'Pending' | 'Approved' | 'Rejected'
 
@@ -460,6 +461,87 @@ export interface MnrJob {
   warrantyClaim: WarrantyClaimStatus
   costClass: 'Capitalize' | 'Expense' | null
   outcome: MnrOutcome | null
+}
+
+/* ── Freight Forwarding module (FF flowchart, 6 flows) ───────── */
+
+export type FfMode = 'Sea FCL' | 'Sea LCL' | 'Air' | 'Road' | 'Multimodal'
+
+export type FfStage =
+  | 'Booking'
+  | 'Carrier & Pickup'
+  | 'Documentation'
+  | 'Export & Transit'
+  | 'Arrival & Delivery'
+  | 'Financial Close'
+  | 'Closed'
+
+export type FfVendorRole = 'Carrier' | 'Customs' | 'Trucking' | 'Warehousing' | 'Insurance'
+
+export interface FfVendorLine {
+  id: string
+  role: FfVendorRole
+  vendorId: string
+  vendorName: string
+  buyAmount: number
+  /** Bill arrives independently later — null until matched (flow 5) */
+  billedAmount: number | null
+  varianceFlag: boolean
+}
+
+export type HouseDocStatus = 'None' | 'Draft' | 'Awaiting approval' | 'Released'
+
+export interface FfShipment {
+  id: string
+  ref: string // KINFF-XXXX (children: KINFF-XXXX/H1…)
+  mode: FfMode
+  customerId: string | null
+  customerName: string
+  origin: string
+  destination: string
+  incoterm: string
+  stage: FfStage
+  creditHold: boolean
+  // Consolidation (flow 6)
+  isConsolParent: boolean
+  parentId: string | null // set on child HBLs
+  consolClosed: boolean
+  // Flow 2 — carrier & pickup
+  carrierName: string
+  linkedNvoccRef: string | null // internal NVOCC master link
+  rateReconfirmed: boolean
+  agentId: string | null
+  specialHandling: string | null
+  pickupProof: boolean
+  // Flow 3 — documentation
+  siReceived: boolean
+  weightVarianceFlagged: boolean
+  mblUploaded: boolean
+  houseDocStatus: HouseDocStatus
+  houseDocVersion: number
+  houseReleaseType: string | null
+  // Flow 4 — export & transit
+  brokerAssigned: boolean
+  exportHold: boolean
+  letExportReceived: boolean
+  gateInDone: boolean
+  vgmDone: boolean
+  cutoffMet: boolean | null
+  departed: boolean
+  transhipmentLegs: number
+  // Flow 5 — arrival & delivery
+  arrivalNoticeSent: boolean
+  importHold: boolean
+  outOfCharge: boolean
+  ddOutcome: 'None' | 'Customer-billed' | 'Absorbed' | null
+  doIssued: boolean
+  podCaptured: boolean
+  // Financials
+  sellAmount: number
+  vendorLines: FfVendorLine[]
+  clientInvoiced: boolean
+  paid: boolean
+  createdAt: string
 }
 
 /* ── Dashboard aggregates (unchanged consumers) ──────────────── */

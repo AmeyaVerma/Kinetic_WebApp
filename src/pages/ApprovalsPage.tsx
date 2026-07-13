@@ -14,6 +14,7 @@ const CATEGORY_TABS: { key: ApprovalEntityType | 'all'; label: string }[] = [
   { key: 'bl_edit', label: 'BL edits' },
   { key: 'invoice', label: 'Invoices' },
   { key: 'repair_estimate', label: 'Repair estimates' },
+  { key: 'credit_hold', label: 'Credit holds' },
   { key: 'booking_request', label: 'Booking requests' },
 ]
 
@@ -24,6 +25,7 @@ const TYPE_LABEL: Record<ApprovalEntityType, string> = {
   repair_estimate: 'Repair estimate',
   booking_request: 'Booking request',
   credit_note: 'Credit note',
+  credit_hold: 'Credit hold',
 }
 
 export function ApprovalsPage() {

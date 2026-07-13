@@ -16,6 +16,8 @@ import type {
   ContainerActivity,
   CroDocument,
   DamagePoint,
+  FfShipment,
+  FfVendorLine,
   FleetContainer,
   Invoice,
   InvoiceStatus,
@@ -31,6 +33,8 @@ import type {
 } from '../lib/types'
 import { INSPECTION_CHECKLIST, approverBand, latestEstimate } from '../lib/mnr'
 import { mockFleet, mockMnrJobs } from '../mocks/mnrSeed'
+import { CREDIT_LIMIT_USD, buyTotal, overTolerance } from '../lib/ff'
+import { mockFfShipments } from '../mocks/ffSeed'
 import {
   mockActivities,
   mockApprovals,
@@ -153,6 +157,34 @@ interface DataState {
   ) => void
   issueDebitNote: (jobId: string) => void
   closeMnrJob: (jobId: string, outcome: MnrOutcome) => void
+
+  // ── Freight Forwarding (FF flowchart, 6 flows) ──
+  ffShipments: FfShipment[]
+  createFfShipment: (
+    s: Pick<FfShipment, 'mode' | 'customerId' | 'customerName' | 'origin' | 'destination' | 'incoterm' | 'sellAmount' | 'isConsolParent' | 'specialHandling'>,
+    vendorLines: Omit<FfVendorLine, 'id' | 'billedAmount' | 'varianceFlag'>[],
+  ) => string
+  addChildHbl: (parentId: string, child: { customerId: string | null; customerName: string; sellAmount: number }) => void
+  closeConsolRun: (parentId: string) => void
+  ffConfirmCarrier: (id: string, opts: { linkedNvoccRef: string | null; carrierName: string; agentId: string | null }) => void
+  ffPickupComplete: (id: string) => void
+  ffDocAction: (
+    id: string,
+    action: 'si_received' | 'weight_variance' | 'mbl_uploaded' | 'draft_house' | 'customer_edit' | 'release',
+    releaseType?: string,
+  ) => void
+  ffExportAction: (
+    id: string,
+    action: 'broker' | 'hold' | 'resolve_hold' | 'let_export' | 'gate_in_vgm' | 'cutoff_met' | 'cutoff_missed' | 'depart',
+  ) => void
+  ffArrivalAction: (
+    id: string,
+    action: 'arrival_notice' | 'import_hold' | 'resolve_hold' | 'out_of_charge' | 'dd_customer' | 'dd_absorbed' | 'dd_none' | 'issue_do' | 'pod',
+  ) => void
+  ffInvoiceClient: (id: string) => void
+  ffMatchVendorBill: (id: string, lineId: string, billedAmount: number) => void
+  ffMarkPaid: (id: string) => void
+  ffFinancialClose: (id: string) => void
 }
 
 function log(activities: ActivityEntry[], bookingId: string, actor: string, action: string): ActivityEntry[] {
@@ -857,11 +889,431 @@ export const useDataStore = create<DataState>((set, get) => ({
       }
     }),
 
+  /* ── Freight Forwarding actions ──────────────────────────── */
+
+  ffShipments: mockFfShipments,
+
+  createFfShipment: (s, vendorLines) => {
+    const st = get()
+    const maxSeq = st.ffShipments.reduce((max, x) => {
+      const m = x.ref.match(/^KINFF-(\d{4})/)
+      return m ? Math.max(max, +m[1]) : max
+    }, 30)
+    const ref = `KINFF-${String(maxSeq + 1).padStart(4, '0')}`
+    const id = ref
+    // Flow 1 credit gate: over limit → held for Finance sign-off
+    const creditHold = s.sellAmount > CREDIT_LIMIT_USD
+    const shipment: FfShipment = {
+      ...s,
+      id,
+      ref,
+      stage: creditHold ? 'Booking' : 'Carrier & Pickup',
+      creditHold,
+      parentId: null,
+      consolClosed: false,
+      carrierName: '',
+      linkedNvoccRef: null,
+      rateReconfirmed: true,
+      agentId: null,
+      pickupProof: false,
+      siReceived: false,
+      weightVarianceFlagged: false,
+      mblUploaded: false,
+      houseDocStatus: 'None',
+      houseDocVersion: 0,
+      houseReleaseType: null,
+      brokerAssigned: false,
+      exportHold: false,
+      letExportReceived: false,
+      gateInDone: false,
+      vgmDone: false,
+      cutoffMet: null,
+      departed: false,
+      transhipmentLegs: 0,
+      arrivalNoticeSent: false,
+      importHold: false,
+      outOfCharge: false,
+      ddOutcome: null,
+      doIssued: false,
+      podCaptured: false,
+      vendorLines: vendorLines.map((v) => ({ ...v, id: uid('fv'), billedAmount: null, varianceFlag: false })),
+      clientInvoiced: false,
+      paid: false,
+      createdAt: now(),
+    }
+    set((state) => ({
+      ffShipments: [shipment, ...state.ffShipments],
+      approvals: creditHold
+        ? [
+            {
+              id: uid('ap'),
+              entityType: 'credit_hold' as const,
+              entityId: id,
+              bookingId: null,
+              summary: `Credit clearance ${ref} — ${s.customerName} sell $${s.sellAmount.toLocaleString()} exceeds limit ($${CREDIT_LIMIT_USD.toLocaleString()})`,
+              requestedBy: 'System (credit gate)',
+              requestedAt: now(),
+              status: 'Pending' as const,
+            },
+            ...state.approvals,
+          ]
+        : state.approvals,
+      activities: log(
+        state.activities,
+        id,
+        'BD/Ops',
+        `FF booking ${ref} created (${s.mode})${creditHold ? ' — HELD: over credit limit, Finance sign-off required' : ''}${s.isConsolParent ? ' — LCL consolidation parent' : ''}`,
+      ),
+    }))
+    return id
+  },
+
+  addChildHbl: (parentId, child) =>
+    set((s) => {
+      const parent = s.ffShipments.find((f) => f.id === parentId)
+      if (!parent || parent.consolClosed) return s
+      const childCount = s.ffShipments.filter((f) => f.parentId === parentId).length
+      const ref = `${parent.ref}/H${childCount + 1}`
+      const shipment: FfShipment = {
+        ...parent,
+        id: ref,
+        ref,
+        isConsolParent: false,
+        parentId,
+        customerId: child.customerId,
+        customerName: child.customerName,
+        sellAmount: child.sellAmount,
+        vendorLines: [],
+        creditHold: false,
+        createdAt: now(),
+      }
+      return {
+        ffShipments: [...s.ffShipments, shipment],
+        activities: log(s.activities, parentId, 'Ops', `Child HBL ${ref} added — ${child.customerName} (manifest auto-updated)`),
+      }
+    }),
+
+  closeConsolRun: (parentId) =>
+    set((s) => {
+      const parent = s.ffShipments.find((f) => f.id === parentId)
+      const children = s.ffShipments.filter((f) => f.parentId === parentId)
+      if (!parent || children.length === 0) return s
+      // Container-level cost apportioned across child HBLs by revenue share
+      const containerCost = buyTotal(parent)
+      const totalSell = children.reduce((a, c) => a + c.sellAmount, 0) || 1
+      return {
+        ffShipments: s.ffShipments.map((f) => {
+          if (f.id === parentId) return { ...f, consolClosed: true }
+          if (f.parentId === parentId) {
+            const share = Math.round(containerCost * (f.sellAmount / totalSell))
+            return {
+              ...f,
+              vendorLines: [
+                {
+                  id: uid('fv'),
+                  role: 'Carrier' as const,
+                  vendorId: 'vn1',
+                  vendorName: 'Apportioned container cost (by revenue share)',
+                  buyAmount: share,
+                  billedAmount: null,
+                  varianceFlag: false,
+                },
+              ],
+            }
+          }
+          return f
+        }),
+        activities: log(s.activities, parentId, 'Ops', `Consolidation run closed — $${containerCost.toLocaleString()} apportioned across ${children.length} child HBL(s); container milestones now apply to all`),
+      }
+    }),
+
+  ffConfirmCarrier: (id, opts) =>
+    set((s) => ({
+      ffShipments: s.ffShipments.map((f) =>
+        f.id === id ? { ...f, ...opts, rateReconfirmed: true } : f,
+      ),
+      activities: log(
+        s.activities,
+        id,
+        'Ops',
+        opts.linkedNvoccRef
+          ? `Linked internally to NVOCC ${opts.linkedNvoccRef} as master — milestones auto-subscribe`
+          : `External carrier confirmed: ${opts.carrierName} — booking confirmation uploaded`,
+      ),
+    })),
+
+  ffPickupComplete: (id) =>
+    set((s) => ({
+      ffShipments: s.ffShipments.map((f) =>
+        f.id === id ? { ...f, pickupProof: true, stage: 'Documentation' } : f,
+      ),
+      activities: log(s.activities, id, 'Transporter', 'Cargo collected — signed proof of collection logged as milestone'),
+    })),
+
+  ffDocAction: (id, action, releaseType) =>
+    set((s) => {
+      const f = s.ffShipments.find((x) => x.id === id)
+      if (!f) return s
+      let patchS: Partial<FfShipment> = {}
+      let msg = ''
+      switch (action) {
+        case 'si_received':
+          patchS = { siReceived: true }
+          msg = 'Shipping Instructions received — completeness checked'
+          break
+        case 'weight_variance':
+          patchS = { weightVarianceFlagged: true }
+          msg = 'Weight/measure variance vs cargo receipt beyond tolerance — Ops sign-off required'
+          break
+        case 'mbl_uploaded':
+          patchS = { mblUploaded: true }
+          msg = 'Master document (MBL/MAWB) received from carrier and uploaded'
+          break
+        case 'draft_house':
+          patchS = { houseDocStatus: 'Draft', houseDocVersion: f.houseDocVersion + 1 }
+          msg = `House ${f.mode === 'Air' ? 'AWB' : 'BL'} auto-drafted from SI + booking data (governed fields, clause library) — v${f.houseDocVersion + 1}`
+          break
+        case 'customer_edit':
+          patchS = { houseDocStatus: 'Awaiting approval' }
+          msg = 'Customer edit on governed fields — routed to Ops Approval Queue'
+          break
+        case 'release':
+          patchS = { houseDocStatus: 'Released', houseReleaseType: releaseType ?? 'Original', stage: 'Export & Transit' }
+          msg = `House document RELEASED (${releaseType}) — locked; further edits need a formal Amendment`
+          break
+      }
+      const extra: Partial<DataState> = {}
+      if (action === 'customer_edit') {
+        extra.approvals = [
+          {
+            id: uid('ap'),
+            entityType: 'bl_edit' as const,
+            entityId: `ff:${id}`,
+            bookingId: null,
+            summary: `FF house-doc customer edit on ${f.ref} (governed fields)`,
+            requestedBy: f.customerName,
+            requestedAt: now(),
+            status: 'Pending' as const,
+          },
+          ...s.approvals,
+        ]
+      }
+      return {
+        ...extra,
+        ffShipments: s.ffShipments.map((x) => (x.id === id ? { ...x, ...patchS } : x)),
+        activities: log(s.activities, id, 'Ops', msg),
+      }
+    }),
+
+  ffExportAction: (id, action) =>
+    set((s) => {
+      const f = s.ffShipments.find((x) => x.id === id)
+      if (!f) return s
+      let patchS: Partial<FfShipment> = {}
+      let msg = ''
+      switch (action) {
+        case 'broker':
+          patchS = { brokerAssigned: true }
+          msg = 'Customs broker assigned — shipping bill / export declaration filed before cut-off'
+          break
+        case 'hold':
+          patchS = { exportHold: true }
+          msg = 'EXPORT CUSTOMS HOLD — Ops + customer notified'
+          break
+        case 'resolve_hold':
+          patchS = { exportHold: false }
+          msg = 'Export hold resolved with broker'
+          break
+        case 'let_export':
+          patchS = { letExportReceived: true }
+          msg = '"Let Export Order" / export clearance received'
+          break
+        case 'gate_in_vgm':
+          patchS = { gateInDone: true, vgmDone: true }
+          msg = f.mode === 'Air' ? 'Cargo tendered to airline — final SI/chargeable weight submitted' : 'Gate-in done — VGM submitted with final SI before carrier cut-off'
+          break
+        case 'cutoff_met':
+          patchS = { cutoffMet: true }
+          msg = 'Cut-off met — on schedule'
+          break
+        case 'cutoff_missed':
+          patchS = { cutoffMet: false }
+          msg = 'CUT-OFF MISSED — delay flag raised, re-plan to next sailing/flight'
+          break
+        case 'depart':
+          patchS = { departed: true, cutoffMet: true, stage: 'Arrival & Delivery' }
+          msg = 'Departed — SOB/uplift confirmation received, notation added to released house document; in-transit vs ETA'
+          break
+      }
+      return {
+        ffShipments: s.ffShipments.map((x) => (x.id === id ? { ...x, ...patchS } : x)),
+        activities: log(s.activities, id, 'Ops', msg),
+      }
+    }),
+
+  ffArrivalAction: (id, action) =>
+    set((s) => {
+      const f = s.ffShipments.find((x) => x.id === id)
+      if (!f) return s
+      let patchS: Partial<FfShipment> = {}
+      let msg = ''
+      switch (action) {
+        case 'arrival_notice':
+          patchS = { arrivalNoticeSent: true }
+          msg = 'Arrival Notice auto-generated → consignee/notify party; destination agent takes over'
+          break
+        case 'import_hold':
+          patchS = { importHold: true }
+          msg = 'IMPORT CUSTOMS HOLD — Ops + customer notified'
+          break
+        case 'resolve_hold':
+          patchS = { importHold: false }
+          msg = 'Import hold resolved with broker'
+          break
+        case 'out_of_charge':
+          patchS = { outOfCharge: true }
+          msg = 'Bill of Entry filed, duty paid — "Out of Charge" customs release confirmed'
+          break
+        case 'dd_customer':
+          patchS = { ddOutcome: 'Customer-billed' }
+          msg = 'Free time exceeded — D&D charge auto-drafted, customer-caused → billed to customer'
+          break
+        case 'dd_absorbed':
+          patchS = { ddOutcome: 'Absorbed' }
+          msg = 'Free time exceeded — carrier/Kinetic-caused → absorbed as operational cost'
+          break
+        case 'dd_none':
+          patchS = { ddOutcome: 'None' }
+          msg = 'Gate-out within free time — no D&D exposure'
+          break
+        case 'issue_do':
+          patchS = { doIssued: true }
+          msg = 'Delivery Order issued — last-mile transport dispatched'
+          break
+        case 'pod':
+          patchS = { podCaptured: true, stage: 'Financial Close' }
+          msg = 'POD (signature/photo) captured — booking status → Delivered; financial closure begins'
+          break
+      }
+      return {
+        ffShipments: s.ffShipments.map((x) => (x.id === id ? { ...x, ...patchS } : x)),
+        activities: log(s.activities, id, 'Agent/Ops', msg),
+      }
+    }),
+
+  ffInvoiceClient: (id) =>
+    set((s) => {
+      const f = s.ffShipments.find((x) => x.id === id)
+      if (!f || f.clientInvoiced) return s
+      const invoiceNo = `KLI-26-${String(500 + s.invoices.length)}`
+      return {
+        ffShipments: s.ffShipments.map((x) => (x.id === id ? { ...x, clientInvoiced: true } : x)),
+        invoices: [
+          {
+            id: uid('inv'),
+            invoiceNo,
+            bookingId: id,
+            type: 'AR' as const,
+            status: 'Draft' as const,
+            lines: [{ chargeLineId: '', chargeName: `FF consolidated sell — ${f.ref} (${f.origin} → ${f.destination})`, amount: f.sellAmount, currency: 'USD' as const }],
+            zohoInvoiceId: null,
+            createdAt: now(),
+          },
+          ...s.invoices,
+        ],
+        activities: log(s.activities, id, 'Finance', `Client invoice ${invoiceNo} raised off consolidated sell — $${f.sellAmount.toLocaleString()}`),
+      }
+    }),
+
+  ffMatchVendorBill: (id, lineId, billedAmount) =>
+    set((s) => {
+      const f = s.ffShipments.find((x) => x.id === id)
+      const line = f?.vendorLines.find((v) => v.id === lineId)
+      if (!f || !line) return s
+      const flag = overTolerance(line.buyAmount, billedAmount)
+      const extra: Partial<DataState> = {}
+      if (flag) {
+        extra.approvals = [
+          {
+            id: uid('ap'),
+            entityType: 'invoice' as const,
+            entityId: `${id}:${lineId}`,
+            bookingId: null,
+            summary: `FF vendor bill variance ${f.ref} — ${line.vendorName} billed $${billedAmount.toLocaleString()} vs booked $${line.buyAmount.toLocaleString()}`,
+            requestedBy: 'Finance (auto)',
+            requestedAt: now(),
+            status: 'Pending' as const,
+          },
+          ...s.approvals,
+        ]
+      }
+      return {
+        ...extra,
+        ffShipments: s.ffShipments.map((x) =>
+          x.id === id
+            ? { ...x, vendorLines: x.vendorLines.map((v) => (v.id === lineId ? { ...v, billedAmount, varianceFlag: flag } : v)) }
+            : x,
+        ),
+        activities: log(s.activities, id, 'Finance', `Vendor bill matched — ${line.vendorName}: $${billedAmount.toLocaleString()} vs booked $${line.buyAmount.toLocaleString()}${flag ? ' — OVER TOLERANCE, routed to Approvals Queue before posting' : ' — posted as AP'}`),
+      }
+    }),
+
+  ffMarkPaid: (id) =>
+    set((s) => ({
+      ffShipments: s.ffShipments.map((x) => (x.id === id ? { ...x, paid: true } : x)),
+      activities: log(s.activities, id, 'Finance', 'Client payment received in full — marked Paid'),
+    })),
+
+  ffFinancialClose: (id) =>
+    set((s) => {
+      const f = s.ffShipments.find((x) => x.id === id)
+      if (!f) return s
+      const allMatched = f.vendorLines.length > 0 && f.vendorLines.every((v) => v.billedAmount !== null)
+      if (!f.paid || !allMatched) return s
+      return {
+        ffShipments: s.ffShipments.map((x) => (x.id === id ? { ...x, stage: 'Closed' } : x)),
+        activities: log(s.activities, id, 'Finance', 'Every vendor bill matched — P&L flipped to Actual GP; booking marked Financially Closed'),
+      }
+    }),
+
   decideApproval: (approvalId, decision) =>
     set((s) => {
       const ap = s.approvals.find((a) => a.id === approvalId)
       if (!ap || ap.status !== 'Pending') return s
       let patch: Partial<DataState> = {}
+      if (ap.entityType === 'credit_hold') {
+        patch = {
+          ffShipments: s.ffShipments.map((f) =>
+            f.id === ap.entityId
+              ? decision === 'Approved'
+                ? { ...f, creditHold: false, stage: 'Carrier & Pickup' }
+                : { ...f, stage: 'Closed' }
+              : f,
+          ),
+          activities: log(s.activities, ap.entityId, 'Finance', decision === 'Approved' ? 'Credit hold cleared by Finance — booking proceeds' : 'Credit declined — booking closed'),
+        }
+        return {
+          ...patch,
+          approvals: s.approvals.map((a) => (a.id === approvalId ? { ...a, status: decision } : a)),
+        }
+      }
+      if (ap.entityType === 'bl_edit' && ap.entityId.startsWith('ff:')) {
+        const ffId = ap.entityId.slice(3)
+        patch = {
+          ffShipments: s.ffShipments.map((f) =>
+            f.id === ffId
+              ? decision === 'Approved'
+                ? { ...f, houseDocStatus: 'Draft', houseDocVersion: f.houseDocVersion + 1 }
+                : { ...f, houseDocStatus: 'Draft' }
+              : f,
+          ),
+          activities: log(s.activities, ffId, 'Ops', decision === 'Approved' ? 'Customer house-doc edit approved — version logged' : 'Customer house-doc edit rejected — reason sent to customer'),
+        }
+        return {
+          ...patch,
+          approvals: s.approvals.map((a) => (a.id === approvalId ? { ...a, status: decision } : a)),
+        }
+      }
       if (ap.entityType === 'repair_estimate') {
         const isDelta = ap.entityId.endsWith(':delta')
         const jobId = isDelta ? ap.entityId.split(':')[0] : ap.entityId
