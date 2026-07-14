@@ -317,6 +317,7 @@ export type ApprovalEntityType =
   | 'credit_note'
   | 'credit_hold'
   | 'blacklist'
+  | 'agent_gate'
 
 export type ApprovalStatus = 'Pending' | 'Approved' | 'Rejected'
 
@@ -655,6 +656,90 @@ export interface CustomerRecord {
   salesSignoff: boolean
   pendingCreditRequest: number | null
   blacklistReason: string | null
+  createdAt: string
+}
+
+/* ── Agent Management module (AM Requirements v1) ────────────── */
+
+export type AgentStatus = 'Prospect' | 'Active' | 'Suspended' | 'Terminated'
+export type AgentDirection = 'We are Principal' | 'We are Agent' | 'Both'
+export type AgentTypeTag =
+  | 'Destination Agent'
+  | 'Origin Agent'
+  | 'NVOCC Agency Partner'
+  | 'Liner Agency Partner'
+export type AgentBlEdit = 'Edit live (versioned)' | 'Submit for approval' | 'None'
+export type CommissionType = '% of freight' | 'Flat fee per shipment' | 'Tiered by volume'
+export type SoaCycle = 'Weekly' | 'Monthly' | 'Per-shipment'
+
+export interface AgentPortalUser {
+  id: string
+  name: string
+  email: string
+  role: 'Agent Admin' | 'Booking Creator' | 'Milestone Updater' | 'Viewer-only'
+  status: 'Active' | 'Suspended'
+  mfaEnabled: boolean
+  lastLogin: string | null
+}
+
+export interface AgentDocument {
+  id: string
+  type: 'Agency agreement' | 'IATA certification' | 'FIATA certification' | 'Insurance/bond certificate' | 'Signed SLA'
+  expiry: string
+  verified: boolean
+}
+
+export interface AgentRecord {
+  id: string // matches booking agentIds (a1…)
+  code: string // AGT-00123, immutable
+  legalName: string
+  displayName: string
+  agentTypes: AgentTypeTag[]
+  direction: AgentDirection
+  portsCovered: string[]
+  taxId: string
+  address: string
+  status: AgentStatus
+  relationshipOwner: string
+  contacts: CustomerContact[] // same structure as customer contacts (§3.2)
+  // Commercial (§4)
+  commissionType: CommissionType
+  commissionValue: number // % or flat USD
+  commissionTypeReverse: CommissionType | null // second direction when Both
+  commissionValueReverse: number | null
+  settlementCurrency: 'USD' | 'INR'
+  soaCycle: SoaCycle
+  settlementTerms: string
+  disbursementLimit: number
+  pendingCommissionChange: string | null
+  // Access & portal (§5)
+  portalEnabled: boolean
+  scopeRestriction: string // '' = full relationship scope
+  createBooking: boolean // only meaningful if direction includes We are Agent
+  blEdit: AgentBlEdit
+  milestonePerms: ('CAN' | 'DO' | 'POD')[]
+  docUpload: boolean
+  soaVisibility: boolean
+  portalUsers: AgentPortalUser[]
+  // Compliance (§7) + onboarding (§9.1)
+  documents: AgentDocument[]
+  accreditationRequired: boolean
+  commercialConfirmed: boolean
+  activationRequested: boolean
+  // Performance & SLA (§8)
+  responseSlaHrs: number
+  milestoneSlaHrs: number
+  weightOnTime: number
+  weightDocAccuracy: number
+  weightResponsiveness: number
+  autoFlagThreshold: number
+  // computed-score demo inputs
+  scoreOnTime: number
+  scoreDocAccuracy: number
+  scoreResponsiveness: number
+  performanceFlagged: boolean
+  // Settlement (termination gate §9.2)
+  soaBalanceUsd: number // 0 = reconciled
   createdAt: string
 }
 

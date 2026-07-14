@@ -6,6 +6,7 @@
 import { create } from 'zustand'
 import type {
   ActivityEntry,
+  AgentRecord,
   Approval,
   BlFields,
   BlState,
@@ -37,6 +38,7 @@ import { mockFleet, mockMnrJobs } from '../mocks/mnrSeed'
 import { CREDIT_LIMIT_USD, buyTotal, overTolerance } from '../lib/ff'
 import { mockFfShipments } from '../mocks/ffSeed'
 import { mockCustomerRecords } from '../mocks/customerSeed'
+import { mockAgentRecords } from '../mocks/agentSeed'
 import {
   mockActivities,
   mockApprovals,
@@ -194,6 +196,15 @@ interface DataState {
   requestCreditLimit: (id: string, amount: number) => void
   requestBlacklist: (id: string, reason: string) => void
   requestBlacklistReversal: (id: string) => void
+
+  // ── Agent Management (AM Requirements v1) ──
+  agents: AgentRecord[]
+  updateAgent: (id: string, patch: Partial<AgentRecord>, auditNote: string) => void
+  requestAgentActivation: (id: string) => void
+  requestCommissionChange: (id: string, description: string) => void
+  suspendAgent: (id: string, reason: string) => void
+  clearAgentSuspension: (id: string) => void
+  requestAgentTermination: (id: string) => void
 }
 
 function log(activities: ActivityEntry[], bookingId: string, actor: string, action: string): ActivityEntry[] {
@@ -1383,6 +1394,105 @@ export const useDataStore = create<DataState>((set, get) => ({
       }
     }),
 
+  /* ── Agent Management actions ────────────────────────────── */
+
+  agents: mockAgentRecords,
+
+  updateAgent: (id, patch, auditNote) =>
+    set((s) => ({
+      agents: s.agents.map((a) => (a.id === id ? { ...a, ...patch } : a)),
+      activities: log(s.activities, id, 'Admin', auditNote),
+    })),
+
+  requestAgentActivation: (id) =>
+    set((s) => {
+      const a = s.agents.find((x) => x.id === id)
+      if (!a || a.status !== 'Prospect') return s
+      return {
+        agents: s.agents.map((x) => (x.id === id ? { ...x, activationRequested: true } : x)),
+        approvals: [
+          {
+            id: uid('ap'),
+            entityType: 'agent_gate' as const,
+            entityId: `agt:${id}:onboard`,
+            bookingId: null,
+            summary: `Agent onboarding ${a.code} ${a.legalName} (${a.direction}) — Regional Head approval to activate`,
+            requestedBy: 'Admin',
+            requestedAt: now(),
+            status: 'Pending' as const,
+          },
+          ...s.approvals,
+        ],
+        activities: log(s.activities, id, 'Admin', 'Onboarding submitted — Regional Head review (higher bar than customer onboarding: Active grants booking/document rights)'),
+      }
+    }),
+
+  requestCommissionChange: (id, description) =>
+    set((s) => {
+      const a = s.agents.find((x) => x.id === id)
+      if (!a) return s
+      return {
+        agents: s.agents.map((x) => (x.id === id ? { ...x, pendingCommissionChange: description } : x)),
+        approvals: [
+          {
+            id: uid('ap'),
+            entityType: 'agent_gate' as const,
+            entityId: `agt:${id}:commission`,
+            bookingId: null,
+            summary: `Commission change ${a.code} ${a.legalName} — ${description} (Finance Head approval)`,
+            requestedBy: 'Admin',
+            requestedAt: now(),
+            status: 'Pending' as const,
+          },
+          ...s.approvals,
+        ],
+        activities: log(s.activities, id, 'Admin', `Commission change proposed on Active agent: ${description} — Finance Head approval required`),
+      }
+    }),
+
+  suspendAgent: (id, reason) =>
+    set((s) => ({
+      // Deliberately fast — single Ops Manager action, no queue (risk containment)
+      agents: s.agents.map((a) =>
+        a.id === id ? { ...a, status: 'Suspended', createBooking: false, blEdit: 'None' } : a,
+      ),
+      activities: log(s.activities, id, 'Ops Manager', `SUSPENDED (immediate) — ${reason}; booking-creation and BL-edit rights revoked instantly, in-flight bookings continue`),
+    })),
+
+  clearAgentSuspension: (id) =>
+    set((s) => ({
+      agents: s.agents.map((a) => (a.id === id ? { ...a, status: 'Active' } : a)),
+      activities: log(s.activities, id, 'Ops Manager', 'Investigation cleared — status returns to Active (permissions to be re-granted deliberately)'),
+    })),
+
+  requestAgentTermination: (id) =>
+    set((s) => {
+      const a = s.agents.find((x) => x.id === id)
+      if (!a) return s
+      // §9.2 settlement gate: SOA must be zero/reconciled before termination can even be requested
+      if (a.soaBalanceUsd !== 0) {
+        return {
+          activities: log(s.activities, id, 'System', `Termination BLOCKED — Agency SOA balance $${a.soaBalanceUsd.toLocaleString()} must be zero/reconciled in both directions first`),
+        }
+      }
+      return {
+        approvals: [
+          {
+            id: uid('ap'),
+            entityType: 'agent_gate' as const,
+            entityId: `agt:${id}:terminate`,
+            bookingId: null,
+            summary: `Termination ${a.code} ${a.legalName} — SOA settled; Regional Head + Finance dual sign-off`,
+            requestedBy: 'Admin',
+            requestedAt: now(),
+            status: 'Pending' as const,
+          },
+          ...s.approvals,
+        ],
+        activities: log(s.activities, id, 'Admin', 'Termination requested — settlement confirmed; Regional Head + Finance sign-off pending'),
+      }
+    }),
+
   decideApproval: (approvalId, decision) =>
     set((s) => {
       const ap = s.approvals.find((a) => a.id === approvalId)
@@ -1392,6 +1502,52 @@ export const useDataStore = create<DataState>((set, get) => ({
         ...patch,
         approvals: s.approvals.map((a) => (a.id === approvalId ? { ...a, status: decision } : a)),
       })
+      // Agent Management approvals (entityId agt:{id}:{kind})
+      if (ap.entityId.startsWith('agt:')) {
+        const [, agtId, kind] = ap.entityId.split(':')
+        if (kind === 'onboard') {
+          patch = {
+            agents: s.agents.map((a) =>
+              a.id === agtId
+                ? decision === 'Approved'
+                  ? { ...a, status: 'Active', activationRequested: false }
+                  : { ...a, activationRequested: false }
+                : a,
+            ),
+            activities: log(
+              s.activities, agtId, 'Regional Head',
+              decision === 'Approved' ? 'Onboarding approved — status → Active' : 'Onboarding rejected — terms/documentation to be revised and resubmitted',
+            ),
+          }
+        } else if (kind === 'commission') {
+          patch = {
+            agents: s.agents.map((a) =>
+              a.id === agtId ? { ...a, pendingCommissionChange: null } : a,
+            ),
+            activities: log(
+              s.activities, agtId, 'Finance Head',
+              decision === 'Approved'
+                ? 'Commission change approved — new terms apply going forward, prior terms retained for historical SOA reference'
+                : 'Commission change rejected — proposal to be revised',
+            ),
+          }
+        } else if (kind === 'terminate') {
+          patch = {
+            agents: s.agents.map((a) =>
+              a.id === agtId && decision === 'Approved'
+                ? { ...a, status: 'Terminated', portalEnabled: false, createBooking: false, blEdit: 'None' }
+                : a,
+            ),
+            activities: log(
+              s.activities, agtId, 'Regional Head + Finance',
+              decision === 'Approved'
+                ? 'TERMINATED — forward-looking access cut (portal, new bookings); historical bookings/documents remain permanently queryable'
+                : 'Termination declined — status stands, decision revisited',
+            ),
+          }
+        }
+        return done()
+      }
       // Customer Management approvals (entityId cust:{id}:{kind})
       if (ap.entityId.startsWith('cust:')) {
         const [, custId, kind] = ap.entityId.split(':')

@@ -9,6 +9,7 @@ import { ApprovalsPage } from './pages/ApprovalsPage'
 import { MnrPage } from './pages/MnrPage'
 import { FreightPage } from './pages/FreightPage'
 import { CustomersPage } from './pages/CustomersPage'
+import { AgentsPage } from './pages/AgentsPage'
 
 export default function App() {
   return (
@@ -26,7 +27,7 @@ export default function App() {
           <Route path="/master" element={<PlaceholderPage title="Master Data" />} />
           <Route path="/approvals" element={<ApprovalsPage />} />
           <Route path="/portal/customer" element={<CustomersPage />} />
-          <Route path="/portal/agent" element={<PlaceholderPage title="Agent Portal" />} />
+          <Route path="/portal/agent" element={<AgentsPage />} />
           <Route path="/reports" element={<PlaceholderPage title="Reports" />} />
           <Route path="/hr" element={<PlaceholderPage title="HR" />} />
           <Route path="/settings" element={<PlaceholderPage title="Settings" />} />
