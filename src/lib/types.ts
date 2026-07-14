@@ -316,6 +316,7 @@ export type ApprovalEntityType =
   | 'booking_request'
   | 'credit_note'
   | 'credit_hold'
+  | 'blacklist'
 
 export type ApprovalStatus = 'Pending' | 'Approved' | 'Rejected'
 
@@ -541,6 +542,119 @@ export interface FfShipment {
   vendorLines: FfVendorLine[]
   clientInvoiced: boolean
   paid: boolean
+  createdAt: string
+}
+
+/* ── Customer Management module (CM Requirements v1) ─────────── */
+
+export type CustomerStatus = 'Prospect' | 'Active' | 'On Hold' | 'Inactive' | 'Blacklisted'
+export type CustomerRole = 'Shipper' | 'Consignee' | 'Notify Party'
+export type BlEditPermission = 'None' | 'Can request edits' | 'Cannot view drafts'
+export type CreditHoldPolicy = 'Hard-block' | 'Soft-warn'
+export type ScreeningStatus = 'Clear' | 'Flagged' | 'Under Review'
+
+export interface CustomerContact {
+  id: string
+  name: string
+  designation: string
+  email: string
+  phone: string
+  department: 'Commercial' | 'Operations' | 'Finance' | 'Documentation'
+  preferredMethod: 'Email' | 'Phone' | 'WhatsApp'
+  primary: boolean
+}
+
+export interface LaneRate {
+  id: string
+  origin: string
+  destination: string
+  mode: string
+  rate: number
+  currency: 'USD' | 'INR'
+  validUntil: string
+}
+
+export interface PortalUser {
+  id: string
+  name: string
+  email: string
+  role: 'Company Admin' | 'Booking Creator' | 'Viewer-only' | 'Finance-only'
+  status: 'Active' | 'Suspended'
+  mfaEnabled: boolean
+  lastLogin: string | null
+}
+
+export type NotificationEvent =
+  | 'Booking Confirmed'
+  | 'Milestone Updates'
+  | 'BL Draft Ready'
+  | 'Invoice Generated'
+  | 'Payment Reminder'
+  | 'Customs Hold'
+  | 'Delivery Completed'
+
+export interface NotificationPref {
+  event: NotificationEvent
+  channels: ('Email' | 'WhatsApp' | 'SMS' | 'In-app')[]
+  digest: 'Real-time' | 'Daily digest'
+}
+
+export interface KycDoc {
+  id: string
+  type: 'Registration certificate' | 'Tax certificate' | 'Trade license' | 'Service agreement' | 'Insurance certificate'
+  expiry: string
+  verified: boolean
+}
+
+export interface CustomerRecord {
+  id: string // matches booking customerIds (c1…)
+  code: string // CUST-00123, immutable
+  legalName: string
+  displayName: string
+  roles: CustomerRole[]
+  industry: string
+  parentId: string | null // customer group
+  taxId: string
+  website: string
+  billingAddress: string
+  status: CustomerStatus
+  salesOwner: string
+  csRep: string
+  source: string
+  contacts: CustomerContact[]
+  // Commercial terms (§4)
+  defaultIncoterm: string
+  paymentTerms: string
+  creditLimit: number
+  creditCurrency: 'USD' | 'INR'
+  creditHoldPolicy: CreditHoldPolicy
+  laneRates: LaneRate[]
+  discountPct: number
+  invoicingCurrency: 'USD' | 'INR'
+  consolidatedInvoicing: boolean
+  autoInvoice: 'Immediate on milestone' | 'Weekly batch'
+  sharedCreditPool: boolean // parent groups only
+  // Access & portal (§5)
+  portalEnabled: boolean
+  visNvocc: boolean
+  visFf: boolean
+  blEditPermission: BlEditPermission
+  docDownload: 'All' | 'Invoice' | 'BL' | 'None'
+  bookingCreation: boolean
+  quoteRequest: boolean
+  ipRestriction: boolean
+  mfaMandated: boolean
+  portalUsers: PortalUser[]
+  // Notifications (§6)
+  notificationPrefs: NotificationPref[]
+  // Compliance (§7) + onboarding gates (§8.1)
+  kycDocs: KycDoc[]
+  screening: ScreeningStatus
+  creditApproved: boolean // or cash-in-advance
+  cashInAdvanceOnly: boolean
+  salesSignoff: boolean
+  pendingCreditRequest: number | null
+  blacklistReason: string | null
   createdAt: string
 }
 

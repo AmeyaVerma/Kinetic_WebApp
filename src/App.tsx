@@ -8,6 +8,7 @@ import { BookingDetailPage } from './pages/BookingDetailPage'
 import { ApprovalsPage } from './pages/ApprovalsPage'
 import { MnrPage } from './pages/MnrPage'
 import { FreightPage } from './pages/FreightPage'
+import { CustomersPage } from './pages/CustomersPage'
 
 export default function App() {
   return (
@@ -22,6 +23,7 @@ export default function App() {
           <Route path="/freight" element={<FreightPage />} />
           <Route path="/mnr" element={<MnrPage />} />
           <Route path="/accounts" element={<PlaceholderPage title="Accounts" />} />
+          <Route path="/customers" element={<CustomersPage />} />
           <Route path="/master" element={<PlaceholderPage title="Master Data" />} />
           <Route path="/approvals" element={<ApprovalsPage />} />
           <Route path="/portal/customer" element={<PlaceholderPage title="Customer Portal" />} />

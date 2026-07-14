@@ -15,6 +15,7 @@ import type {
   ChargeLine,
   ContainerActivity,
   CroDocument,
+  CustomerRecord,
   DamagePoint,
   FfShipment,
   FfVendorLine,
@@ -35,6 +36,7 @@ import { INSPECTION_CHECKLIST, approverBand, latestEstimate } from '../lib/mnr'
 import { mockFleet, mockMnrJobs } from '../mocks/mnrSeed'
 import { CREDIT_LIMIT_USD, buyTotal, overTolerance } from '../lib/ff'
 import { mockFfShipments } from '../mocks/ffSeed'
+import { mockCustomerRecords } from '../mocks/customerSeed'
 import {
   mockActivities,
   mockApprovals,
@@ -185,6 +187,13 @@ interface DataState {
   ffMatchVendorBill: (id: string, lineId: string, billedAmount: number) => void
   ffMarkPaid: (id: string) => void
   ffFinancialClose: (id: string) => void
+
+  // ── Customer Management (CM Requirements v1) ──
+  customers: CustomerRecord[]
+  updateCustomer: (id: string, patch: Partial<CustomerRecord>, auditNote: string) => void
+  requestCreditLimit: (id: string, amount: number) => void
+  requestBlacklist: (id: string, reason: string) => void
+  requestBlacklistReversal: (id: string) => void
 }
 
 function log(activities: ActivityEntry[], bookingId: string, actor: string, action: string): ActivityEntry[] {
@@ -1276,11 +1285,167 @@ export const useDataStore = create<DataState>((set, get) => ({
       }
     }),
 
+  /* ── Customer Management actions ─────────────────────────── */
+
+  customers: mockCustomerRecords,
+
+  updateCustomer: (id, patch, auditNote) =>
+    set((s) => {
+      const next = s.customers.map((c) => {
+        if (c.id !== id) return c
+        const merged = { ...c, ...patch }
+        // §8.1 onboarding gate: all four conditions met → auto-flip to Active
+        if (
+          merged.status === 'Prospect' &&
+          merged.kycDocs.length > 0 &&
+          merged.kycDocs.every((d) => d.verified) &&
+          merged.screening === 'Clear' &&
+          (merged.creditApproved || merged.cashInAdvanceOnly) &&
+          merged.salesSignoff
+        ) {
+          merged.status = 'Active'
+        }
+        return merged
+      })
+      const flipped =
+        s.customers.find((c) => c.id === id)?.status === 'Prospect' &&
+        next.find((c) => c.id === id)?.status === 'Active'
+      let acts = log(s.activities, id, 'Admin', auditNote)
+      if (flipped) acts = log(acts, id, 'System', 'All four onboarding conditions met — status auto-flipped Prospect → Active')
+      return { customers: next, activities: acts }
+    }),
+
+  requestCreditLimit: (id, amount) =>
+    set((s) => {
+      const c = s.customers.find((x) => x.id === id)
+      if (!c) return s
+      return {
+        customers: s.customers.map((x) => (x.id === id ? { ...x, pendingCreditRequest: amount } : x)),
+        approvals: [
+          {
+            id: uid('ap'),
+            entityType: 'credit_hold' as const,
+            entityId: `cust:${id}:credit`,
+            bookingId: null,
+            summary: `Credit limit ${c.code} ${c.legalName} — $${amount.toLocaleString()} requested (Finance approval matrix)`,
+            requestedBy: 'Admin',
+            requestedAt: now(),
+            status: 'Pending' as const,
+          },
+          ...s.approvals,
+        ],
+        activities: log(s.activities, id, 'Admin', `Credit limit $${amount.toLocaleString()} requested — routed through Finance approval matrix`),
+      }
+    }),
+
+  requestBlacklist: (id, reason) =>
+    set((s) => {
+      const c = s.customers.find((x) => x.id === id)
+      if (!c) return s
+      return {
+        approvals: [
+          {
+            id: uid('ap'),
+            entityType: 'blacklist' as const,
+            entityId: `cust:${id}:blacklist`,
+            bookingId: null,
+            summary: `Blacklist ${c.code} ${c.legalName} — reason: ${reason} (requires Regional Head)`,
+            requestedBy: 'Admin',
+            requestedAt: now(),
+            status: 'Pending' as const,
+          },
+          ...s.approvals,
+        ],
+        customers: s.customers.map((x) => (x.id === id ? { ...x, blacklistReason: reason } : x)),
+        activities: log(s.activities, id, 'Admin', `Blacklist requested — reason: ${reason}; two-person gate, Regional Head approval pending`),
+      }
+    }),
+
+  requestBlacklistReversal: (id) =>
+    set((s) => {
+      const c = s.customers.find((x) => x.id === id)
+      if (!c) return s
+      return {
+        approvals: [
+          {
+            id: uid('ap'),
+            entityType: 'blacklist' as const,
+            entityId: `cust:${id}:reverse`,
+            bookingId: null,
+            summary: `Blacklist REVERSAL ${c.code} ${c.legalName} — requires same Regional Head level`,
+            requestedBy: 'Admin',
+            requestedAt: now(),
+            status: 'Pending' as const,
+          },
+          ...s.approvals,
+        ],
+        activities: log(s.activities, id, 'Admin', 'Blacklist reversal requested — logged separately from original decision'),
+      }
+    }),
+
   decideApproval: (approvalId, decision) =>
     set((s) => {
       const ap = s.approvals.find((a) => a.id === approvalId)
       if (!ap || ap.status !== 'Pending') return s
       let patch: Partial<DataState> = {}
+      const done = () => ({
+        ...patch,
+        approvals: s.approvals.map((a) => (a.id === approvalId ? { ...a, status: decision } : a)),
+      })
+      // Customer Management approvals (entityId cust:{id}:{kind})
+      if (ap.entityId.startsWith('cust:')) {
+        const [, custId, kind] = ap.entityId.split(':')
+        if (kind === 'credit') {
+          patch = {
+            customers: s.customers.map((c) => {
+              if (c.id !== custId) return c
+              if (decision === 'Approved') {
+                return {
+                  ...c,
+                  creditLimit: c.pendingCreditRequest ?? c.creditLimit,
+                  creditApproved: true,
+                  cashInAdvanceOnly: false,
+                  pendingCreditRequest: null,
+                }
+              }
+              return { ...c, pendingCreditRequest: null }
+            }),
+            activities: log(
+              s.activities, custId, 'Finance',
+              decision === 'Approved'
+                ? 'Credit limit approved — change logged, cross-referenced to Finance approval record'
+                : 'Credit limit rejected — proposed limit to be revised and resubmitted',
+            ),
+          }
+        } else if (kind === 'blacklist') {
+          patch = {
+            customers: s.customers.map((c) =>
+              c.id === custId && decision === 'Approved'
+                ? { ...c, status: 'Blacklisted', portalEnabled: false }
+                : c,
+            ),
+            activities: log(
+              s.activities, custId, 'Regional Head',
+              decision === 'Approved'
+                ? 'Blacklist approved — all new quotes/bookings/portal access blocked; open bookings flagged for manual Ops review'
+                : 'Blacklist declined — customer remains Active, request logged',
+            ),
+          }
+        } else if (kind === 'reverse') {
+          patch = {
+            customers: s.customers.map((c) =>
+              c.id === custId && decision === 'Approved'
+                ? { ...c, status: 'Active', blacklistReason: null }
+                : c,
+            ),
+            activities: log(
+              s.activities, custId, 'Regional Head',
+              decision === 'Approved' ? 'Blacklist reversed — status returns to Active' : 'Reversal declined — status stands',
+            ),
+          }
+        }
+        return done()
+      }
       if (ap.entityType === 'credit_hold') {
         patch = {
           ffShipments: s.ffShipments.map((f) =>

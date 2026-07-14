@@ -27,6 +27,7 @@ export const NAV_ITEMS: NavItem[] = [
   { label: 'Freight FWD', path: '/freight', icon: Boxes },
   { label: 'MNR (Container)', path: '/mnr', icon: Container },
   { label: 'Accounts', path: '/accounts', icon: Wallet },
+  { label: 'Customers', path: '/customers', icon: Contact },
   { label: 'Master Data', path: '/master', icon: Database },
   { label: 'Approvals', path: '/approvals', icon: ClipboardCheck, badgeKey: 'approvals' },
   { label: 'Customer Portal', path: '/portal/customer', icon: Users },
