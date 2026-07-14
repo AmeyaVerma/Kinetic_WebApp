@@ -10,6 +10,7 @@ import { MnrPage } from './pages/MnrPage'
 import { FreightPage } from './pages/FreightPage'
 import { CustomersPage } from './pages/CustomersPage'
 import { AgentsPage } from './pages/AgentsPage'
+import { HrPage } from './pages/HrPage'
 
 export default function App() {
   return (
@@ -29,7 +30,7 @@ export default function App() {
           <Route path="/portal/customer" element={<CustomersPage />} />
           <Route path="/portal/agent" element={<AgentsPage />} />
           <Route path="/reports" element={<PlaceholderPage title="Reports" />} />
-          <Route path="/hr" element={<PlaceholderPage title="HR" />} />
+          <Route path="/hr" element={<HrPage />} />
           <Route path="/settings" element={<PlaceholderPage title="Settings" />} />
           <Route path="/design-system" element={<DesignSystemPage />} />
           <Route path="*" element={<Navigate to="/dashboard" replace />} />

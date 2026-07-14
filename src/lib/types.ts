@@ -318,6 +318,7 @@ export type ApprovalEntityType =
   | 'credit_hold'
   | 'blacklist'
   | 'agent_gate'
+  | 'leave_request'
 
 export type ApprovalStatus = 'Pending' | 'Approved' | 'Rejected'
 
@@ -741,6 +742,90 @@ export interface AgentRecord {
   // Settlement (termination gate §9.2)
   soaBalanceUsd: number // 0 = reconciled
   createdAt: string
+}
+
+/* ── HR module ───────────────────────────────────────────────── */
+
+export type EmployeeStatus = 'Onboarding' | 'Probation' | 'Active' | 'On Notice' | 'Exited'
+export type HrDepartment =
+  | 'Operations'
+  | 'Documentation'
+  | 'Finance'
+  | 'BD / Sales'
+  | 'MNR'
+  | 'HR & Admin'
+  | 'Management'
+export type LeaveType = 'Casual' | 'Sick' | 'Earned' | 'Loss of Pay'
+export type LeaveStatus = 'Pending' | 'Approved' | 'Rejected' | 'Cancelled'
+
+export interface LeaveBalance {
+  entitled: number
+  used: number
+  carriedForward: number // earned leave only
+}
+
+export interface LeaveRequest {
+  id: string
+  employeeId: string
+  employeeName: string
+  type: LeaveType
+  from: string
+  to: string
+  days: number
+  reason: string
+  medicalCert: boolean // sick >2 days
+  status: LeaveStatus
+  lopDays: number // days converted to LOP when balance was short
+  requestedAt: string
+}
+
+export interface EmployeeDoc {
+  id: string
+  type: 'Appointment letter' | 'ID proof' | 'PAN' | 'Visa / work permit' | 'Certification'
+  expiry: string | null // null = no expiry
+  verified: boolean
+}
+
+export interface ExitClearance {
+  handover: boolean
+  assetsReturned: boolean
+  financeSettled: boolean
+}
+
+export interface Employee {
+  id: string
+  code: string // EMP-0012, immutable
+  name: string
+  designation: string
+  department: HrDepartment
+  email: string
+  phone: string
+  dateOfJoining: string
+  probationEndsAt: string | null
+  reportingTo: string | null // employee id
+  platformRole: Role // ties HR record to the app's role model
+  status: EmployeeStatus
+  noticeEndsAt: string | null
+  exitClearance: ExitClearance
+  // Compensation (Finance/HR visibility only per doc)
+  salaryMonthlyInr: number
+  // Leave (Indian model: CL 12 / SL 12 / EL 15 + carry-forward)
+  leave: {
+    casual: LeaveBalance
+    sick: LeaveBalance
+    earned: LeaveBalance
+  }
+  documents: EmployeeDoc[]
+  createdAt: string
+}
+
+export interface PayrollRun {
+  id: string
+  month: string // '2026-06'
+  status: 'Draft' | 'Pending approval' | 'Approved' | 'Paid'
+  employees: number
+  grossInr: number
+  lopDeductionsInr: number
 }
 
 /* ── Dashboard aggregates (unchanged consumers) ──────────────── */

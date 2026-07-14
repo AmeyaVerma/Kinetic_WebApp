@@ -18,13 +18,17 @@ import type {
   CroDocument,
   CustomerRecord,
   DamagePoint,
+  Employee,
   FfShipment,
   FfVendorLine,
   FleetContainer,
   Invoice,
   InvoiceStatus,
   Lead,
+  LeaveRequest,
+  LeaveType,
   MilestoneEntry,
+  PayrollRun,
   MnrEstimate,
   MnrJob,
   MnrOutcome,
@@ -39,6 +43,8 @@ import { CREDIT_LIMIT_USD, buyTotal, overTolerance } from '../lib/ff'
 import { mockFfShipments } from '../mocks/ffSeed'
 import { mockCustomerRecords } from '../mocks/customerSeed'
 import { mockAgentRecords } from '../mocks/agentSeed'
+import { balanceFor, daysBetween } from '../lib/hr'
+import { mockEmployees, mockLeaveRequests, mockPayrollRuns } from '../mocks/hrSeed'
 import {
   mockActivities,
   mockApprovals,
@@ -205,6 +211,25 @@ interface DataState {
   suspendAgent: (id: string, reason: string) => void
   clearAgentSuspension: (id: string) => void
   requestAgentTermination: (id: string) => void
+
+  // ── HR module ──
+  employees: Employee[]
+  leaveRequests: LeaveRequest[]
+  payrollRuns: PayrollRun[]
+  updateEmployee: (id: string, patch: Partial<Employee>, auditNote: string) => void
+  requestLeave: (input: {
+    employeeId: string
+    type: LeaveType
+    from: string
+    to: string
+    reason: string
+    medicalCert: boolean
+  }) => void
+  cancelLeave: (requestId: string) => void
+  confirmProbation: (id: string) => void
+  startNotice: (id: string, lastDay: string) => void
+  setExitClearance: (id: string, key: keyof Employee['exitClearance']) => void
+  completeExit: (id: string) => void
 }
 
 function log(activities: ActivityEntry[], bookingId: string, actor: string, action: string): ActivityEntry[] {
@@ -1493,6 +1518,117 @@ export const useDataStore = create<DataState>((set, get) => ({
       }
     }),
 
+  /* ── HR actions ──────────────────────────────────────────── */
+
+  employees: mockEmployees,
+  leaveRequests: mockLeaveRequests,
+  payrollRuns: mockPayrollRuns,
+
+  updateEmployee: (id, patch, auditNote) =>
+    set((s) => ({
+      employees: s.employees.map((e) => (e.id === id ? { ...e, ...patch } : e)),
+      activities: log(s.activities, id, 'HR', auditNote),
+    })),
+
+  requestLeave: (input) =>
+    set((s) => {
+      const emp = s.employees.find((e) => e.id === input.employeeId)
+      if (!emp) return s
+      const days = daysBetween(input.from, input.to)
+      if (days <= 0) return s
+      const req: LeaveRequest = {
+        id: uid('lv'),
+        employeeId: emp.id,
+        employeeName: emp.name,
+        type: input.type,
+        from: input.from,
+        to: input.to,
+        days,
+        reason: input.reason,
+        medicalCert: input.medicalCert,
+        status: 'Pending',
+        lopDays: 0,
+        requestedAt: now(),
+      }
+      const bal = balanceFor(emp, input.type)
+      const short = input.type === 'Loss of Pay' ? 0 : Math.max(0, days - bal)
+      return {
+        leaveRequests: [req, ...s.leaveRequests],
+        approvals: [
+          {
+            id: uid('ap'),
+            entityType: 'leave_request' as const,
+            entityId: `emp:${emp.id}:leave:${req.id}`,
+            bookingId: null,
+            summary: `Leave — ${emp.name}: ${days}d ${input.type} (${input.from} → ${input.to})${short > 0 ? ` — balance short by ${short}d, excess converts to LOP` : ''}${input.medicalCert ? ' · medical cert attached' : ''}`,
+            requestedBy: emp.name,
+            requestedAt: now(),
+            status: 'Pending' as const,
+          },
+          ...s.approvals,
+        ],
+        activities: log(s.activities, emp.id, emp.name, `Leave requested: ${days}d ${input.type} (${input.from} → ${input.to}) — routed to manager approval`),
+      }
+    }),
+
+  cancelLeave: (requestId) =>
+    set((s) => {
+      const req = s.leaveRequests.find((r) => r.id === requestId)
+      if (!req || req.status !== 'Pending') return s
+      return {
+        leaveRequests: s.leaveRequests.map((r) => (r.id === requestId ? { ...r, status: 'Cancelled' } : r)),
+        approvals: s.approvals.map((a) =>
+          a.entityId === `emp:${req.employeeId}:leave:${requestId}` && a.status === 'Pending'
+            ? { ...a, status: 'Rejected' }
+            : a,
+        ),
+        activities: log(s.activities, req.employeeId, req.employeeName, 'Leave request cancelled by employee'),
+      }
+    }),
+
+  confirmProbation: (id) =>
+    set((s) => ({
+      employees: s.employees.map((e) =>
+        e.id === id && e.status === 'Probation'
+          ? { ...e, status: 'Active', probationEndsAt: null, leave: { ...e.leave, earned: { ...e.leave.earned, entitled: 15 } } }
+          : e,
+      ),
+      activities: log(s.activities, id, 'HR', 'Probation confirmed — status → Active; earned-leave accrual (15/yr) begins'),
+    })),
+
+  startNotice: (id, lastDay) =>
+    set((s) => ({
+      employees: s.employees.map((e) =>
+        e.id === id ? { ...e, status: 'On Notice', noticeEndsAt: lastDay } : e,
+      ),
+      activities: log(s.activities, id, 'HR', `Resignation accepted — On Notice, last working day ${lastDay}; exit clearance checklist opened`),
+    })),
+
+  setExitClearance: (id, key) =>
+    set((s) => ({
+      employees: s.employees.map((e) =>
+        e.id === id ? { ...e, exitClearance: { ...e.exitClearance, [key]: true } } : e,
+      ),
+      activities: log(s.activities, id, 'HR', `Exit clearance: ${key === 'handover' ? 'knowledge handover complete' : key === 'assetsReturned' ? 'assets returned' : 'final settlement processed (incl. earned-leave encashment)'}`),
+    })),
+
+  completeExit: (id) =>
+    set((s) => {
+      const e = s.employees.find((x) => x.id === id)
+      if (!e) return s
+      const c = e.exitClearance
+      // Exit gate mirrors the platform's settlement-gated closures
+      if (!c.handover || !c.assetsReturned || !c.financeSettled) {
+        return {
+          activities: log(s.activities, id, 'System', 'Exit BLOCKED — handover, asset return and final settlement must all complete first'),
+        }
+      }
+      return {
+        employees: s.employees.map((x) => (x.id === id ? { ...x, status: 'Exited' } : x)),
+        activities: log(s.activities, id, 'HR', 'Exited — record retained for audit; platform access revoked'),
+      }
+    }),
+
   decideApproval: (approvalId, decision) =>
     set((s) => {
       const ap = s.approvals.find((a) => a.id === approvalId)
@@ -1502,6 +1638,40 @@ export const useDataStore = create<DataState>((set, get) => ({
         ...patch,
         approvals: s.approvals.map((a) => (a.id === approvalId ? { ...a, status: decision } : a)),
       })
+      // HR leave approvals (entityId emp:{id}:leave:{reqId})
+      if (ap.entityId.startsWith('emp:') && ap.entityType === 'leave_request') {
+        const [, empId, , reqId] = ap.entityId.split(':')
+        const req = s.leaveRequests.find((r) => r.id === reqId)
+        const emp = s.employees.find((e) => e.id === empId)
+        if (!req || !emp) return done()
+        if (decision === 'Approved') {
+          const bal = balanceFor(emp, req.type)
+          const paidDays = req.type === 'Loss of Pay' ? 0 : Math.min(req.days, bal)
+          const lopDays = req.type === 'Loss of Pay' ? req.days : req.days - paidDays
+          const key = req.type === 'Casual' ? 'casual' : req.type === 'Sick' ? 'sick' : 'earned'
+          patch = {
+            leaveRequests: s.leaveRequests.map((r) => (r.id === reqId ? { ...r, status: 'Approved', lopDays } : r)),
+            employees:
+              req.type === 'Loss of Pay'
+                ? s.employees
+                : s.employees.map((e) =>
+                    e.id === empId
+                      ? { ...e, leave: { ...e.leave, [key]: { ...e.leave[key], used: e.leave[key].used + paidDays } } }
+                      : e,
+                  ),
+            activities: log(
+              s.activities, empId, 'Manager',
+              `Leave approved: ${req.days}d ${req.type}${lopDays > 0 ? ` (${lopDays}d as LOP — flows to payroll deduction)` : ''}`,
+            ),
+          }
+        } else {
+          patch = {
+            leaveRequests: s.leaveRequests.map((r) => (r.id === reqId ? { ...r, status: 'Rejected' } : r)),
+            activities: log(s.activities, empId, 'Manager', `Leave rejected: ${req.days}d ${req.type}`),
+          }
+        }
+        return done()
+      }
       // Agent Management approvals (entityId agt:{id}:{kind})
       if (ap.entityId.startsWith('agt:')) {
         const [, agtId, kind] = ap.entityId.split(':')

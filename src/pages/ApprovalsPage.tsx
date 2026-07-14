@@ -28,6 +28,7 @@ const TYPE_LABEL: Record<ApprovalEntityType, string> = {
   credit_hold: 'Credit hold',
   blacklist: 'Blacklist (Regional Head)',
   agent_gate: 'Agent gate',
+  leave_request: 'Leave request',
 }
 
 export function ApprovalsPage() {
