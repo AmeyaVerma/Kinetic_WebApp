@@ -21,10 +21,11 @@ export function CustomersPage() {
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="text-2xl font-bold">Customer Management</h1>
+        <h1 className="text-2xl font-bold">Customer Portal</h1>
         <p className="mt-1 text-sm text-muted">
-          Admin-side configuration for every customer — company details, commercial terms, credit, portal access,
-          notifications, compliance, and the full lifecycle. Settings here drive bookings, invoicing and the portal.
+          Customer management — company details, commercial terms, credit, portal access, notifications,
+          compliance, and the full lifecycle. Settings here drive bookings, invoicing and what each customer's
+          portal users can see and do.
         </p>
       </div>
 

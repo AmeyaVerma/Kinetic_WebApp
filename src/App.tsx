@@ -23,10 +23,9 @@ export default function App() {
           <Route path="/freight" element={<FreightPage />} />
           <Route path="/mnr" element={<MnrPage />} />
           <Route path="/accounts" element={<PlaceholderPage title="Accounts" />} />
-          <Route path="/customers" element={<CustomersPage />} />
           <Route path="/master" element={<PlaceholderPage title="Master Data" />} />
           <Route path="/approvals" element={<ApprovalsPage />} />
-          <Route path="/portal/customer" element={<PlaceholderPage title="Customer Portal" />} />
+          <Route path="/portal/customer" element={<CustomersPage />} />
           <Route path="/portal/agent" element={<PlaceholderPage title="Agent Portal" />} />
           <Route path="/reports" element={<PlaceholderPage title="Reports" />} />
           <Route path="/hr" element={<PlaceholderPage title="HR" />} />
