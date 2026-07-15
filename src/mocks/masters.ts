@@ -54,6 +54,13 @@ export const mockDepots: DepotMaster[] = [
   { id: 'd4', name: 'Sai Marine Container Services (NSA Dry)', location: 'Nhava Sheva' },
   { id: 'd5', name: 'Sai Marine Container Services (NSA Reefer)', location: 'Nhava Sheva' },
   { id: 'd6', name: 'Bhavani Empty Depot', location: 'Nhava Sheva' },
+  { id: 'd7', name: 'Sai Marine Container Services', location: 'Nhava Sheva' },
+  { id: 'd8', name: 'Speedy Multilodes Ltd', location: 'Nhava Sheva' },
+  { id: 'd9', name: 'CCIS Keavy Victory Yard', location: 'Nhava Sheva' },
+  { id: 'd10', name: 'Iran Depot — BND', location: 'Bandar Abbas' },
+  { id: 'd11', name: 'CCIS Bhavani Depot', location: 'Nhava Sheva' },
+  { id: 'd12', name: 'KMP Overseas Pvt Ltd', location: 'Mundra' },
+  { id: 'd13', name: 'Transworld Empty Park Mundra', location: 'Mundra' },
 ]
 
 export const mockChargeCodes: ChargeCodeMaster[] = [

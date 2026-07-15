@@ -170,9 +170,45 @@ function MnrKpi({ label, value, icon, tint, color }: { label: string; value: num
 
 function FleetTable() {
   const { fleet } = useDataStore()
+  const [query, setQuery] = useState('')
+  const [statusFilter, setStatusFilter] = useState<'All' | ContainerStatus>('All')
   const soon = (d: string) => new Date(d).getTime() - Date.now() < 90 * 86400000
+
+  const q = query.trim().toLowerCase()
+  const filtered = fleet.filter((f) => {
+    if (statusFilter !== 'All' && f.status !== statusFilter) return false
+    if (!q) return true
+    return (
+      f.containerNo.toLowerCase().includes(q) ||
+      f.isoType.toLowerCase().includes(q) ||
+      (mockDepots.find((d) => d.id === f.depotId)?.name ?? '').toLowerCase().includes(q)
+    )
+  })
+  const shown = filtered.slice(0, 100)
+
   return (
     <Card className="overflow-hidden">
+      <div className="flex flex-wrap items-center gap-2 border-b border-line px-4 py-3">
+        <input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search container no., type or depot…"
+          className="w-64 rounded-input border border-[#E5E7EB] dark:border-line bg-surface px-3 py-2 text-xs text-heading placeholder:text-muted focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+        />
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value as 'All' | ContainerStatus)}
+          className="rounded-input border border-[#E5E7EB] dark:border-line bg-surface px-3 py-2 text-xs text-body focus:border-primary focus:outline-none"
+        >
+          {(['All', 'Available', 'On Hire', 'Under Repair', 'Off Hire', 'Hold', 'Scrapped', 'Lost'] as const).map((s) => (
+            <option key={s}>{s}</option>
+          ))}
+        </select>
+        <span className="ml-auto text-xs text-muted">
+          {filtered.length} container{filtered.length === 1 ? '' : 's'}
+          {filtered.length > shown.length && ` · showing first ${shown.length}`}
+        </span>
+      </div>
       <div className="overflow-x-auto">
         <table className="w-full text-left text-sm">
           <thead>
@@ -187,7 +223,7 @@ function FleetTable() {
             </tr>
           </thead>
           <tbody>
-            {fleet.map((f) => (
+            {shown.map((f) => (
               <tr key={f.id} className="border-b border-line last:border-0 hover:bg-surface-2/60">
                 <td className="px-5 py-3 font-mono text-xs font-medium text-heading">{f.containerNo}</td>
                 <td className="px-3 py-3 text-xs text-body">{f.isoType}{f.isReefer ? ' ❄' : ''}</td>
@@ -216,6 +252,11 @@ function FleetTable() {
                 <td className="px-5 py-3"><StatusChip status={CONTAINER_CHIP[f.status]} /><span className="ml-2 text-[11px] text-muted">{f.status}</span></td>
               </tr>
             ))}
+            {shown.length === 0 && (
+              <tr>
+                <td colSpan={7} className="px-5 py-10 text-center text-sm text-muted">No containers match your filter</td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>

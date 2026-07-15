@@ -4,6 +4,7 @@
 
 import type { FleetContainer, MnrJob } from '../lib/types'
 import { INSPECTION_CHECKLIST } from '../lib/mnr'
+import { fleetFromTracker } from './mnrFleetSeed'
 
 const cl = (passes: (boolean | null)[]) =>
   INSPECTION_CHECKLIST.map((c, i) => ({ ...c, pass: passes[i] ?? null }))
@@ -19,6 +20,8 @@ export const mockFleet: FleetContainer[] = [
   { id: 'fc8', containerNo: 'MSKU2135063', isoType: '20GP', ownership: 'Owned', lessor: null, manufactureDate: '2020-07-01', cscExpiry: '2028-02-14', status: 'Available', depotId: 'd4', custodianBookingRef: null, insuredValue: 3150, warrantyRef: null, isReefer: false },
   { id: 'fc9', containerNo: 'OOLU1613832', isoType: '20GP', ownership: 'Owned', lessor: null, manufactureDate: '2016-05-01', cscExpiry: '2026-07-30', status: 'Available', depotId: 'd6', custodianBookingRef: null, insuredValue: 2600, warrantyRef: null, isReefer: false },
   { id: 'fc10', containerNo: 'CBHU5974252', isoType: '20GP', ownership: 'Sub-leased', lessor: 'Beacon Intermodal', manufactureDate: '2015-04-01', cscExpiry: '2026-07-25', status: 'Hold', depotId: 'd4', custodianBookingRef: null, insuredValue: 2400, warrantyRef: null, isReefer: false },
+  // Real fleet inventory from the Business Solution tracker (333 containers)
+  ...fleetFromTracker,
 ]
 
 export const mockMnrJobs: MnrJob[] = [
