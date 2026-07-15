@@ -3,6 +3,8 @@ import { Ship, ChevronsLeft, ChevronsRight } from 'lucide-react'
 import { NAV_ITEMS } from './nav'
 import { useUiStore } from '../../store/useUiStore'
 import { useDataStore } from '../../store/useDataStore'
+import { useAuthStore, useCurrentUser } from '../../store/useAuthStore'
+import { effectiveAccess } from '../../lib/rbac'
 
 function BrandMark({ collapsed }: { collapsed: boolean }) {
   return (
@@ -29,13 +31,20 @@ export function SidebarContent({ collapsed = false }: { collapsed?: boolean }) {
     (s) => s.approvals.filter((a) => a.status === 'Pending').length,
   )
   const { theme, setTheme, toggleCollapsed } = useUiStore()
+  const user = useCurrentUser()
+  const viewAsRole = useAuthStore((s) => s.viewAsRole)
+  const role = viewAsRole ?? user?.role ?? 'admin'
+  const overrides = viewAsRole ? undefined : user?.overrides
+  const visibleItems = NAV_ITEMS.filter(
+    (item) => effectiveAccess(role, overrides, item.module) !== 'none',
+  )
 
   return (
     <div className="flex h-full flex-col bg-surface">
       <BrandMark collapsed={collapsed} />
 
       <nav className="flex-1 space-y-1 overflow-y-auto px-3">
-        {NAV_ITEMS.map((item) => {
+        {visibleItems.map((item) => {
           const Icon = item.icon
           return (
             <NavLink
