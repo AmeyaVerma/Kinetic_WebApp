@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { UserPlus, ShieldCheck, KeyRound, Trash2, Eye } from 'lucide-react'
 import { Card } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'
+import { CsvButton } from '../../components/ui/CsvButton'
 import { StatusChip } from '../../components/ui/StatusChip'
 import { Tabs } from '../../components/ui/Tabs'
 import { Modal } from '../../components/ui/Modal'
@@ -62,9 +63,15 @@ export function UsersRolesPage() {
       {tab === 'audit' && (
         <Card>
           <div className="px-5 py-5">
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">
-              Every role &amp; access change — immutable
-            </p>
+            <div className="mb-2 flex items-center justify-between">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted">
+                Every role &amp; access change — immutable
+              </p>
+              <CsvButton
+                filename="users-audit-trail"
+                rows={audit.map((a) => ({ At: a.at, Actor: a.actor, Action: a.action }))}
+              />
+            </div>
             {audit.map((a) => (
               <div key={a.id} className="flex items-start gap-3 border-b border-line py-2 text-xs last:border-0">
                 <span className="w-36 shrink-0 font-mono text-muted">{new Date(a.at).toLocaleString()}</span>
@@ -87,9 +94,19 @@ function UsersTab() {
   const [inviteOpen, setInviteOpen] = useState(false)
   const selected = users.find((u) => u.id === selectedId) ?? null
 
+  const userRows = users.map((u) => ({
+    Name: u.name,
+    Email: u.email,
+    Role: ROLE_LABELS[u.role],
+    MFA: u.mfaEnabled ? 'On' : 'Off',
+    'Last Login': u.lastLogin ?? '',
+    Status: u.status,
+  }))
+
   return (
     <div className="space-y-5">
-      <div className="flex justify-end">
+      <div className="flex justify-end gap-2">
+        <CsvButton filename="users" rows={userRows} />
         <Button onClick={() => setInviteOpen(true)}>
           <UserPlus size={15} /> Invite user
         </Button>

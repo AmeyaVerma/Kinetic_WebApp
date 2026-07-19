@@ -1,7 +1,9 @@
 import { useMemo, useState } from 'react'
-import { Plus, Trash2, Link2 } from 'lucide-react'
+import { Plus, Trash2, Link2, Boxes, Ship, DollarSign, ClipboardCheck } from 'lucide-react'
 import { Card } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
+import { StatKpi } from '../components/ui/StatKpi'
+import { CsvButton } from '../components/ui/CsvButton'
 import { StatusChip } from '../components/ui/StatusChip'
 import { Modal } from '../components/ui/Modal'
 import { Field, Select, TextInput } from '../components/ui/Field'
@@ -29,6 +31,33 @@ export function FreightPage() {
   const parents = useMemo(() => ffShipments.filter((f) => !f.parentId), [ffShipments])
   const selected = ffShipments.find((f) => f.id === selectedId) ?? null
 
+  const kpis = useMemo(() => {
+    const open = parents.filter((f) => f.stage !== 'Closed')
+    const gpTotal = parents.reduce((a, f) => a + ffGp(f).value, 0)
+    return {
+      total: parents.length,
+      open: open.length,
+      inTransit: parents.filter((f) => f.stage === 'Export & Transit').length,
+      gpTotal,
+      docs: parents.filter((f) => f.stage === 'Documentation').length,
+    }
+  }, [parents])
+
+  const shipmentRows = useMemo(
+    () =>
+      parents.map((f) => ({
+        Ref: f.ref,
+        Mode: f.mode,
+        Customer: f.customerName,
+        Origin: f.origin,
+        Destination: f.destination,
+        Sell: f.sellAmount,
+        GP: ffGp(f).value,
+        Stage: f.stage,
+      })),
+    [parents],
+  )
+
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -44,7 +73,19 @@ export function FreightPage() {
         </Button>
       </div>
 
+      {/* KPI row */}
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+        <StatKpi label="Total Shipments" value={kpis.total} icon={<Boxes size={17} />} tint="#ECFDF5" color="#10B981" />
+        <StatKpi label="Open" value={kpis.open} icon={<ClipboardCheck size={17} />} tint="#EFF6FF" color="#3B82F6" />
+        <StatKpi label="In Transit" value={kpis.inTransit} icon={<Ship size={17} />} tint="#F5F3FF" color="#8B5CF6" />
+        <StatKpi label="In Documentation" value={kpis.docs} icon={<Link2 size={17} />} tint="#FEFCE8" color="#F59E0B" />
+        <StatKpi label="Total GP" value={`$${kpis.gpTotal.toLocaleString()}`} icon={<DollarSign size={17} />} tint="#FFF7ED" color="#F97316" />
+      </div>
+
       <Card className="overflow-hidden">
+        <div className="flex items-center justify-end border-b border-line px-4 py-2.5">
+          <CsvButton filename="freight-shipments" rows={shipmentRows} />
+        </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead>

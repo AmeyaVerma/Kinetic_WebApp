@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { ArrowLeft, Check, Container as ContainerIcon, Ban } from 'lucide-react'
 import { Card } from '../components/ui/Card'
@@ -9,10 +9,18 @@ import { Tabs } from '../components/ui/Tabs'
 import { FieldPill, TextInput } from '../components/ui/Field'
 import { DocumentsTab } from '../components/booking/DocumentsTab'
 import { InvoicingTab } from '../components/booking/InvoicingTab'
+import { CustomFieldsCard } from '../components/booking/CustomFieldsCard'
 import { useDataStore } from '../store/useDataStore'
-import { cyclePct, deriveStatus, milestoneDefs, toChipStatus } from '../lib/milestones'
+import { cyclePct, deriveStatus, milestoneDefs, statusSequence } from '../lib/milestones'
+import { StageStepper } from '../components/ui/StageStepper'
+import {
+  BOOKING_WORKFLOW_STATUSES,
+  WORKFLOW_STATUS_CHIP,
+  workflowStatusOf,
+} from '../lib/bookingStatus'
 import { mockAgents, mockDepots, mockVendors } from '../mocks/masters'
 import { CONTAINER_ACTIVITY_DEFS } from '../mocks/seed'
+import type { BookingWorkflowStatus } from '../lib/types'
 
 const TABS = [
   { key: 'container', label: 'Container info' },
@@ -34,6 +42,8 @@ export function BookingDetailPage() {
     markMilestone,
     activities,
     cancelBooking,
+    updateShipmentDates,
+    setBookingWorkflowStatus,
   } = useDataStore()
 
   const booking = bookings.find((b) => b.id === id)
@@ -49,9 +59,15 @@ export function BookingDetailPage() {
   }
 
   const entries = milestones.filter((m) => m.bookingId === booking.id)
-  const status = deriveStatus(booking.direction, entries, booking.cancelled)
   const pct = cyclePct(booking.direction, entries)
   const bookingActivities = activities.filter((a) => a.bookingId === booking.id)
+  const workflowStatus = workflowStatusOf(booking)
+  const latestActivity = [...bookingActivities].sort(
+    (a, b) => new Date(b.at).getTime() - new Date(a.at).getTime(),
+  )[0]
+  const roadmap = statusSequence(booking.direction)
+  const lifecycleStatus = deriveStatus(booking.direction, entries, booking.cancelled)
+  const roadmapIndex = roadmap.indexOf(lifecycleStatus)
 
   return (
     <div className="space-y-5">
@@ -64,8 +80,23 @@ export function BookingDetailPage() {
             </Link>
             <div className="flex flex-wrap items-center gap-3">
               <h1 className="font-mono text-xl font-bold">{booking.bookingRef}</h1>
-              <StatusChip status={toChipStatus(status)} />
-              <span className="text-xs text-muted">{status}</span>
+              <div className="flex items-center gap-2">
+                <StatusChip status={WORKFLOW_STATUS_CHIP[workflowStatus]} />
+                <label className="flex items-center gap-1.5 text-[11px] text-muted">
+                  Booking status
+                  <select
+                    value={workflowStatus}
+                    onChange={(e) =>
+                      setBookingWorkflowStatus(booking.id, e.target.value as BookingWorkflowStatus, 'Ops')
+                    }
+                    className="rounded-btn border border-line bg-surface px-2.5 py-1 text-xs font-medium text-heading focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                  >
+                    {BOOKING_WORKFLOW_STATUSES.map((s) => (
+                      <option key={s} value={s}>{s}</option>
+                    ))}
+                  </select>
+                </label>
+              </div>
             </div>
             <p className="mt-1 text-sm text-body">
               {booking.bookingPartyName} · {booking.pol} → {booking.pod} · {booking.vesselName} / {booking.voyageNo}
@@ -96,6 +127,27 @@ export function BookingDetailPage() {
           <span className="font-mono text-xs font-semibold text-heading">{pct}%</span>
           <span className="text-[11px] text-muted">cycle — computed from milestones</span>
         </div>
+        {/* Latest update (Workflow v3 §9) */}
+        <p className="mt-1.5 text-[11px] text-muted">
+          Latest update:{' '}
+          {latestActivity ? (
+            <>
+              <span className="text-body">{latestActivity.action}</span>
+              {' · '}
+              {new Date(latestActivity.at).toLocaleString()}
+            </>
+          ) : (
+            '—'
+          )}
+        </p>
+
+        {/* Lifecycle roadmap (Workflow §12 — relocated from FF) */}
+        <div className="mt-4 border-t border-line pt-4">
+          <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted">
+            {booking.direction} lifecycle roadmap — computed from milestones
+          </p>
+          <StageStepper stages={roadmap} currentIndex={roadmapIndex} />
+        </div>
       </div>
 
       <Tabs tabs={TABS} active={tab} onChange={setTab} />
@@ -108,6 +160,7 @@ export function BookingDetailPage() {
             booking={booking}
             entries={entries}
             onMark={(key) => markMilestone(booking.id, key, 'Ops')}
+            onDateChange={(dates) => updateShipmentDates(booking.id, dates, 'Ops')}
           />
         )}
         {tab === 'agents' && <AgentDetailsTab booking={booking} />}
@@ -116,6 +169,9 @@ export function BookingDetailPage() {
         {tab === 'invoicing' && <InvoicingTab booking={booking} />}
         {tab === 'documents' && <DocumentsTab booking={booking} />}
       </Card>
+
+      {/* Custom fields (Workflow §11 — user-defined) */}
+      <CustomFieldsCard bookingId={booking.id} />
 
       {/* Activity log — append-only audit */}
       <Card>
@@ -176,10 +232,12 @@ function ShipmentDetailsTab({
   booking,
   entries,
   onMark,
+  onDateChange,
 }: {
   booking: import('../lib/types').Booking
   entries: import('../lib/types').MilestoneEntry[]
   onMark: (key: string) => void
+  onDateChange: (dates: { etd?: string; eta?: string }) => void
 }) {
   const defs = milestoneDefs(booking.direction)
   return (
@@ -188,8 +246,8 @@ function ShipmentDetailsTab({
         <FieldPill label="POL" value={booking.pol} />
         <FieldPill label="POD" value={booking.pod} />
         <FieldPill label="Vessel / voyage" value={`${booking.vesselName} / ${booking.voyageNo}`} />
-        <FieldPill label="ETD / SOB" value={booking.etd} />
-        <FieldPill label="ETA" value={booking.eta} />
+        <EditableDatePill label="ETD / SOB" value={booking.etd} onChange={(v) => onDateChange({ etd: v })} />
+        <EditableDatePill label="ETA" value={booking.eta} onChange={(v) => onDateChange({ eta: v })} />
         <FieldPill label="Terminal" value={booking.terminal ?? ''} />
         <FieldPill label="MBL No." value={booking.mblNo ?? ''} />
       </div>
@@ -234,6 +292,35 @@ function ShipmentDetailsTab({
         </div>
       </div>
     </div>
+  )
+}
+
+/** Date field editable by typing or via the native calendar picker; saves on blur. */
+function EditableDatePill({
+  label,
+  value,
+  onChange,
+}: {
+  label: string
+  value: string
+  onChange: (v: string) => void
+}) {
+  const [draft, setDraft] = useState(value)
+  useEffect(() => setDraft(value), [value])
+
+  return (
+    <label className="block rounded-btn border border-line bg-surface-2/60 px-3 py-2 focus-within:border-primary">
+      <p className="font-mono text-[10px] uppercase tracking-wide text-muted">{label}</p>
+      <input
+        type="date"
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={() => {
+          if (draft && draft !== value) onChange(draft)
+        }}
+        className="mt-0.5 w-full bg-transparent text-[13px] text-heading focus:outline-none"
+      />
+    </label>
   )
 }
 

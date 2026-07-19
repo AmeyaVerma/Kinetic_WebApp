@@ -1,8 +1,10 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, ArrowRight } from 'lucide-react'
+import { Plus, ArrowRight, Ship, Truck, CheckCircle2, FileText, Users2 } from 'lucide-react'
 import { Card, CardHeader } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
+import { StatKpi } from '../components/ui/StatKpi'
+import { CsvButton } from '../components/ui/CsvButton'
 import { StatusChip } from '../components/ui/StatusChip'
 import { ProgressBar } from '../components/ui/ProgressBar'
 import { Tabs } from '../components/ui/Tabs'
@@ -45,6 +47,39 @@ export function NvoccPage() {
     [bookings],
   )
 
+  const kpis = useMemo(() => {
+    const statuses = nvoccBookings.map((b) => {
+      const entries = milestones.filter((m) => m.bookingId === b.id)
+      return toChipStatus(deriveStatus(b.direction, entries, b.cancelled))
+    })
+    return {
+      total: nvoccBookings.length,
+      inTransit: statuses.filter((s) => s === 'In Transit').length,
+      delivered: statuses.filter((s) => s === 'Delivered' || s === 'Arrived').length,
+      blDrafts: statuses.filter((s) => s === 'BL Draft').length,
+      openLeads: leads.filter((l) => l.status !== 'Won' && l.status !== 'Lost').length,
+    }
+  }, [nvoccBookings, milestones, leads])
+
+  const bookingRows = useMemo(
+    () =>
+      nvoccBookings.map((b) => {
+        const entries = milestones.filter((m) => m.bookingId === b.id)
+        return {
+          'Booking Ref': b.bookingRef,
+          Direction: b.direction,
+          POL: b.pol,
+          POD: b.pod,
+          Vessel: b.vesselName,
+          Voyage: b.voyageNo,
+          Customer: b.bookingPartyName,
+          'Cycle %': cyclePct(b.direction, entries),
+          Status: deriveStatus(b.direction, entries, b.cancelled),
+        }
+      }),
+    [nvoccBookings, milestones],
+  )
+
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -64,6 +99,15 @@ export function NvoccPage() {
         </div>
       </div>
 
+      {/* KPI row */}
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+        <StatKpi label="Total Bookings" value={kpis.total} icon={<Ship size={17} />} tint="#ECFDF5" color="#10B981" />
+        <StatKpi label="In Transit" value={kpis.inTransit} icon={<Truck size={17} />} tint="#EFF6FF" color="#3B82F6" />
+        <StatKpi label="Delivered / Arrived" value={kpis.delivered} icon={<CheckCircle2 size={17} />} tint="#F5F3FF" color="#8B5CF6" />
+        <StatKpi label="BL Drafts" value={kpis.blDrafts} icon={<FileText size={17} />} tint="#FEFCE8" color="#F59E0B" />
+        <StatKpi label="Open Leads" value={kpis.openLeads} icon={<Users2 size={17} />} tint="#FFF7ED" color="#F97316" />
+      </div>
+
       <Tabs
         tabs={[
           { key: 'bookings', label: 'Bookings', badge: nvoccBookings.length },
@@ -75,6 +119,9 @@ export function NvoccPage() {
 
       {tab === 'bookings' ? (
         <Card className="overflow-hidden">
+          <div className="flex items-center justify-end border-b border-line px-4 py-2.5">
+            <CsvButton filename="nvocc-bookings" rows={bookingRows} />
+          </div>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead>
@@ -168,10 +215,27 @@ function LeadsQuotesPanel({
   onConvert: (l: Lead) => void
 }) {
   const { leads, quotes, quoteAction } = useDataStore()
+  const leadRows = leads.map((l) => ({
+    Customer: l.customerName,
+    Origin: l.origin,
+    Destination: l.destination,
+    Mode: l.mode,
+    'Cargo Type': l.cargoType,
+    'Target Date': l.targetDate,
+    Status: l.status,
+  }))
+  const quoteRows = quotes.map((q) => ({
+    Customer: leads.find((l) => l.id === q.leadId)?.customerName ?? q.leadId,
+    Currency: q.currency,
+    Buy: q.buyTotal,
+    Sell: q.sellTotal,
+    'Valid Until': q.validUntil,
+    Status: q.status,
+  }))
   return (
     <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
       <Card>
-        <CardHeader title="Leads" />
+        <CardHeader title="Leads" action={<CsvButton filename="nvocc-leads" rows={leadRows} />} />
         <div className="space-y-2 px-5 pb-5">
           {leads.map((l) => (
             <div key={l.id} className="flex items-center justify-between rounded-btn border border-line bg-surface-2/40 px-4 py-3">
@@ -201,7 +265,7 @@ function LeadsQuotesPanel({
       </Card>
 
       <Card>
-        <CardHeader title="Quotes" />
+        <CardHeader title="Quotes" action={<CsvButton filename="nvocc-quotes" rows={quoteRows} />} />
         <div className="space-y-2 px-5 pb-5">
           {quotes.map((q) => {
             const lead = leads.find((l) => l.id === q.leadId)

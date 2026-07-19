@@ -4,14 +4,13 @@ import { Card } from '../ui/Card'
 import { Button } from '../ui/Button'
 import { Field, Select, TextInput } from '../ui/Field'
 import { useDataStore } from '../../store/useDataStore'
-import { FF_STAGES, ffGp } from '../../lib/ff'
+import { ffGp } from '../../lib/ff'
 import { mockAgents, mockCustomers } from '../../mocks/masters'
 import type { FfShipment } from '../../lib/types'
 
 export function FfDetail({ shipment: f }: { shipment: FfShipment }) {
   const { activities, ffShipments } = useDataStore()
   const jobActivities = activities.filter((a) => a.bookingId === f.id)
-  const stageIdx = FF_STAGES.indexOf(f.stage)
   const children = ffShipments.filter((c) => c.parentId === f.id)
 
   return (
@@ -31,22 +30,6 @@ export function FfDetail({ shipment: f }: { shipment: FfShipment }) {
             </span>
           )}
         </div>
-      </div>
-
-      {/* Stage stepper */}
-      <div className="mt-4 flex flex-wrap items-center gap-1">
-        {FF_STAGES.map((s, i) => (
-          <div key={s} className="flex items-center gap-1">
-            <span
-              className={`rounded-badge px-2.5 py-1 text-[11px] font-medium ${
-                i < stageIdx ? 'bg-primary/15 text-primary' : i === stageIdx ? 'bg-primary text-white' : 'bg-surface-2 text-muted'
-              }`}
-            >
-              {s}
-            </span>
-            {i < FF_STAGES.length - 1 && <span className="text-line">→</span>}
-          </div>
-        ))}
       </div>
 
       <div className="mt-5">

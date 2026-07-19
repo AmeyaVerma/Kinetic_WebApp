@@ -1,7 +1,9 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Container as ContainerIcon, Wrench, DollarSign, AlertTriangle, ClipboardCheck, Plus } from 'lucide-react'
 import { Card } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
+import { StatKpi } from '../components/ui/StatKpi'
+import { CsvButton } from '../components/ui/CsvButton'
 import { StatusChip } from '../components/ui/StatusChip'
 import { Tabs } from '../components/ui/Tabs'
 import { Modal } from '../components/ui/Modal'
@@ -51,6 +53,29 @@ export function MnrPage() {
   }, [fleet, mnrJobs, approvals])
 
   const selectedJob = mnrJobs.find((j) => j.id === selectedJobId) ?? null
+  const jobDetailRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (selectedJobId && jobDetailRef.current) {
+      jobDetailRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+  }, [selectedJobId])
+
+  const jobRows = useMemo(
+    () =>
+      mnrJobs.map((j) => {
+        const est = latestEstimate(j)
+        return {
+          Container: j.containerNo,
+          Booking: j.bookingRef ?? 'free-in',
+          Depot: mockDepots.find((d) => d.id === j.depotId)?.name ?? j.depotId,
+          'Damage points': j.damagePoints.length,
+          'Estimate (USD)': est?.total ?? '',
+          Stage: j.stage,
+        }
+      }),
+    [mnrJobs],
+  )
 
   return (
     <div className="space-y-5">
@@ -68,11 +93,11 @@ export function MnrPage() {
 
       {/* KPI row (Requirements §7) */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
-        <MnrKpi label="Containers Available" value={kpis.available} icon={<ContainerIcon size={17} />} tint="#ECFDF5" color="#10B981" />
-        <MnrKpi label="Under Repair" value={kpis.underRepair} icon={<Wrench size={17} />} tint="#FEF3C7" color="#B45309" />
-        <MnrKpi label="Repair Cost (posted)" value={`$${kpis.costMonth.toLocaleString()}`} icon={<DollarSign size={17} />} tint="#FFF7ED" color="#F97316" />
-        <MnrKpi label="Approval Queue" value={kpis.approvalQueue} icon={<ClipboardCheck size={17} />} tint="#EFF6FF" color="#3B82F6" />
-        <MnrKpi label="Open MNR Jobs" value={kpis.openJobs} icon={<AlertTriangle size={17} />} tint="#F5F3FF" color="#8B5CF6" />
+        <StatKpi label="Containers Available" value={kpis.available} icon={<ContainerIcon size={17} />} tint="#ECFDF5" color="#10B981" />
+        <StatKpi label="Under Repair" value={kpis.underRepair} icon={<Wrench size={17} />} tint="#FEF3C7" color="#B45309" />
+        <StatKpi label="Repair Cost (posted)" value={`$${kpis.costMonth.toLocaleString()}`} icon={<DollarSign size={17} />} tint="#FFF7ED" color="#F97316" />
+        <StatKpi label="Approval Queue" value={kpis.approvalQueue} icon={<ClipboardCheck size={17} />} tint="#EFF6FF" color="#3B82F6" />
+        <StatKpi label="Open MNR Jobs" value={kpis.openJobs} icon={<AlertTriangle size={17} />} tint="#F5F3FF" color="#8B5CF6" />
       </div>
 
       <Tabs
@@ -89,6 +114,9 @@ export function MnrPage() {
       ) : (
         <div className="space-y-5">
           <Card className="overflow-hidden">
+            <div className="flex items-center justify-end border-b border-line px-4 py-2.5">
+              <CsvButton filename="mnr-repair-jobs" rows={jobRows} />
+            </div>
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm">
                 <thead>
@@ -147,23 +175,15 @@ export function MnrPage() {
             </div>
           </Card>
 
-          {selectedJob && <JobDetail job={selectedJob} />}
+          {selectedJob && (
+            <div ref={jobDetailRef} className="scroll-mt-4">
+              <JobDetail job={selectedJob} />
+            </div>
+          )}
         </div>
       )}
 
       <GateInModal open={gateInOpen} onClose={() => setGateInOpen(false)} onCreated={(id) => { setGateInOpen(false); setTab('jobs'); setSelectedJobId(id) }} />
-    </div>
-  )
-}
-
-function MnrKpi({ label, value, icon, tint, color }: { label: string; value: number | string; icon: React.ReactNode; tint: string; color: string }) {
-  return (
-    <div className="rounded-card border border-transparent p-4 shadow-card dark:!bg-surface" style={{ backgroundColor: tint }}>
-      <div className="flex items-center justify-between">
-        <p className="text-xs font-medium text-[#334155] dark:text-body">{label}</p>
-        <span style={{ color }}>{icon}</span>
-      </div>
-      <p className="mt-2 font-display text-2xl font-bold" style={{ color }}>{value}</p>
     </div>
   )
 }
@@ -185,6 +205,16 @@ function FleetTable() {
     )
   })
   const shown = filtered.slice(0, 100)
+
+  const fleetRows = filtered.map((f) => ({
+    'Container No.': f.containerNo,
+    Type: f.isoType,
+    Ownership: f.ownership,
+    'CSC Expiry': f.cscExpiry,
+    'Location / Custodian': f.custodianBookingRef ?? mockDepots.find((d) => d.id === f.depotId)?.name ?? '',
+    'Insured (USD)': f.insuredValue,
+    Status: f.status,
+  }))
 
   return (
     <Card className="overflow-hidden">
@@ -208,6 +238,7 @@ function FleetTable() {
           {filtered.length} container{filtered.length === 1 ? '' : 's'}
           {filtered.length > shown.length && ` · showing first ${shown.length}`}
         </span>
+        <CsvButton filename="mnr-fleet" rows={fleetRows} />
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-left text-sm">

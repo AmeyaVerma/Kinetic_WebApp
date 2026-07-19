@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { Check, X } from 'lucide-react'
 import { Card } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
+import { CsvButton } from '../components/ui/CsvButton'
 import { StatusChip } from '../components/ui/StatusChip'
 import { Tabs } from '../components/ui/Tabs'
 import { useDataStore } from '../store/useDataStore'
@@ -46,6 +47,15 @@ export function ApprovalsPage() {
   const pendingCount = (key: ApprovalEntityType | 'all') =>
     approvals.filter((a) => a.status === 'Pending' && (key === 'all' || a.entityType === key)).length
 
+  const approvalRows = filtered.map((a) => ({
+    Type: TYPE_LABEL[a.entityType],
+    Booking: bookings.find((b) => b.id === a.bookingId)?.bookingRef ?? '',
+    Summary: a.summary,
+    'Requested By': a.requestedBy,
+    'Requested At': a.requestedAt,
+    Status: a.status,
+  }))
+
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -55,15 +65,18 @@ export function ApprovalsPage() {
             One central queue for every gated action — same table, different entity_type.
           </p>
         </div>
-        <label className="flex items-center gap-2 text-xs text-body">
-          <input
-            type="checkbox"
-            checked={showDecided}
-            onChange={(e) => setShowDecided(e.target.checked)}
-            className="h-4 w-4 accent-[#10B981]"
-          />
-          Show decided
-        </label>
+        <div className="flex items-center gap-3">
+          <label className="flex items-center gap-2 text-xs text-body">
+            <input
+              type="checkbox"
+              checked={showDecided}
+              onChange={(e) => setShowDecided(e.target.checked)}
+              className="h-4 w-4 accent-[#10B981]"
+            />
+            Show decided
+          </label>
+          <CsvButton filename="approvals" rows={approvalRows} />
+        </div>
       </div>
 
       <Tabs

@@ -3,8 +3,8 @@ import { Plus, Trash2 } from 'lucide-react'
 import { Button } from '../ui/Button'
 import { StatusChip } from '../ui/StatusChip'
 import { Select, TextInput } from '../ui/Field'
+import { AddableSelect } from '../ui/AddableSelect'
 import { useDataStore } from '../../store/useDataStore'
-import { mockChargeCodes } from '../../mocks/masters'
 import type { Booking, ChipStatus, InvoiceStatus } from '../../lib/types'
 
 const INVOICE_CHIP: Record<InvoiceStatus, ChipStatus> = {
@@ -29,45 +29,35 @@ const NEXT_LABEL: Partial<Record<InvoiceStatus, string>> = {
 }
 
 export function InvoicingTab({ booking }: { booking: Booking }) {
-  const { charges, invoices, addCharge, removeCharge, generateInvoice, advanceInvoice } = useDataStore()
-  const bookingCharges = charges.filter((c) => c.bookingId === booking.id)
+  const { charges, invoices, addCharge, removeCharge, generateInvoice, advanceInvoice, masters, addMasterOption } = useDataStore()
+  const bookingCharges = charges.filter((c) => c.bookingId === booking.id && c.type === 'sell')
   const bookingInvoices = invoices.filter((i) => i.bookingId === booking.id)
 
   const [selected, setSelected] = useState<string[]>([])
   const [adding, setAdding] = useState(false)
   const [newCode, setNewCode] = useState('cc8')
-  const [newType, setNewType] = useState<'buy' | 'sell'>('sell')
   const [newAmount, setNewAmount] = useState(0)
   const [newCurrency, setNewCurrency] = useState<'USD' | 'INR'>('USD')
 
   const totals = useMemo(() => {
     const fx = (amount: number, cur: string) => (cur === 'INR' ? amount / 84 : amount)
-    const sell = bookingCharges.filter((c) => c.type === 'sell').reduce((a, c) => a + fx(c.amount, c.currency), 0)
-    const buy = bookingCharges.filter((c) => c.type === 'buy').reduce((a, c) => a + fx(c.amount, c.currency), 0)
-    return { sell, buy, gp: sell - buy }
+    const rate = bookingCharges.reduce((a, c) => a + fx(c.amount, c.currency), 0)
+    return { rate }
   }, [bookingCharges])
 
   const toggle = (id: string) =>
     setSelected((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]))
 
-  const selectedType = bookingCharges.find((c) => c.id === selected[0])?.type
-
   return (
     <div className="space-y-6">
       {/* KPI row */}
-      <div className="grid grid-cols-3 gap-4">
-        {[
-          { label: 'Revenue (sell, USD eq.)', value: totals.sell, color: '#10B981' },
-          { label: 'Cost (buy, USD eq.)', value: totals.buy, color: '#EF4444' },
-          { label: 'Gross profit', value: totals.gp, color: totals.gp >= 0 ? '#10B981' : '#EF4444' },
-        ].map((k) => (
-          <div key={k.label} className="rounded-card border border-line bg-surface p-4 shadow-card">
-            <p className="text-xs text-muted">{k.label}</p>
-            <p className="mt-1 font-mono text-xl font-bold" style={{ color: k.color }}>
-              ${Math.round(k.value).toLocaleString()}
-            </p>
-          </div>
-        ))}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <div className="rounded-card border border-line bg-surface p-4 shadow-card">
+          <p className="text-xs text-muted">Rate total (USD eq.)</p>
+          <p className="mt-1 font-mono text-xl font-bold text-[#10B981]">
+            ${Math.round(totals.rate).toLocaleString()}
+          </p>
+        </div>
       </div>
 
       {/* Rates / charge sheet (doc §8 "Rates tab") */}
@@ -83,15 +73,13 @@ export function InvoicingTab({ booking }: { booking: Booking }) {
 
         {adding && (
           <div className="mb-3 flex flex-wrap items-center gap-2 rounded-btn border border-line bg-surface-2/50 p-3">
-            <Select value={newCode} onChange={(e) => setNewCode(e.target.value)}>
-              {mockChargeCodes.map((cc) => (
-                <option key={cc.id} value={cc.id}>{cc.name}</option>
-              ))}
-            </Select>
-            <Select value={newType} onChange={(e) => setNewType(e.target.value as 'buy' | 'sell')}>
-              <option value="sell">Sell</option>
-              <option value="buy">Buy</option>
-            </Select>
+            <AddableSelect
+              value={newCode}
+              onChange={setNewCode}
+              addLabel="Add charge code"
+              options={masters.chargeCodes.map((cc) => ({ value: cc.id, label: cc.name }))}
+              onAdd={(name) => addMasterOption('chargeCodes', name)}
+            />
             <TextInput
               type="number"
               placeholder="Amount"
@@ -109,8 +97,8 @@ export function InvoicingTab({ booking }: { booking: Booking }) {
                 addCharge({
                   bookingId: booking.id,
                   chargeCodeId: newCode,
-                  chargeName: mockChargeCodes.find((cc) => cc.id === newCode)?.name ?? 'Charge',
-                  type: newType,
+                  chargeName: masters.chargeCodes.find((cc) => cc.id === newCode)?.name ?? 'Charge',
+                  type: 'sell',
                   amount: newAmount,
                   currency: newCurrency,
                   vendorId: null,
@@ -130,7 +118,6 @@ export function InvoicingTab({ booking }: { booking: Booking }) {
               <tr className="border-b border-line bg-surface-2/60 text-[11px] uppercase tracking-wide text-muted">
                 <th className="w-10 px-4 py-2.5" />
                 <th className="px-3 py-2.5 font-medium">Charge</th>
-                <th className="px-3 py-2.5 font-medium">Type</th>
                 <th className="px-3 py-2.5 font-medium">Amount</th>
                 <th className="px-3 py-2.5 font-medium">Currency</th>
                 <th className="px-4 py-2.5" />
@@ -144,22 +131,10 @@ export function InvoicingTab({ booking }: { booking: Booking }) {
                       type="checkbox"
                       checked={selected.includes(c.id)}
                       onChange={() => toggle(c.id)}
-                      disabled={selectedType !== undefined && c.type !== selectedType && !selected.includes(c.id)}
                       className="h-4 w-4 accent-[#10B981]"
                     />
                   </td>
                   <td className="px-3 py-2.5 text-[13px] text-heading">{c.chargeName}</td>
-                  <td className="px-3 py-2.5">
-                    <span
-                      className="rounded-badge px-2 py-0.5 text-[11px] font-semibold"
-                      style={{
-                        backgroundColor: c.type === 'sell' ? '#ECFDF5' : '#FEE2E2',
-                        color: c.type === 'sell' ? '#047857' : '#DC2626',
-                      }}
-                    >
-                      {c.type}
-                    </span>
-                  </td>
                   <td className="px-3 py-2.5 font-mono text-[13px] text-heading">{c.amount.toLocaleString()}</td>
                   <td className="px-3 py-2.5 font-mono text-xs text-body">{c.currency}</td>
                   <td className="px-4 py-2.5 text-right">
@@ -174,7 +149,7 @@ export function InvoicingTab({ booking }: { booking: Booking }) {
               ))}
               {bookingCharges.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-sm text-muted">
+                  <td colSpan={5} className="px-4 py-8 text-center text-sm text-muted">
                     No charges on this booking yet
                   </td>
                 </tr>
@@ -186,26 +161,14 @@ export function InvoicingTab({ booking }: { booking: Booking }) {
         <div className="mt-3 flex gap-2">
           <Button
             size="sm"
-            disabled={selected.length === 0 || selectedType !== 'sell'}
+            disabled={selected.length === 0}
             className="disabled:opacity-50"
             onClick={() => {
               generateInvoice(booking.id, 'AR', selected)
               setSelected([])
             }}
           >
-            Generate AR invoice (sell)
-          </Button>
-          <Button
-            size="sm"
-            variant="secondary"
-            disabled={selected.length === 0 || selectedType !== 'buy'}
-            className="disabled:opacity-50"
-            onClick={() => {
-              generateInvoice(booking.id, 'AP', selected)
-              setSelected([])
-            }}
-          >
-            Generate AP vendor bill (buy)
+            Generate invoice
           </Button>
         </div>
       </div>

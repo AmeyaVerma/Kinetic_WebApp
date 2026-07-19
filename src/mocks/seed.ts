@@ -13,7 +13,6 @@ import type {
   ChargeLine,
   ContainerActivity,
   CroDocument,
-  DashboardData,
   Invoice,
   Lead,
   MilestoneEntry,
@@ -236,54 +235,3 @@ export const mockActivities: ActivityEntry[] = [
   { id: 'ac4', bookingId: 'KLNVO2627000009', at: '2026-06-12T16:40:00Z', actor: 'System', action: 'Milestone: Vessel sailed' },
   { id: 'ac5', bookingId: 'KLNVO2627000019', at: '2026-06-20T08:30:00Z', actor: 'Customer', action: 'BL edit submitted for approval' },
 ]
-
-/* ── Dashboard aggregates (chart data stays static demo) ─────── */
-
-export const mockDashboard: DashboardData = {
-  kpis: {
-    totalShipments: 1248,
-    totalShipmentsDelta: 12.5,
-    inTransit: 612,
-    inTransitDelta: 8.1,
-    delivered: 528,
-    deliveredDelta: 10.3,
-    revenueUsd: 2_450_000,
-    revenueDelta: 15.7,
-    blDrafts: 93,
-    blDraftsDelta: 5.2,
-  },
-  overview: [
-    { label: '1 May', booked: 340, inTransit: 240, delivered: 130 },
-    { label: '4 May', booked: 420, inTransit: 300, delivered: 150 },
-    { label: '8 May', booked: 380, inTransit: 280, delivered: 170 },
-    { label: '11 May', booked: 470, inTransit: 350, delivered: 160 },
-    { label: '15 May', booked: 440, inTransit: 330, delivered: 200 },
-    { label: '18 May', booked: 530, inTransit: 390, delivered: 220 },
-    { label: '22 May', booked: 500, inTransit: 430, delivered: 210 },
-    { label: '25 May', booked: 590, inTransit: 400, delivered: 250 },
-    { label: '29 May', booked: 640, inTransit: 460, delivered: 280 },
-  ],
-  byType: [
-    { label: 'FCL (Export)', value: 42, color: '#22C55E' },
-    { label: 'FCL (Import)', value: 33, color: '#3B82F6' },
-    { label: 'LCL', value: 15, color: '#8B5CF6' },
-    { label: 'Air', value: 7, color: '#FB923C' },
-    { label: 'Others', value: 3, color: '#06B6D4' },
-  ],
-  byTypeTotal: 1248,
-  tradeLanes: [
-    { from: 'INNSA', to: 'JEBEL ALI', sharePct: 32, kind: 'sea' },
-    { from: 'INNSA', to: 'MOMBASA', sharePct: 21, kind: 'sea' },
-    { from: 'INNSA', to: 'BANDAR ABBAS', sharePct: 18, kind: 'sea' },
-    { from: 'INNSA', to: 'CHABAHAR', sharePct: 15, kind: 'sea' },
-    { from: 'Others', to: '', sharePct: 14, kind: 'other' },
-  ],
-  tasks: [
-    { id: 't1', label: 'BL Draft Approvals', count: 5 },
-    { id: 't2', label: 'Invoice Approvals', count: 7 },
-    { id: 't3', label: 'Repair Estimates', count: 2 },
-    { id: 't4', label: 'Customer Requests', count: 3 },
-    { id: 't5', label: 'Document Uploads', count: 4 },
-  ],
-  notifications: 3,
-}

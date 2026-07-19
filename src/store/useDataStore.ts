@@ -11,9 +11,17 @@ import type {
   BlFields,
   BlState,
   BlVersion,
+  AgentMaster,
   Booking,
   BookingDocument,
+  BookingWorkflowStatus,
+  ChargeCodeMaster,
   ChargeLine,
+  CustomFieldDef,
+  Customer,
+  DepotMaster,
+  VendorMaster,
+  VesselMaster,
   ContainerActivity,
   CroDocument,
   CustomerRecord,
@@ -46,6 +54,16 @@ import { mockAgentRecords } from '../mocks/agentSeed'
 import { balanceFor, daysBetween } from '../lib/hr'
 import { mockEmployees, mockLeaveRequests, mockPayrollRuns } from '../mocks/hrSeed'
 import {
+  mockAgents,
+  mockChargeCodes,
+  mockCustomers,
+  mockDepots,
+  mockVendors,
+  mockVessels,
+  CONTAINER_TYPES,
+  PACKAGE_TYPES,
+} from '../mocks/masters'
+import {
   mockActivities,
   mockApprovals,
   mockBlStates,
@@ -76,6 +94,19 @@ const INVOICE_CHAIN: InvoiceStatus[] = [
   'Paid',
 ]
 
+/** Master lists a user can extend with new options inline (Workflow §11). */
+export interface Masters {
+  customers: Customer[]
+  agents: AgentMaster[]
+  vessels: VesselMaster[]
+  vendors: VendorMaster[]
+  depots: DepotMaster[]
+  chargeCodes: ChargeCodeMaster[]
+  containerTypes: string[]
+  packageTypes: string[]
+}
+export type MasterKind = keyof Masters
+
 interface DataState {
   leads: Lead[]
   quotes: Quote[]
@@ -90,6 +121,17 @@ interface DataState {
   invoices: Invoice[]
   approvals: Approval[]
   activities: ActivityEntry[]
+  masters: Masters
+  customFieldDefs: CustomFieldDef[]
+  customFieldValues: Record<string, Record<string, string>> // recordId → fieldId → value
+
+  // Master data — user-extensible dropdown options (Workflow §11)
+  addMasterOption: (kind: MasterKind, name: string) => string
+
+  // Custom fields — user-defined schema per entity (Workflow §11)
+  addCustomFieldDef: (def: Omit<CustomFieldDef, 'id'>) => string
+  removeCustomFieldDef: (id: string) => void
+  setCustomFieldValue: (recordId: string, fieldId: string, value: string) => void
 
   // Lead → Quote → Convert (doc §0.5)
   createLead: (l: Omit<Lead, 'id' | 'status' | 'createdAt'>) => void
@@ -103,6 +145,8 @@ interface DataState {
     charges: Omit<ChargeLine, 'id' | 'bookingId'>[],
   ) => string
   cancelBooking: (bookingId: string, reason: string) => void
+  updateShipmentDates: (bookingId: string, dates: { etd?: string; eta?: string }, actor: string) => void
+  setBookingWorkflowStatus: (bookingId: string, status: BookingWorkflowStatus, actor: string) => void
 
   // Milestones (doc §6)
   markMilestone: (bookingId: string, key: string, actor: string) => void
@@ -250,6 +294,68 @@ export const useDataStore = create<DataState>((set, get) => ({
   invoices: mockInvoices,
   approvals: mockApprovals,
   activities: mockActivities,
+  masters: {
+    customers: mockCustomers,
+    agents: mockAgents,
+    vessels: mockVessels,
+    vendors: mockVendors,
+    depots: mockDepots,
+    chargeCodes: mockChargeCodes,
+    containerTypes: [...CONTAINER_TYPES],
+    packageTypes: [...PACKAGE_TYPES],
+  },
+  customFieldDefs: [],
+  customFieldValues: {},
+
+  addCustomFieldDef: (def) => {
+    const id = uid('cf')
+    set((s) => ({ customFieldDefs: [...s.customFieldDefs, { ...def, id }] }))
+    return id
+  },
+
+  removeCustomFieldDef: (id) =>
+    set((s) => ({ customFieldDefs: s.customFieldDefs.filter((d) => d.id !== id) })),
+
+  setCustomFieldValue: (recordId, fieldId, value) =>
+    set((s) => ({
+      customFieldValues: {
+        ...s.customFieldValues,
+        [recordId]: { ...s.customFieldValues[recordId], [fieldId]: value },
+      },
+    })),
+
+  addMasterOption: (kind, name) => {
+    const trimmed = name.trim()
+    if (!trimmed) return ''
+    if (kind === 'containerTypes' || kind === 'packageTypes') {
+      set((s) => {
+        const list = s.masters[kind]
+        if (list.includes(trimmed)) return s
+        return { masters: { ...s.masters, [kind]: [...list, trimmed] } }
+      })
+      return trimmed
+    }
+    if (kind === 'customers') {
+      const id = uid('c')
+      set((s) => ({
+        masters: { ...s.masters, customers: [...s.masters.customers, { id, name: trimmed, kind: 'Local' }] },
+      }))
+      return id
+    }
+    if (kind === 'chargeCodes') {
+      const id = uid('cc')
+      set((s) => ({
+        masters: {
+          ...s.masters,
+          chargeCodes: [...s.masters.chargeCodes, { id, code: trimmed.slice(0, 6).toUpperCase(), name: trimmed }],
+        },
+      }))
+      return id
+    }
+    // id-based masters (agents/vessels/vendors/depots) become addable in Pass 2,
+    // once their record resolvers read from the store instead of the static mocks.
+    return ''
+  },
 
   createLead: (l) =>
     set((s) => ({
@@ -330,6 +436,7 @@ export const useDataStore = create<DataState>((set, get) => ({
       hblNo: `KLHBL25${String(num).padStart(4, '0')}`,
       cancelled: false,
       createdAt: now(),
+      workflowStatus: 'Booked',
     }
     set((s) => ({
       bookings: [booking, ...s.bookings],
@@ -354,8 +461,38 @@ export const useDataStore = create<DataState>((set, get) => ({
         }
       }
       return {
-        bookings: s.bookings.map((x) => (x.id === bookingId ? { ...x, cancelled: true } : x)),
+        bookings: s.bookings.map((x) =>
+          x.id === bookingId ? { ...x, cancelled: true, workflowStatus: 'Cancelled' } : x,
+        ),
         activities: log(s.activities, bookingId, 'Ops', `Booking cancelled — reason: ${reason}`),
+      }
+    }),
+
+  updateShipmentDates: (bookingId, dates, actor) =>
+    set((s) => {
+      const booking = s.bookings.find((b) => b.id === bookingId)
+      if (!booking) return s
+      const changed: string[] = []
+      if (dates.etd !== undefined && dates.etd !== booking.etd) changed.push(`ETD → ${dates.etd}`)
+      if (dates.eta !== undefined && dates.eta !== booking.eta) changed.push(`ETA → ${dates.eta}`)
+      if (changed.length === 0) return s
+      return {
+        bookings: s.bookings.map((b) => (b.id === bookingId ? { ...b, ...dates } : b)),
+        activities: log(s.activities, bookingId, actor, `Shipment dates updated — ${changed.join(', ')}`),
+      }
+    }),
+
+  setBookingWorkflowStatus: (bookingId, status, actor) =>
+    set((s) => {
+      const booking = s.bookings.find((b) => b.id === bookingId)
+      if (!booking || booking.workflowStatus === status) return s
+      return {
+        bookings: s.bookings.map((b) =>
+          b.id === bookingId
+            ? { ...b, workflowStatus: status, cancelled: status === 'Cancelled' }
+            : b,
+        ),
+        activities: log(s.activities, bookingId, actor, `Booking status → ${status}`),
       }
     }),
 

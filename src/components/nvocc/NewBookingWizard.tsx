@@ -3,22 +3,18 @@ import { Trash2, Plus } from 'lucide-react'
 import { Modal } from '../ui/Modal'
 import { Button } from '../ui/Button'
 import { Field, Select, TextInput } from '../ui/Field'
+import { AddableSelect } from '../ui/AddableSelect'
 import { useDataStore } from '../../store/useDataStore'
 import {
   mockAgents,
-  mockChargeCodes,
-  mockCustomers,
   mockDepots,
   mockVendors,
   mockVessels,
-  CONTAINER_TYPES,
-  PACKAGE_TYPES,
 } from '../../mocks/masters'
 import type { ChargeLine, Direction, FreightTerms } from '../../lib/types'
 
 interface DraftCharge {
   chargeCodeId: string
-  type: 'buy' | 'sell'
   amount: number
   currency: 'USD' | 'INR'
   vendorId: string | null
@@ -34,6 +30,8 @@ interface Props {
 
 export function NewBookingWizard({ open, onClose, onCreated, prefill }: Props) {
   const createBooking = useDataStore((s) => s.createBooking)
+  const masters = useDataStore((s) => s.masters)
+  const addMasterOption = useDataStore((s) => s.addMasterOption)
   const [step, setStep] = useState<1 | 2>(1)
 
   // Step 1 — header (doc §1 field grid)
@@ -61,19 +59,16 @@ export function NewBookingWizard({ open, onClose, onCreated, prefill }: Props) {
 
   // Step 2 — costing (doc §2)
   const [chargeLines, setChargeLines] = useState<DraftCharge[]>([
-    { chargeCodeId: 'cc1', type: 'buy', amount: 0, currency: 'USD', vendorId: 'vn1' },
-    { chargeCodeId: 'cc1', type: 'sell', amount: 0, currency: 'USD', vendorId: null },
+    { chargeCodeId: 'cc1', amount: 0, currency: 'USD', vendorId: null },
   ])
 
   const vessel = mockVessels.find((v) => v.id === vesselId)
-  const customer = mockCustomers.find((c) => c.id === customerId)
+  const customer = masters.customers.find((c) => c.id === customerId)
 
-  const gp = useMemo(() => {
-    // Demo GP at a flat FX for display only (real FX comes from currency master later)
+  const rateTotal = useMemo(() => {
+    // Demo total at a flat FX for display only (real FX comes from currency master later)
     const fx = (c: DraftCharge) => (c.currency === 'INR' ? c.amount / 84 : c.amount)
-    const sell = chargeLines.filter((c) => c.type === 'sell').reduce((a, c) => a + fx(c), 0)
-    const buy = chargeLines.filter((c) => c.type === 'buy').reduce((a, c) => a + fx(c), 0)
-    return sell - buy
+    return chargeLines.reduce((a, c) => a + fx(c), 0)
   }, [chargeLines])
 
   const step1Valid = customerId && shipper && consignee && vesselId
@@ -85,8 +80,7 @@ export function NewBookingWizard({ open, onClose, onCreated, prefill }: Props) {
     setConsignee('')
     setVesselId('')
     setChargeLines([
-      { chargeCodeId: 'cc1', type: 'buy', amount: 0, currency: 'USD', vendorId: 'vn1' },
-      { chargeCodeId: 'cc1', type: 'sell', amount: 0, currency: 'USD', vendorId: null },
+      { chargeCodeId: 'cc1', amount: 0, currency: 'USD', vendorId: null },
     ])
   }
 
@@ -96,8 +90,8 @@ export function NewBookingWizard({ open, onClose, onCreated, prefill }: Props) {
       .filter((c) => c.amount > 0)
       .map((c) => ({
         chargeCodeId: c.chargeCodeId,
-        chargeName: mockChargeCodes.find((cc) => cc.id === c.chargeCodeId)?.name ?? 'Charge',
-        type: c.type,
+        chargeName: masters.chargeCodes.find((cc) => cc.id === c.chargeCodeId)?.name ?? 'Charge',
+        type: 'sell' as const,
         amount: c.amount,
         currency: c.currency,
         vendorId: c.vendorId,
@@ -173,12 +167,14 @@ export function NewBookingWizard({ open, onClose, onCreated, prefill }: Props) {
       {step === 1 ? (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Field label="Booking party (customer master)">
-            <Select value={customerId} onChange={(e) => setCustomerId(e.target.value)}>
-              <option value="">Select customer…</option>
-              {mockCustomers.map((c) => (
-                <option key={c.id} value={c.id}>{c.name}</option>
-              ))}
-            </Select>
+            <AddableSelect
+              value={customerId}
+              onChange={setCustomerId}
+              placeholder="Select customer…"
+              addLabel="Add customer"
+              options={masters.customers.map((c) => ({ value: c.id, label: c.name }))}
+              onAdd={(name) => addMasterOption('customers', name)}
+            />
           </Field>
           <Field label="Direction">
             <Select value={direction} onChange={(e) => setDirection(e.target.value as Direction)}>
@@ -256,11 +252,13 @@ export function NewBookingWizard({ open, onClose, onCreated, prefill }: Props) {
             </Select>
           </Field>
           <Field label="Container type">
-            <Select value={containerType} onChange={(e) => setContainerType(e.target.value)}>
-              {CONTAINER_TYPES.map((t) => (
-                <option key={t}>{t}</option>
-              ))}
-            </Select>
+            <AddableSelect
+              value={containerType}
+              onChange={setContainerType}
+              addLabel="Add container type"
+              options={masters.containerTypes.map((t) => ({ value: t, label: t }))}
+              onAdd={(name) => addMasterOption('containerTypes', name)}
+            />
           </Field>
           <Field label="Container qty">
             <TextInput type="number" min={1} value={containerQty} onChange={(e) => setContainerQty(+e.target.value)} />
@@ -271,11 +269,13 @@ export function NewBookingWizard({ open, onClose, onCreated, prefill }: Props) {
           <Field label="Packages">
             <div className="flex gap-2">
               <TextInput type="number" value={packages} onChange={(e) => setPackages(+e.target.value)} />
-              <Select value={packageType} onChange={(e) => setPackageType(e.target.value)}>
-                {PACKAGE_TYPES.map((t) => (
-                  <option key={t}>{t}</option>
-                ))}
-              </Select>
+              <AddableSelect
+                value={packageType}
+                onChange={setPackageType}
+                addLabel="Add package type"
+                options={masters.packageTypes.map((t) => ({ value: t, label: t }))}
+                onAdd={(name) => addMasterOption('packageTypes', name)}
+              />
             </div>
           </Field>
           <Field label="Gross weight (kg)">
@@ -291,26 +291,18 @@ export function NewBookingWizard({ open, onClose, onCreated, prefill }: Props) {
       ) : (
         <div>
           <p className="mb-4 text-xs text-muted">
-            Buy and sell rates per charge line. GP auto-calculated (sell − buy). Add ad-hoc lines in any currency.
+            Rate per charge line. Add ad-hoc lines in any currency.
           </p>
           <div className="space-y-2">
             {chargeLines.map((c, i) => (
               <div key={i} className="flex items-center gap-2">
-                <Select
+                <AddableSelect
                   value={c.chargeCodeId}
-                  onChange={(e) => setChargeLines((ls) => ls.map((x, j) => (j === i ? { ...x, chargeCodeId: e.target.value } : x)))}
-                >
-                  {mockChargeCodes.map((cc) => (
-                    <option key={cc.id} value={cc.id}>{cc.name}</option>
-                  ))}
-                </Select>
-                <Select
-                  value={c.type}
-                  onChange={(e) => setChargeLines((ls) => ls.map((x, j) => (j === i ? { ...x, type: e.target.value as 'buy' | 'sell' } : x)))}
-                >
-                  <option value="buy">Buy</option>
-                  <option value="sell">Sell</option>
-                </Select>
+                  onChange={(v) => setChargeLines((ls) => ls.map((x, j) => (j === i ? { ...x, chargeCodeId: v } : x)))}
+                  addLabel="Add charge code"
+                  options={masters.chargeCodes.map((cc) => ({ value: cc.id, label: cc.name }))}
+                  onAdd={(name) => addMasterOption('chargeCodes', name)}
+                />
                 <TextInput
                   type="number"
                   placeholder="Amount"
@@ -337,14 +329,14 @@ export function NewBookingWizard({ open, onClose, onCreated, prefill }: Props) {
             variant="secondary"
             size="sm"
             className="mt-3"
-            onClick={() => setChargeLines((ls) => [...ls, { chargeCodeId: 'cc8', type: 'sell', amount: 0, currency: 'USD', vendorId: null }])}
+            onClick={() => setChargeLines((ls) => [...ls, { chargeCodeId: 'cc8', amount: 0, currency: 'USD', vendorId: null }])}
           >
             <Plus size={14} /> Add charge line
           </Button>
           <div className="mt-5 rounded-btn border border-line bg-surface-2/60 p-4 text-sm">
-            <span className="text-body">Gross profit (indicative, USD eq.): </span>
-            <span className={`font-mono font-semibold ${gp >= 0 ? 'text-primary' : 'text-accent-coral'}`}>
-              ${gp.toFixed(0)}
+            <span className="text-body">Rate total (indicative, USD eq.): </span>
+            <span className="font-mono font-semibold text-primary">
+              ${rateTotal.toFixed(0)}
             </span>
           </div>
         </div>

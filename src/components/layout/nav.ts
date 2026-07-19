@@ -1,5 +1,4 @@
 import {
-  LayoutDashboard,
   Anchor,
   Boxes,
   Container,
@@ -25,7 +24,6 @@ export interface NavItem {
 }
 
 export const NAV_ITEMS: NavItem[] = [
-  { label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard, module: 'dashboard' },
   { label: 'NVOCC', path: '/nvocc', icon: Anchor, module: 'nvocc' },
   { label: 'Freight FWD', path: '/freight', icon: Boxes, module: 'freight' },
   { label: 'MNR (Container)', path: '/mnr', icon: Container, module: 'mnr' },

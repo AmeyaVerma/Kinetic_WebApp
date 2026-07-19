@@ -1,5 +1,8 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { UserCog, CheckCircle2, DollarSign, AlertTriangle, ShieldAlert } from 'lucide-react'
 import { Card } from '../components/ui/Card'
+import { StatKpi } from '../components/ui/StatKpi'
+import { CsvButton } from '../components/ui/CsvButton'
 import { StatusChip } from '../components/ui/StatusChip'
 import { AgentDetail } from '../components/agents/AgentDetail'
 import { useDataStore } from '../store/useDataStore'
@@ -16,6 +19,35 @@ export function AgentsPage() {
   const { agents } = useDataStore()
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const selected = agents.find((a) => a.id === selectedId) ?? null
+  const detailRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (selectedId && detailRef.current) {
+      detailRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+  }, [selectedId])
+
+  const kpis = useMemo(() => ({
+    total: agents.length,
+    active: agents.filter((a) => a.status === 'Active').length,
+    soaDue: agents.filter((a) => a.soaBalanceUsd !== 0).length,
+    flagged: agents.filter((a) => a.performanceFlagged).length,
+    suspended: agents.filter((a) => a.status === 'Suspended' || a.status === 'Terminated').length,
+  }), [agents])
+
+  const agentRows = useMemo(
+    () =>
+      agents.map((a) => ({
+        Code: a.code,
+        Name: a.displayName || a.legalName,
+        Direction: a.direction,
+        Ports: a.portsCovered.join(', '),
+        Commission: a.commissionType === '% of freight' ? `${a.commissionValue}%` : a.commissionType === 'Flat fee per shipment' ? `$${a.commissionValue}/shpt` : 'Tiered',
+        'SOA Balance (USD)': a.soaBalanceUsd,
+        Status: a.status,
+      })),
+    [agents],
+  )
 
   return (
     <div className="space-y-5">
@@ -28,7 +60,19 @@ export function AgentsPage() {
         </p>
       </div>
 
+      {/* KPI row */}
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+        <StatKpi label="Total Agents" value={kpis.total} icon={<UserCog size={17} />} tint="#ECFDF5" color="#10B981" />
+        <StatKpi label="Active" value={kpis.active} icon={<CheckCircle2 size={17} />} tint="#EFF6FF" color="#3B82F6" />
+        <StatKpi label="SOA Balance Due" value={kpis.soaDue} icon={<DollarSign size={17} />} tint="#FFF7ED" color="#F97316" />
+        <StatKpi label="Performance Flagged" value={kpis.flagged} icon={<AlertTriangle size={17} />} tint="#FEF3C7" color="#B45309" />
+        <StatKpi label="Suspended / Terminated" value={kpis.suspended} icon={<ShieldAlert size={17} />} tint="#FEE2E2" color="#DC2626" />
+      </div>
+
       <Card className="overflow-hidden">
+        <div className="flex items-center justify-end border-b border-line px-4 py-2.5">
+          <CsvButton filename="agents" rows={agentRows} />
+        </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead>
@@ -83,7 +127,11 @@ export function AgentsPage() {
         </div>
       </Card>
 
-      {selected && <AgentDetail agent={selected} />}
+      {selected && (
+        <div ref={detailRef} className="scroll-mt-4">
+          <AgentDetail agent={selected} />
+        </div>
+      )}
     </div>
   )
 }

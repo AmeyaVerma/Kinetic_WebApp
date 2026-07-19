@@ -75,6 +75,13 @@ const IMPORT_STATUS_LADDER: [string, BookingStatus][] = [
   ['documents_received', 'Closed'],
 ]
 
+/** Ordered lifecycle phases for the roadmap stepper — 'Booked' then each
+    status the ladder can climb to, in order. */
+export function statusSequence(direction: Direction): BookingStatus[] {
+  const ladder = direction === 'Export' ? EXPORT_STATUS_LADDER : IMPORT_STATUS_LADDER
+  return ['Booked', ...ladder.map(([, s]) => s)]
+}
+
 export function deriveStatus(
   direction: Direction,
   entries: MilestoneEntry[],

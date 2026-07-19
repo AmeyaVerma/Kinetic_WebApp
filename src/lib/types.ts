@@ -100,6 +100,16 @@ export interface Quote {
 export type Direction = 'Export' | 'Import'
 export type FreightTerms = 'Prepaid' | 'Collect'
 
+/** Manually-selectable operational status (Workflow v3 §9), distinct from the
+    milestone-computed lifecycle status below. Ops set this by hand; the Cycle %
+    stays milestone-driven. */
+export type BookingWorkflowStatus =
+  | 'Booked'
+  | 'In Progress'
+  | 'Cancelled'
+  | 'Back to Town'
+  | 'Hold'
+
 export type BookingStatus =
   | 'Booked'
   | 'Container allocated'
@@ -158,6 +168,24 @@ export interface Booking {
   hblNo: string | null
   cancelled: boolean
   createdAt: string
+  /** Manual operational status (Workflow v3 §9). Optional on legacy/seed records —
+      normalise with `workflowStatusOf()` which falls back to cancelled → Booked. */
+  workflowStatus?: BookingWorkflowStatus
+}
+
+/* ── Custom fields (Workflow §11 — user-defined fields) ──────────
+   Config-driven so a tenant can extend a record's schema without code.
+   Defs are global per entity; values are per record. */
+
+export type CustomFieldType = 'text' | 'number' | 'date' | 'select'
+export type CustomFieldEntity = 'booking'
+
+export interface CustomFieldDef {
+  id: string
+  entity: CustomFieldEntity
+  label: string
+  type: CustomFieldType
+  options: string[] // used when type === 'select'
 }
 
 /* ── Charges / costing (doc §2, booking_charges) ─────────────── */
@@ -828,8 +856,6 @@ export interface PayrollRun {
   lopDeductionsInr: number
 }
 
-/* ── Dashboard aggregates (unchanged consumers) ──────────────── */
-
 export type ChipStatus =
   | 'Booked'
   | 'In Transit'
@@ -841,55 +867,6 @@ export type ChipStatus =
   | 'BL Draft'
   | 'Pending'
   | 'Overdue'
-
-export interface KpiSummary {
-  totalShipments: number
-  totalShipmentsDelta: number
-  inTransit: number
-  inTransitDelta: number
-  delivered: number
-  deliveredDelta: number
-  revenueUsd: number
-  revenueDelta: number
-  blDrafts: number
-  blDraftsDelta: number
-}
-
-export interface ShipmentOverviewPoint {
-  label: string
-  booked: number
-  inTransit: number
-  delivered: number
-}
-
-export interface ShipmentTypeSlice {
-  label: string
-  value: number
-  color: string
-}
-
-export interface TradeLane {
-  from: string
-  to: string
-  sharePct: number
-  kind: 'sea' | 'other'
-}
-
-export interface TaskItem {
-  id: string
-  label: string
-  count: number
-}
-
-export interface DashboardData {
-  kpis: KpiSummary
-  overview: ShipmentOverviewPoint[]
-  byType: ShipmentTypeSlice[]
-  byTypeTotal: number
-  tradeLanes: TradeLane[]
-  tasks: TaskItem[]
-  notifications: number
-}
 
 export interface CurrentUser {
   name: string

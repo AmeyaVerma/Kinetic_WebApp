@@ -1,5 +1,8 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { Users2, CheckCircle2, Globe2, AlertTriangle, ShieldAlert } from 'lucide-react'
 import { Card } from '../components/ui/Card'
+import { StatKpi } from '../components/ui/StatKpi'
+import { CsvButton } from '../components/ui/CsvButton'
 import { StatusChip } from '../components/ui/StatusChip'
 import { CustomerDetail } from '../components/customers/CustomerDetail'
 import { useDataStore } from '../store/useDataStore'
@@ -17,6 +20,35 @@ export function CustomersPage() {
   const { customers } = useDataStore()
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const selected = customers.find((c) => c.id === selectedId) ?? null
+  const detailRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (selectedId && detailRef.current) {
+      detailRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+  }, [selectedId])
+
+  const kpis = useMemo(() => ({
+    total: customers.length,
+    active: customers.filter((c) => c.status === 'Active').length,
+    portalEnabled: customers.filter((c) => c.portalEnabled).length,
+    pendingCredit: customers.filter((c) => c.pendingCreditRequest != null).length,
+    blacklisted: customers.filter((c) => c.status === 'Blacklisted').length,
+  }), [customers])
+
+  const customerRows = useMemo(
+    () =>
+      customers.map((c) => ({
+        Code: c.code,
+        Name: c.displayName || c.legalName,
+        Industry: c.industry,
+        'Credit Limit': c.cashInAdvanceOnly ? 'Cash in advance' : `${c.creditCurrency} ${c.creditLimit}`,
+        'Portal Enabled': c.portalEnabled ? 'Yes' : 'No',
+        'Sales Owner': c.salesOwner,
+        Status: c.status,
+      })),
+    [customers],
+  )
 
   return (
     <div className="space-y-5">
@@ -29,7 +61,19 @@ export function CustomersPage() {
         </p>
       </div>
 
+      {/* KPI row */}
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+        <StatKpi label="Total Customers" value={kpis.total} icon={<Users2 size={17} />} tint="#ECFDF5" color="#10B981" />
+        <StatKpi label="Active" value={kpis.active} icon={<CheckCircle2 size={17} />} tint="#EFF6FF" color="#3B82F6" />
+        <StatKpi label="Portal Enabled" value={kpis.portalEnabled} icon={<Globe2 size={17} />} tint="#F5F3FF" color="#8B5CF6" />
+        <StatKpi label="Pending Credit Requests" value={kpis.pendingCredit} icon={<AlertTriangle size={17} />} tint="#FEF3C7" color="#B45309" />
+        <StatKpi label="Blacklisted" value={kpis.blacklisted} icon={<ShieldAlert size={17} />} tint="#FEE2E2" color="#DC2626" />
+      </div>
+
       <Card className="overflow-hidden">
+        <div className="flex items-center justify-end border-b border-line px-4 py-2.5">
+          <CsvButton filename="customers" rows={customerRows} />
+        </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead>
@@ -85,7 +129,11 @@ export function CustomersPage() {
         </div>
       </Card>
 
-      {selected && <CustomerDetail customer={selected} />}
+      {selected && (
+        <div ref={detailRef} className="scroll-mt-4">
+          <CustomerDetail customer={selected} />
+        </div>
+      )}
     </div>
   )
 }

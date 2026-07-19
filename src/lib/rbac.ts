@@ -7,7 +7,6 @@
 import type { Role } from './types'
 
 export type ModuleKey =
-  | 'dashboard'
   | 'nvocc'
   | 'freight'
   | 'mnr'
@@ -32,7 +31,6 @@ export interface ModuleDef {
 
 /** Module registry — path ties each module to its route + nav item. */
 export const MODULES: ModuleDef[] = [
-  { key: 'dashboard', label: 'Dashboard', path: '/dashboard' },
   { key: 'nvocc', label: 'NVOCC', path: '/nvocc' },
   { key: 'freight', label: 'Freight FWD', path: '/freight' },
   { key: 'mnr', label: 'MNR (Container)', path: '/mnr' },
@@ -73,44 +71,44 @@ const N: Access = 'none'
     — they land in the scoped portal instead. */
 export const ROLE_MATRIX: Record<Role, Record<ModuleKey, Access>> = {
   admin: {
-    dashboard: F, nvocc: F, freight: F, mnr: F, accounts: F, master: F,
+    nvocc: F, freight: F, mnr: F, accounts: F, master: F,
     approvals: F, customers: F, agents: F, reports: F, hr: F, settings: F, users: F,
   },
   ops: {
-    dashboard: F, nvocc: F, freight: F, mnr: V, accounts: N, master: F,
+    nvocc: F, freight: F, mnr: V, accounts: N, master: F,
     approvals: F, customers: V, agents: V, reports: F, hr: N, settings: F, users: N,
   },
   finance: {
-    dashboard: F, nvocc: V, freight: V, mnr: V, accounts: F, master: V,
+    nvocc: V, freight: V, mnr: V, accounts: F, master: V,
     approvals: F, customers: V, agents: V, reports: F, hr: V, settings: F, users: N,
   },
   sales: {
-    dashboard: F, nvocc: F, freight: F, mnr: N, accounts: N, master: V,
+    nvocc: F, freight: F, mnr: N, accounts: N, master: V,
     approvals: N, customers: F, agents: N, reports: F, hr: N, settings: F, users: N,
   },
   mnr: {
-    dashboard: V, nvocc: V, freight: N, mnr: F, accounts: N, master: V,
+    nvocc: V, freight: N, mnr: F, accounts: N, master: V,
     approvals: F, customers: N, agents: N, reports: F, hr: N, settings: F, users: N,
   },
   hr: {
-    dashboard: V, nvocc: N, freight: N, mnr: N, accounts: N, master: N,
+    nvocc: N, freight: N, mnr: N, accounts: N, master: N,
     approvals: F, customers: N, agents: N, reports: F, hr: F, settings: F, users: N,
   },
   // External — shell modules all hidden; scoped portal handled separately.
   customer: {
-    dashboard: N, nvocc: N, freight: N, mnr: N, accounts: N, master: N,
+    nvocc: N, freight: N, mnr: N, accounts: N, master: N,
     approvals: N, customers: N, agents: N, reports: N, hr: N, settings: N, users: N,
   },
   agent: {
-    dashboard: N, nvocc: N, freight: N, mnr: N, accounts: N, master: N,
+    nvocc: N, freight: N, mnr: N, accounts: N, master: N,
     approvals: N, customers: N, agents: N, reports: N, hr: N, settings: N, users: N,
   },
 }
 
 /** Where each role lands after login. */
 export const LANDING: Record<Role, string> = {
-  admin: '/dashboard',
-  ops: '/dashboard',
+  admin: '/nvocc',
+  ops: '/nvocc',
   finance: '/accounts',
   sales: '/nvocc',
   mnr: '/mnr',

@@ -1,7 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import type { ReactNode } from 'react'
 import { Layout } from './components/layout/Layout'
-import { DashboardPage } from './pages/DashboardPage'
 import { DesignSystemPage } from './pages/DesignSystemPage'
 import { PlaceholderPage } from './pages/PlaceholderPage'
 import { NvoccPage } from './pages/NvoccPage'
@@ -64,7 +63,6 @@ export default function App() {
         <Route element={<Layout />}>
           <Route path="/" element={<Navigate to={LANDING[user.role]} replace />} />
           <Route path="/login" element={<Navigate to={LANDING[user.role]} replace />} />
-          <Route path="/dashboard" element={<Guard module="dashboard"><DashboardPage /></Guard>} />
           <Route path="/nvocc" element={<Guard module="nvocc"><NvoccPage /></Guard>} />
           <Route path="/nvocc/:id" element={<Guard module="nvocc"><BookingDetailPage /></Guard>} />
           <Route path="/freight" element={<Guard module="freight"><FreightPage /></Guard>} />

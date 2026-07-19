@@ -3,16 +3,11 @@
    src/mocks/. When the Supabase backend lands, only this file
    changes — every component/page keeps calling the same API.    */
 
-import type { Booking, CurrentUser, DashboardData } from './types'
-import { mockBookings, mockDashboard } from '../mocks/seed'
+import type { Booking, CurrentUser } from './types'
+import { mockBookings } from '../mocks/seed'
 
 /** Simulate a network round-trip so loading states stay honest. */
 const delay = (ms = 120) => new Promise((r) => setTimeout(r, ms))
-
-export async function fetchDashboard(): Promise<DashboardData> {
-  await delay()
-  return mockDashboard
-}
 
 export async function fetchBookings(): Promise<Booking[]> {
   await delay()

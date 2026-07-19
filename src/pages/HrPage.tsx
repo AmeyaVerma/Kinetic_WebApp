@@ -2,6 +2,8 @@ import { useMemo, useState } from 'react'
 import { Users, CalendarOff, ClipboardCheck, FileWarning, GraduationCap, Plus } from 'lucide-react'
 import { Card } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
+import { StatKpi } from '../components/ui/StatKpi'
+import { CsvButton } from '../components/ui/CsvButton'
 import { StatusChip } from '../components/ui/StatusChip'
 import { Tabs } from '../components/ui/Tabs'
 import { Modal } from '../components/ui/Modal'
@@ -56,6 +58,38 @@ export function HrPage() {
 
   const selected = employees.find((e) => e.id === selectedId) ?? null
 
+  const employeeRows = employees.map((e) => ({
+    Code: e.code,
+    Name: e.name,
+    Designation: e.designation,
+    Department: e.department,
+    'Date of Joining': e.dateOfJoining,
+    'Reports To': employees.find((m) => m.id === e.reportingTo)?.name ?? '',
+    'CL Left': balanceFor(e, 'Casual'),
+    'SL Left': balanceFor(e, 'Sick'),
+    'EL Left': balanceFor(e, 'Earned'),
+    Status: e.status,
+  }))
+
+  const leaveRows = leaveRequests.map((r) => ({
+    Employee: r.employeeName,
+    Type: r.type,
+    From: r.from,
+    To: r.to,
+    Days: r.days,
+    'LOP Days': r.lopDays,
+    Reason: r.reason,
+    Status: r.status,
+  }))
+
+  const payrollRows = payrollRuns.map((p) => ({
+    Month: p.month,
+    Employees: p.employees,
+    'Gross (INR)': p.grossInr,
+    'LOP Deductions (INR)': p.lopDeductionsInr,
+    Status: p.status,
+  }))
+
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -73,11 +107,11 @@ export function HrPage() {
 
       {/* KPI row */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
-        <HrKpi label="Headcount" value={kpis.headcount} icon={<Users size={17} />} tint="#ECFDF5" color="#10B981" />
-        <HrKpi label="On leave today" value={kpis.onLeaveToday} icon={<CalendarOff size={17} />} tint="#EFF6FF" color="#3B82F6" />
-        <HrKpi label="Pending approvals" value={kpis.pendingLeave} icon={<ClipboardCheck size={17} />} tint="#FFF7ED" color="#F97316" />
-        <HrKpi label="Docs expiring <60d" value={kpis.docsExpiring} icon={<FileWarning size={17} />} tint="#FEE2E2" color="#DC2626" />
-        <HrKpi label="On probation" value={kpis.probation} icon={<GraduationCap size={17} />} tint="#F5F3FF" color="#8B5CF6" />
+        <StatKpi label="Headcount" value={kpis.headcount} icon={<Users size={17} />} tint="#ECFDF5" color="#10B981" />
+        <StatKpi label="On leave today" value={kpis.onLeaveToday} icon={<CalendarOff size={17} />} tint="#EFF6FF" color="#3B82F6" />
+        <StatKpi label="Pending approvals" value={kpis.pendingLeave} icon={<ClipboardCheck size={17} />} tint="#FFF7ED" color="#F97316" />
+        <StatKpi label="Docs expiring <60d" value={kpis.docsExpiring} icon={<FileWarning size={17} />} tint="#FEE2E2" color="#DC2626" />
+        <StatKpi label="On probation" value={kpis.probation} icon={<GraduationCap size={17} />} tint="#F5F3FF" color="#8B5CF6" />
       </div>
 
       <Tabs
@@ -94,6 +128,9 @@ export function HrPage() {
       {tab === 'employees' && (
         <div className="space-y-5">
           <Card className="overflow-hidden">
+            <div className="flex items-center justify-end border-b border-line px-4 py-2.5">
+              <CsvButton filename="hr-employees" rows={employeeRows} />
+            </div>
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm">
                 <thead>
@@ -145,6 +182,9 @@ export function HrPage() {
 
       {tab === 'leave' && (
         <Card className="overflow-hidden">
+          <div className="flex items-center justify-end border-b border-line px-4 py-2.5">
+            <CsvButton filename="hr-leave-requests" rows={leaveRows} />
+          </div>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead>
@@ -207,6 +247,9 @@ export function HrPage() {
 
       {tab === 'payroll' && (
         <Card className="overflow-hidden">
+          <div className="flex items-center justify-end border-b border-line px-4 py-2.5">
+            <CsvButton filename="hr-payroll" rows={payrollRows} />
+          </div>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead>
@@ -242,18 +285,6 @@ export function HrPage() {
       )}
 
       <LeaveModal open={leaveModal} onClose={() => setLeaveModal(false)} onDone={() => { setLeaveModal(false); setTab('leave') }} />
-    </div>
-  )
-}
-
-function HrKpi({ label, value, icon, tint, color }: { label: string; value: number; icon: React.ReactNode; tint: string; color: string }) {
-  return (
-    <div className="rounded-card border border-transparent p-4 shadow-card dark:!bg-surface" style={{ backgroundColor: tint }}>
-      <div className="flex items-center justify-between">
-        <p className="text-xs font-medium text-[#334155] dark:text-body">{label}</p>
-        <span style={{ color }}>{icon}</span>
-      </div>
-      <p className="mt-2 font-display text-2xl font-bold" style={{ color }}>{value}</p>
     </div>
   )
 }
