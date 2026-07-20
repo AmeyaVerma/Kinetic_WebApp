@@ -1,6 +1,6 @@
 # Kinetic Line Logistics ERP — Project Status Document
 
-**Prepared:** July 2026
+**Prepared:** July 2026 (last refreshed 20 Jul 2026)
 **Repo:** [github.com/AmeyaVerma/Kinetic_WebApp](https://github.com/AmeyaVerma/Kinetic_WebApp) · Deployed on Vercel
 **Scope of this document:** everything built to date, the technology used, how source documents map to code, and what remains.
 
@@ -26,7 +26,6 @@ The application was built **UI-first**: every module is a fully clickable, produ
 | Routing | **React Router 7** | Client-side routing, nested layouts, route guards |
 | State management | **Zustand 5** | Three stores: `useDataStore` (all business data), `useAuthStore` (session/RBAC), `useUiStore` (theme/sidebar) |
 | Styling | **Tailwind CSS 3** | Utility-first, fully tokenized to the design system |
-| Charts | **Recharts 3** | Dashboard line chart + donut chart |
 | Icons | **Lucide React** | Consistent icon set across the app |
 | Fonts | **Fontsource** (self-hosted) | Archivo (display), Inter (body), IBM Plex Mono (codes/refs) — no external font CDN calls |
 | Type checking | **TypeScript 6 (tsc -b)** | Runs as part of every production build |
@@ -35,7 +34,9 @@ The application was built **UI-first**: every module is a fully clickable, produ
 | Planned backend | **Supabase** (Postgres + Auth + Row-Level Security + Storage) | Not yet connected — see §6 |
 | Planned integration | **Zoho Books REST API** | Simulated today (sync-status chips), real integration pending |
 
-**Codebase size today:** 55 TypeScript/TSX files, ~18,600 lines of code, 13 commits on `main`.
+**Codebase size today:** 61 TypeScript/TSX files, ~18,900 lines of code, 13 commits on `main`.
+
+> Note: the Recharts library previously powered the standalone Dashboard's line/donut charts. That page has since been removed (see §5.1), so charts are no longer rendered anywhere; per-module KPI tiles replaced them.
 
 ---
 
@@ -54,7 +55,8 @@ Every module was built directly from a written specification supplied during the
 | `Kinetic-Agent-Management-Requirements-v1.docx` + flowchart PDF | Agent Management module |
 | Business Solution export tracker (`.csv`, multiple pulls) | Real NVOCC booking data (24 bookings) + real MNR fleet inventory (333 containers) |
 | Web research (HR-ERP best practices + Indian statutory leave law) | HR module — no written spec existed; design was research-driven |
-| User-directed design session (this conversation) | Role-based access control, login flow, Admin Users & Roles feature |
+| User-directed design session | Role-based access control, login flow, Admin Users & Roles feature |
+| Handwritten refinement notebook (17-item punch list, Jul 2026) | The cross-cutting UX + data-extensibility pass — per-module dashboards, single "Rate" costing, CSV export, editable dates, manual booking status, addable dropdowns, custom fields, roadmap relocation, scroll fixes (see §5.1, §5.2, §5.10) |
 
 ---
 
@@ -76,19 +78,22 @@ A locked, documented token set (see `src/pages/DesignSystemPage.tsx` for the liv
 
 ### 5.1 Foundation & shell
 - App shell: white sidebar (nav filtered by role — see §5.9), sticky frosted top bar (search, notifications, user menu), responsive mobile drawer, light/dark toggle
-- Dashboard: KPI cards, shipment-over-time line chart, shipment-by-type donut, top trade lanes, recent-shipments table, quick shortcuts, today's tasks — built to match the reference design image pixel-for-pixel
+- **Per-module dashboards** (replaced the standalone global Dashboard): every module page now opens with its own live KPI tile row computed from that module's real data — NVOCC (bookings, in-transit, delivered/arrived, BL drafts, open leads), Freight, MNR, HR, Customers, Agents — via one shared `StatKpi` component. The old aggregate Dashboard page, its route, its sidebar entry, and its mock-chart data layer were removed; internal users now **land on NVOCC** after login (each role still lands on its own primary module).
 - Design-system reference page (`/design-system`)
 
 ### 5.2 NVOCC (`/nvocc`)
 *Source: Workflow v3, §0.5–§11*
 
 - **Lead → Quote → Booking funnel**: lead capture (including walk-in customers with no master record), quote builder with automatic margin-threshold routing to manager approval, one-click conversion of an accepted quote into a booking
-- **2-step New Booking wizard**: full header (customer, shipper/consignee, both agents, vessel master with auto-fill of POL/POD/ETD/ETA, free days, transit time) + buy/sell costing grid with live gross-profit calculation
+- **2-step New Booking wizard**: full header (customer, shipper/consignee, both agents, vessel master with auto-fill of POL/POD/ETD/ETA, free days, transit time) + a costing grid. **The buy side was removed** — NVOCC now captures a single customer-facing **"Rate"** line per charge (buy vs. sell only remains in Freight Forwarding, which genuinely needs both); the wizard and the Invoicing tab both show a "Rate total" rather than a gross-profit calc
 - **8-tab booking record**: Container info · Product info · Shipment details · Agent details · Container yard · Container activities · Invoicing · Documents
-- **Computed lifecycle**: booking status and cycle-% progress are *never* set manually — they are derived from a 22-step export / 9-step import milestone checklist (`src/lib/milestones.ts`)
+- **Editable shipment dates**: ETD/ETA on the Shipment details tab are editable (manual typing *or* the native calendar picker), saved on blur and written to the activity log
+- **Computed cycle + manual operational status** (two distinct concepts that coexist): cycle-% progress is still *never* set manually — derived from a 22-step export / 9-step import milestone checklist (`src/lib/milestones.ts`). Alongside it, a **manual booking-status dropdown** (Booked / In Progress / Cancelled / Back to Town / Hold, config-driven in `src/lib/bookingStatus.ts`) lets Ops set the operational status by hand, and a **"Latest update"** line surfaces the most recent activity-log entry. Setting status to Cancelled voids the booking and vice-versa
+- **Lifecycle roadmap**: a horizontal stage stepper (Booked → Container allocated → Documentation → … → Closed, direction-aware) on the booking header, driven by the milestone-computed status. This roadmap was **relocated from the Freight Forwarding detail view** (see §5.4) into a reusable `StageStepper` component and re-fed with NVOCC's own lifecycle
 - **CRO workflow**: generate → issue → confirm pickup (auto-logs gate-out + milestone)
 - **BL (Bill of Lading) engine**: three edit paths (Ops direct-and-versioned, Agent live-and-versioned, Customer approval-gated), full version history, lock-on-approval, Original/Telex/Seaway release, formal amendment cycle after lock
 - **Real data**: all 24 seed bookings are the company's actual tracker records (`src/mocks/nvoccSeed.ts`), including real vessel names, terminals, container numbers, and HBL numbers; new bookings continue the real `KLNVO2627xxxxxx` numbering scheme
+- **User-extensible fields**: the booking flow is also the first home of the addable-dropdown-options and custom-field-builder features — see §5.10
 
 ### 5.3 MNR — Maintenance & Repair (`/mnr`)
 *Source: MNR Requirements v2 + flowchart (5 flows)*
@@ -110,6 +115,7 @@ A locked, documented token set (see `src/pages/DesignSystemPage.tsx` for the liv
 - **Export/import operational flow**: broker assignment, customs hold/resolve, cut-off tracking with a missed-cut-off re-plan loop, departure/SOB, arrival notice, Bill of Entry, Out-of-Charge, Delivery Order, POD capture
 - **Estimated → Actual GP**: profit shows as "Estimated" until every independently-arriving vendor bill is matched (>10% variance routes to Approvals); flips to "Actual" only when fully reconciled; financial closure is blocked until then
 - **LCL consolidation**: parent booking represents one physical container; child HBLs (one per shipper) each carry their own client, sell price, and P&L; container-level costs are apportioned across children by revenue share on run-close; children then close financially on independent timelines
+- **Note:** the horizontal stage-stepper roadmap that used to sit at the top of the FF shipment detail was **removed from FF and relocated to the NVOCC booking record** (per the refinement notebook). FF retains its per-stage operational panels and the list-view Stage column; it no longer renders the stepper
 
 ### 5.5 Customer Management (inside **Customer Portal**, `/portal/customer`)
 *Source: Customer Management Requirements v1 + flowchart*
@@ -147,6 +153,9 @@ This is the connective tissue that makes the seven modules behave as one system 
 - **Shared invoicing engine** — a single 10-state invoice lifecycle (Draft → Pending approval → Approved → Zoho synced → Emailed → Partially paid → Paid / Overdue / Cancelled) used identically by NVOCC AR/AP invoices, MNR customer recovery debit notes, and Freight Forwarding client invoices
 - **Immutable audit log** — every state-changing action across every module writes to a permanent, per-record activity log (actor, timestamp, action) — visible on booking detail pages, customer/agent records, employee records, and the admin audit trail
 - **Single swappable data layer** — all business data lives behind `useDataStore` (Zustand) and mock seed files; no component talks to mock data directly, which is what makes the future Supabase migration a data-layer swap rather than a UI rewrite
+- **Store-backed master data** — the master lists that feed dropdowns (customers, agents, vessels, vendors, depots, charge codes, container/package types) now live in a `masters` slice inside `useDataStore`, seeded from the mock master files, with an `addMasterOption` action. This both closes a previous single-data-layer gap (master reads used to import the mock files directly) and powers the user-extensible dropdowns in §5.10
+- **Custom-field schema** — `customFieldDefs` (global per-entity field definitions) and `customFieldValues` (per-record values) live in the store as a config-driven mini-schema, ready to map onto a Supabase table (see §5.10)
+- **CSV export utility** — a shared `downloadCsv` helper + `CsvButton` component export any on-screen table/list to a `.csv` client-side (§5.10)
 
 ### 5.9 Authentication & Role-Based Access Control
 *Source: user-directed design session, no external document*
@@ -162,6 +171,18 @@ This is the connective tissue that makes the seven modules behave as one system 
   - **Audit trail tab** — every role and access change, immutable
 - **Admin "View as" preview** — lets an admin see the app through another role's eyes without actually re-authenticating or escalating privilege
 
+### 5.10 Cross-cutting UX & data-extensibility pass
+*Source: handwritten refinement notebook (Jul 2026)*
+
+A round of platform-wide refinements applied across every module rather than to a single feature:
+
+- **Per-module dashboards** — every module opens with its own KPI tile row (see §5.1); the standalone Dashboard page was retired
+- **CSV export everywhere** — a "Download CSV" button sits beside every data table/list across the app (NVOCC bookings/leads/quotes, Freight shipments, MNR jobs + fleet, HR employees/leave/payroll, Customers, Agents, Approvals, Users, and the admin audit trail). Each export respects the current view's active filters and uses human-readable column headers
+- **Addable dropdown options (Pass 1 — done)** — a reusable `AddableSelect` component adds an inline **"+"** affordance to master-backed dropdowns: type a new value, it's appended to the store `masters` slice and immediately selected. Live today on the dropdowns whose value is stored **by name/string** on the record (customer, container type, package type, charge code), so newly-added options can never orphan a reference
+- **Custom-field builder (Pass 2 — done)** — on the booking record, a **"+ Add field"** control lets a user define an entirely new field (label + type: text / number / date / dropdown-with-options). Definitions are **global per entity** (apply to every booking); values are **per record**. This is the config-driven, tenant-safe schema-extension mechanism intended to become a Supabase table — not hardcoded fields. (`CustomFieldsCard.tsx` + the store's `customFieldDefs`/`customFieldValues`)
+- **Auto-scroll to detail** — clicking a row in the Customer Portal, Agent Portal, or MNR repair-jobs list now smooth-scrolls the newly-revealed detail panel into view (previously it opened below the fold with no scroll)
+- **Editable shipment dates** and the **manual booking-status dropdown / lifecycle roadmap** described under NVOCC (§5.2) also came from this pass
+
 ---
 
 ## 6. What is *not* built yet
@@ -174,7 +195,9 @@ This is the connective tissue that makes the seven modules behave as one system 
 | **Empty Yard Management** (Workflow v3 §22 — yard-level stock/gate view) | Not started |
 | **Cross-module Container Tracking** (Workflow v3 §24 — one search across all modules) | Not started |
 | **Accounts / Finance workspace** (`/accounts`) | Placeholder page only |
-| **Master Data screens** (`/master` — 12 entity types) | Placeholder page only; entities exist as mock data but have no dedicated CRUD UI |
+| **Master Data screens** (`/master` — 12 entity types) | Placeholder page only. Master lists now live in the store `masters` slice (§5.8) and can be extended inline from dropdowns (§5.10), but there is still no dedicated Master Data CRUD workspace |
+| **Addable options for id-referenced masters** | Partial. Name/string-stored dropdowns are addable (customer, container type, package type, charge code). Vessel, agents, depots, and vendors are **not yet** addable — their record resolvers still read the static mock files, so that must be migrated to the store first, and vessel additionally needs a multi-field add form (name/voyage/POL/POD/ETD/ETA). Tracked as the Pass-2 remainder |
+| **Custom fields on other entities** | The custom-field builder (§5.10) currently targets the booking record only; the mechanism is entity-generic and can be extended to customers, agents, containers, etc. |
 | **Reports module** (`.xlsx` exports via SheetJS) | Placeholder page only |
 | **Settings** | Placeholder page only |
 | **Full HR payroll processing** | Explicitly scoped as Phase 2 in the product reference; only a read-only register exists today |
