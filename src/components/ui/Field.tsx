@@ -1,4 +1,4 @@
-import type { InputHTMLAttributes, ReactNode, SelectHTMLAttributes } from 'react'
+import type { InputHTMLAttributes, ReactNode, SelectHTMLAttributes, TextareaHTMLAttributes } from 'react'
 
 const inputCls =
   'w-full rounded-input border border-[#E5E7EB] dark:border-line bg-surface px-3.5 py-2.5 text-sm text-heading placeholder:text-muted focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary'
@@ -14,6 +14,10 @@ export function Field({ label, children }: { label: string; children: ReactNode 
 
 export function TextInput(props: InputHTMLAttributes<HTMLInputElement>) {
   return <input className={inputCls} {...props} />
+}
+
+export function Textarea(props: TextareaHTMLAttributes<HTMLTextAreaElement>) {
+  return <textarea rows={4} className={`${inputCls} resize-y`} {...props} />
 }
 
 export function Select({ children, ...rest }: SelectHTMLAttributes<HTMLSelectElement>) {

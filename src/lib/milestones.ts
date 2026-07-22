@@ -4,10 +4,8 @@ import type { BookingStatus, ChipStatus, Direction, MilestoneDef, MilestoneEntry
    Status and cycle % are COMPUTED from these — never set by hand. */
 
 export const EXPORT_MILESTONES: MilestoneDef[] = [
-  { key: 'gate_open', label: 'Gate open' },
-  { key: 'si_cutoff', label: 'SI cut-off' },
-  { key: 'vgm_cutoff', label: 'VGM cut-off' },
-  { key: 'cy_cutoff', label: 'CY cut-off' },
+  // Gate open / SI / VGM / CY cut-off are tracked as planned dates on the
+  // Shipment details header instead of as sequence steps here.
   { key: 'cro_released', label: 'CRO released' },
   { key: 'container_picked_up', label: 'Container picked up' },
   { key: 'form13_released', label: 'Form 13 released' },

@@ -8,6 +8,7 @@ import { BookingDetailPage } from './pages/BookingDetailPage'
 import { ApprovalsPage } from './pages/ApprovalsPage'
 import { MnrPage } from './pages/MnrPage'
 import { FreightPage } from './pages/FreightPage'
+import { FfDetailPage } from './pages/FfDetailPage'
 import { CustomersPage } from './pages/CustomersPage'
 import { AgentsPage } from './pages/AgentsPage'
 import { HrPage } from './pages/HrPage'
@@ -66,6 +67,7 @@ export default function App() {
           <Route path="/nvocc" element={<Guard module="nvocc"><NvoccPage /></Guard>} />
           <Route path="/nvocc/:id" element={<Guard module="nvocc"><BookingDetailPage /></Guard>} />
           <Route path="/freight" element={<Guard module="freight"><FreightPage /></Guard>} />
+          <Route path="/freight/:id" element={<Guard module="freight"><FfDetailPage /></Guard>} />
           <Route path="/mnr" element={<Guard module="mnr"><MnrPage /></Guard>} />
           <Route path="/accounts" element={<Guard module="accounts"><PlaceholderPage title="Accounts" /></Guard>} />
           <Route path="/master" element={<Guard module="master"><PlaceholderPage title="Master Data" /></Guard>} />

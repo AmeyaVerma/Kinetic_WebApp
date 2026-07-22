@@ -15,9 +15,10 @@ import type {
   Booking,
   BookingDocument,
   BookingWorkflowStatus,
+  HazmatDetails,
+  HazmatStatus,
   ChargeCodeMaster,
   ChargeLine,
-  CustomFieldDef,
   Customer,
   DepotMaster,
   VendorMaster,
@@ -84,6 +85,21 @@ let seq = 1000
 const uid = (p: string) => `${p}${++seq}`
 const now = () => new Date().toISOString()
 
+const CONTAINER_INFO_FIELD_LABELS = {
+  numberOfContainers: 'Number of containers',
+  sizeOfContainer: 'Size of container',
+  sealNo: 'Seal No.',
+  customSealNo: 'Custom Seal No.',
+} as const
+
+const PLANNED_DATE_FIELD_LABELS = {
+  plannedGateOpen: 'Planned gate open',
+  plannedGateClose: 'Planned gate close',
+  plannedSiCutoff: 'Planned SI cut-off',
+  plannedVgmCutoff: 'Planned VGM cut-off',
+  plannedCyCutoff: 'Planned CY cut-off',
+} as const
+
 const INVOICE_CHAIN: InvoiceStatus[] = [
   'Draft',
   'Pending approval',
@@ -122,16 +138,9 @@ interface DataState {
   approvals: Approval[]
   activities: ActivityEntry[]
   masters: Masters
-  customFieldDefs: CustomFieldDef[]
-  customFieldValues: Record<string, Record<string, string>> // recordId → fieldId → value
 
   // Master data — user-extensible dropdown options (Workflow §11)
   addMasterOption: (kind: MasterKind, name: string) => string
-
-  // Custom fields — user-defined schema per entity (Workflow §11)
-  addCustomFieldDef: (def: Omit<CustomFieldDef, 'id'>) => string
-  removeCustomFieldDef: (id: string) => void
-  setCustomFieldValue: (recordId: string, fieldId: string, value: string) => void
 
   // Lead → Quote → Convert (doc §0.5)
   createLead: (l: Omit<Lead, 'id' | 'status' | 'createdAt'>) => void
@@ -146,10 +155,31 @@ interface DataState {
   ) => string
   cancelBooking: (bookingId: string, reason: string) => void
   updateShipmentDates: (bookingId: string, dates: { etd?: string; eta?: string }, actor: string) => void
+  updatePlannedDate: (
+    bookingId: string,
+    field: 'plannedGateOpen' | 'plannedGateClose' | 'plannedSiCutoff' | 'plannedVgmCutoff' | 'plannedCyCutoff',
+    value: string,
+    actor: string,
+  ) => void
   setBookingWorkflowStatus: (bookingId: string, status: BookingWorkflowStatus, actor: string) => void
+  setHazmatStatus: (bookingId: string, status: HazmatStatus, actor: string) => void
+  updateHazmatDetail: (bookingId: string, field: keyof HazmatDetails, value: string, actor: string) => void
+  updateContainerInfoField: (
+    bookingId: string,
+    field: 'numberOfContainers' | 'sizeOfContainer' | 'sealNo' | 'customSealNo',
+    value: string,
+    actor: string,
+  ) => void
+  updateTransshipmentAgent: (bookingId: string, value: string, actor: string) => void
+  updateEmptyYardField: (
+    bookingId: string,
+    field: 'emptyContainerYardOrigin' | 'emptyContainerYardDestination',
+    value: string,
+    actor: string,
+  ) => void
 
   // Milestones (doc §6)
-  markMilestone: (bookingId: string, key: string, actor: string) => void
+  markMilestone: (bookingId: string, key: string, actor: string, completedAt?: string) => void
 
   // CRO (doc §3)
   generateCro: (bookingId: string) => void
@@ -158,14 +188,14 @@ interface DataState {
   // BL (doc §4)
   saveBl: (bookingId: string, fields: BlFields, actor: string, role: Role) => void
   submitCustomerBlEdit: (bookingId: string, changes: Partial<BlFields>, actor: string) => void
-  approveBl: (bookingId: string) => void
+  approveBl: (bookingId: string, actor: string) => void
   releaseBl: (bookingId: string, releaseType: 'Original' | 'Telex' | 'Seaway') => void
 
   // Documents (doc §5)
   uploadDocument: (bookingId: string, docType: BookingDocument['docType'], actor: string) => void
 
   // Container activities
-  markContainerActivity: (bookingId: string, key: string) => void
+  markContainerActivity: (bookingId: string, key: string, completedAt?: string) => void
 
   // Invoicing (doc §8)
   addCharge: (c: Omit<ChargeLine, 'id'>) => void
@@ -222,6 +252,11 @@ interface DataState {
   closeConsolRun: (parentId: string) => void
   ffConfirmCarrier: (id: string, opts: { linkedNvoccRef: string | null; carrierName: string; agentId: string | null }) => void
   ffPickupComplete: (id: string) => void
+  // Booking-detail parity actions (mirror the Booking-side ones, generic over any FfShipment field)
+  updateFfField: (shipmentId: string, field: keyof FfShipment, value: string, actor: string) => void
+  setFfWorkflowStatus: (shipmentId: string, status: BookingWorkflowStatus, actor: string) => void
+  setFfHazmatStatus: (shipmentId: string, status: HazmatStatus, actor: string) => void
+  updateFfHazmatDetail: (shipmentId: string, field: keyof HazmatDetails, value: string, actor: string) => void
   ffDocAction: (
     id: string,
     action: 'si_received' | 'weight_variance' | 'mbl_uploaded' | 'draft_house' | 'customer_edit' | 'release',
@@ -304,25 +339,6 @@ export const useDataStore = create<DataState>((set, get) => ({
     containerTypes: [...CONTAINER_TYPES],
     packageTypes: [...PACKAGE_TYPES],
   },
-  customFieldDefs: [],
-  customFieldValues: {},
-
-  addCustomFieldDef: (def) => {
-    const id = uid('cf')
-    set((s) => ({ customFieldDefs: [...s.customFieldDefs, { ...def, id }] }))
-    return id
-  },
-
-  removeCustomFieldDef: (id) =>
-    set((s) => ({ customFieldDefs: s.customFieldDefs.filter((d) => d.id !== id) })),
-
-  setCustomFieldValue: (recordId, fieldId, value) =>
-    set((s) => ({
-      customFieldValues: {
-        ...s.customFieldValues,
-        [recordId]: { ...s.customFieldValues[recordId], [fieldId]: value },
-      },
-    })),
 
   addMasterOption: (kind, name) => {
     const trimmed = name.trim()
@@ -482,6 +498,16 @@ export const useDataStore = create<DataState>((set, get) => ({
       }
     }),
 
+  updatePlannedDate: (bookingId, field, value, actor) =>
+    set((s) => {
+      const booking = s.bookings.find((b) => b.id === bookingId)
+      if (!booking || (booking[field] ?? '') === value) return s
+      return {
+        bookings: s.bookings.map((b) => (b.id === bookingId ? { ...b, [field]: value } : b)),
+        activities: log(s.activities, bookingId, actor, `${PLANNED_DATE_FIELD_LABELS[field]} set → ${value}`),
+      }
+    }),
+
   setBookingWorkflowStatus: (bookingId, status, actor) =>
     set((s) => {
       const booking = s.bookings.find((b) => b.id === bookingId)
@@ -496,17 +522,71 @@ export const useDataStore = create<DataState>((set, get) => ({
       }
     }),
 
-  markMilestone: (bookingId, key, actor) =>
+  setHazmatStatus: (bookingId, status, actor) =>
+    set((s) => {
+      const booking = s.bookings.find((b) => b.id === bookingId)
+      if (!booking || booking.hazmatStatus === status) return s
+      return {
+        bookings: s.bookings.map((b) => (b.id === bookingId ? { ...b, hazmatStatus: status } : b)),
+        activities: log(s.activities, bookingId, actor, `Product info: cargo marked ${status}`),
+      }
+    }),
+
+  updateHazmatDetail: (bookingId, field, value, actor) =>
+    set((s) => {
+      const booking = s.bookings.find((b) => b.id === bookingId)
+      if (!booking || (booking.hazmatDetails?.[field] ?? '') === value) return s
+      return {
+        bookings: s.bookings.map((b) =>
+          b.id === bookingId
+            ? { ...b, hazmatDetails: { ...b.hazmatDetails, [field]: value } }
+            : b,
+        ),
+        activities: log(s.activities, bookingId, actor, `Hazmat ${field} updated`),
+      }
+    }),
+
+  updateContainerInfoField: (bookingId, field, value, actor) =>
+    set((s) => {
+      const booking = s.bookings.find((b) => b.id === bookingId)
+      if (!booking || (booking[field] ?? '') === value) return s
+      return {
+        bookings: s.bookings.map((b) => (b.id === bookingId ? { ...b, [field]: value } : b)),
+        activities: log(s.activities, bookingId, actor, `${CONTAINER_INFO_FIELD_LABELS[field]} updated`),
+      }
+    }),
+
+  updateTransshipmentAgent: (bookingId, value, actor) =>
+    set((s) => {
+      const booking = s.bookings.find((b) => b.id === bookingId)
+      if (!booking || (booking.transshipmentAgent ?? '') === value) return s
+      return {
+        bookings: s.bookings.map((b) => (b.id === bookingId ? { ...b, transshipmentAgent: value } : b)),
+        activities: log(s.activities, bookingId, actor, 'Transshipment agent updated'),
+      }
+    }),
+
+  updateEmptyYardField: (bookingId, field, value, actor) =>
+    set((s) => {
+      const booking = s.bookings.find((b) => b.id === bookingId)
+      if (!booking || (booking[field] ?? '') === value) return s
+      const label = field === 'emptyContainerYardOrigin' ? 'Empty container yard (origin)' : 'Empty container yard (destination)'
+      return {
+        bookings: s.bookings.map((b) => (b.id === bookingId ? { ...b, [field]: value } : b)),
+        activities: log(s.activities, bookingId, actor, `${label} updated`),
+      }
+    }),
+
+  markMilestone: (bookingId, key, actor, completedAt) =>
     set((s) => {
       if (s.milestones.some((m) => m.bookingId === bookingId && m.key === key && m.completedAt)) return s
-      const booking = s.bookings.find((b) => b.id === bookingId)
       const label = key.replace(/_/g, ' ')
       return {
         milestones: [
           ...s.milestones.filter((m) => !(m.bookingId === bookingId && m.key === key)),
-          { bookingId, key, completedAt: now(), completedBy: actor },
+          { bookingId, key, completedAt: completedAt ?? now(), completedBy: actor },
         ],
-        activities: log(s.activities, bookingId, actor, `Milestone: ${label}${booking ? '' : ''}`),
+        activities: log(s.activities, bookingId, actor, `Milestone: ${label}`),
       }
     }),
 
@@ -598,16 +678,16 @@ export const useDataStore = create<DataState>((set, get) => ({
       }
     }),
 
-  approveBl: (bookingId) =>
+  approveBl: (bookingId, actor) =>
     set((s) => ({
       blStates: s.blStates.map((b) =>
         b.bookingId === bookingId ? { ...b, lifecycle: 'Approved' } : b,
       ),
       milestones: [
         ...s.milestones.filter((m) => !(m.bookingId === bookingId && m.key === 'bl_draft_approved')),
-        { bookingId, key: 'bl_draft_approved', completedAt: now(), completedBy: 'Ops' },
+        { bookingId, key: 'bl_draft_approved', completedAt: now(), completedBy: actor },
       ],
-      activities: log(s.activities, bookingId, 'Ops', 'BL approved and locked'),
+      activities: log(s.activities, bookingId, actor, 'BL approved and locked (Admin)'),
     })),
 
   releaseBl: (bookingId, releaseType) =>
@@ -631,12 +711,12 @@ export const useDataStore = create<DataState>((set, get) => ({
       activities: log(s.activities, bookingId, actor, `Document uploaded: ${docType}`),
     })),
 
-  markContainerActivity: (bookingId, key) =>
+  markContainerActivity: (bookingId, key, completedAt) =>
     set((s) => ({
       containerActivities: {
         ...s.containerActivities,
         [bookingId]: (s.containerActivities[bookingId] ?? CONTAINER_ACTIVITY_DEFS.map((d) => ({ ...d, completedAt: null }))).map(
-          (a) => (a.key === key ? { ...a, completedAt: now() } : a),
+          (a) => (a.key === key ? { ...a, completedAt: completedAt ?? now() } : a),
         ),
       },
       activities: log(s.activities, bookingId, 'Ops', `Container activity: ${key.replace(/_/g, ' ')}`),
@@ -1231,6 +1311,48 @@ export const useDataStore = create<DataState>((set, get) => ({
       ),
       activities: log(s.activities, id, 'Transporter', 'Cargo collected — signed proof of collection logged as milestone'),
     })),
+
+  updateFfField: (shipmentId, field, value, actor) =>
+    set((s) => {
+      const f = s.ffShipments.find((x) => x.id === shipmentId)
+      if (!f || (f[field] ?? '') === value) return s
+      return {
+        ffShipments: s.ffShipments.map((x) => (x.id === shipmentId ? { ...x, [field]: value } : x)),
+        activities: log(s.activities, shipmentId, actor, `${String(field)} updated`),
+      }
+    }),
+
+  setFfWorkflowStatus: (shipmentId, status, actor) =>
+    set((s) => {
+      const f = s.ffShipments.find((x) => x.id === shipmentId)
+      if (!f || f.workflowStatus === status) return s
+      return {
+        ffShipments: s.ffShipments.map((x) => (x.id === shipmentId ? { ...x, workflowStatus: status } : x)),
+        activities: log(s.activities, shipmentId, actor, `Shipment status → ${status}`),
+      }
+    }),
+
+  setFfHazmatStatus: (shipmentId, status, actor) =>
+    set((s) => {
+      const f = s.ffShipments.find((x) => x.id === shipmentId)
+      if (!f || f.hazmatStatus === status) return s
+      return {
+        ffShipments: s.ffShipments.map((x) => (x.id === shipmentId ? { ...x, hazmatStatus: status } : x)),
+        activities: log(s.activities, shipmentId, actor, `Product info: cargo marked ${status}`),
+      }
+    }),
+
+  updateFfHazmatDetail: (shipmentId, field, value, actor) =>
+    set((s) => {
+      const f = s.ffShipments.find((x) => x.id === shipmentId)
+      if (!f || (f.hazmatDetails?.[field] ?? '') === value) return s
+      return {
+        ffShipments: s.ffShipments.map((x) =>
+          x.id === shipmentId ? { ...x, hazmatDetails: { ...x.hazmatDetails, [field]: value } } : x,
+        ),
+        activities: log(s.activities, shipmentId, actor, `Hazmat ${field} updated`),
+      }
+    }),
 
   ffDocAction: (id, action, releaseType) =>
     set((s) => {
@@ -1984,9 +2106,12 @@ export const useDataStore = create<DataState>((set, get) => ({
       if (decision === 'Approved') {
         if (ap.entityType === 'bl_edit' && ap.bookingId && ap.payload) {
           patch = {
+            // Approving the change request only merges the edit and un-locks it —
+            // final BL approval ("Approve & lock") is a separate, Admin-only step,
+            // even for a change Admin just cleared through this queue.
             blStates: s.blStates.map((b) =>
               b.bookingId === ap.bookingId
-                ? { ...b, lifecycle: 'Approved', currentFields: { ...b.currentFields, ...ap.payload } }
+                ? { ...b, lifecycle: 'Edited', currentFields: { ...b.currentFields, ...ap.payload } }
                 : b,
             ),
             blVersions: [

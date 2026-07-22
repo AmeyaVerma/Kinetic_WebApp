@@ -110,6 +110,39 @@ export type BookingWorkflowStatus =
   | 'Back to Town'
   | 'Hold'
 
+/** Product info — hazardous cargo declaration. 'Haz' unlocks the IMDG detail block. */
+export type HazmatStatus = 'Non-Haz' | 'Haz'
+
+export interface HazmatDetails {
+  unNo: string
+  imoClass: string
+  subClass: string
+  packagingGroup: string
+  mfagNo: string
+  emsNo: string
+  flashPoint: string
+  phValue: string
+  spGravity: string
+  classifications: string
+  specialProductText: string
+  remarks: string
+}
+
+export const HAZMAT_FIELD_LABELS: Record<keyof HazmatDetails, string> = {
+  unNo: 'UN No.',
+  imoClass: 'IMO Class',
+  subClass: 'Sub Class',
+  packagingGroup: 'Packaging Group',
+  mfagNo: 'MFAG No.',
+  emsNo: 'EMS No.',
+  flashPoint: 'Flash Point',
+  phValue: 'pH Value',
+  spGravity: 'Sp. Gravity',
+  classifications: 'Classifications',
+  specialProductText: 'Special Product Text/HS Code',
+  remarks: 'Remarks',
+}
+
 export type BookingStatus =
   | 'Booked'
   | 'Container allocated'
@@ -139,6 +172,11 @@ export interface Booking {
   notifyParty: string
   originAgentId: string | null
   destinationAgentId: string | null
+  /** Free-text (alphanumeric) agent field — for a transshipment-port agent, no master record. */
+  transshipmentAgent?: string
+  /** Free-text (alphanumeric) empty-yard fields, distinct from the depot-master `emptyYardId`. */
+  emptyContainerYardOrigin?: string
+  emptyContainerYardDestination?: string
   freeDaysOrigin: number
   freeDaysDest: number
   transitTime: number
@@ -154,6 +192,14 @@ export interface Booking {
   emptyYardId: string | null | undefined
   terminal?: string | null
   mblNo?: string | null
+  /** Planned/target dates for the first export milestones — shown in the
+      Shipment details header, distinct from the actual completedAt dates
+      recorded when each milestone is marked done below. */
+  plannedGateOpen?: string
+  plannedGateClose?: string
+  plannedSiCutoff?: string
+  plannedVgmCutoff?: string
+  plannedCyCutoff?: string
   // Container / product info tabs
   containerType: string // e.g. "40HC"
   containerQty: number
@@ -164,6 +210,14 @@ export interface Booking {
   packageType: string
   grossWeightKg: number
   sealNo: string
+  /** Free-text (alphanumeric) container info fields — editable on Container info tab. */
+  numberOfContainers?: string
+  sizeOfContainer?: string
+  customSealNo?: string
+  /** Product info — hazardous cargo. Optional on legacy/seed records; treat
+      missing as 'Non-Haz'. `hazmatDetails` only applies when status is 'Haz'. */
+  hazmatStatus?: HazmatStatus
+  hazmatDetails?: Partial<HazmatDetails>
   // System
   hblNo: string | null
   cancelled: boolean
@@ -171,21 +225,6 @@ export interface Booking {
   /** Manual operational status (Workflow v3 §9). Optional on legacy/seed records —
       normalise with `workflowStatusOf()` which falls back to cancelled → Booked. */
   workflowStatus?: BookingWorkflowStatus
-}
-
-/* ── Custom fields (Workflow §11 — user-defined fields) ──────────
-   Config-driven so a tenant can extend a record's schema without code.
-   Defs are global per entity; values are per record. */
-
-export type CustomFieldType = 'text' | 'number' | 'date' | 'select'
-export type CustomFieldEntity = 'booking'
-
-export interface CustomFieldDef {
-  id: string
-  entity: CustomFieldEntity
-  label: string
-  type: CustomFieldType
-  options: string[] // used when type === 'select'
 }
 
 /* ── Charges / costing (doc §2, booking_charges) ─────────────── */
@@ -263,17 +302,41 @@ export type BlLifecycle =
   | 'Approved'
   | 'Released'
 
+/** Full Bill of Lading field set — the only fields the BL panel exposes. */
 export interface BlFields {
   shipper: string
   consignee: string
   notifyParty: string
-  pol: string
-  pod: string
-  vesselVoyage: string
-  descriptionOfGoods: string
-  grossWeight: string
-  marksAndNumbers: string
-  packages: string
+  overseasAgent: string
+  vessel: string
+  voyage: string
+  placeOfReceipt: string
+  portOfLoading: string
+  placeOfDischarge: string
+  finalPlaceOfDelivery: string
+  blDate: string
+  shippedOnBoard: string
+  placeOfIssue: string
+  numberOfOriginals: string
+  blNumber: string
+  blNumberManual: string
+  movementType: string
+  blType: string
+  shipmentReference: string
+  containers: string
+  packagesAndDescription: string
+  weight: string
+  measurement: string
+  otherParticulars: string
+  freight: string
+  freightPayableAt: string
+  collectCharges: string
+  releaseType: string
+  annexure: string
+  signingAgent: string
+  lockBlForClient: string
+  destinationAgentAccess: string
+  transhipmentAgentAccess: string
 }
 
 export interface BlVersion {
@@ -573,6 +636,49 @@ export interface FfShipment {
   clientInvoiced: boolean
   paid: boolean
   createdAt: string
+
+  /** Booking-detail parity fields (all optional/alphanumeric — additive only,
+      mirrors the same fields on `Booking` so the NVOCC-style tabbed detail
+      view can be reused for FF shipments). */
+  workflowStatus?: BookingWorkflowStatus
+  // Container info tab
+  containerType?: string
+  numberOfContainers?: string
+  sizeOfContainer?: string
+  sealNo?: string
+  customSealNo?: string
+  // Product info tab
+  commodity?: string
+  hsCode?: string
+  packages?: string
+  packageType?: string
+  grossWeightKg?: string
+  freightTerms?: string
+  hazmatStatus?: HazmatStatus
+  hazmatDetails?: Partial<HazmatDetails>
+  // Shipment details tab
+  vesselName?: string
+  voyageNo?: string
+  etd?: string
+  eta?: string
+  terminal?: string
+  mblNo?: string
+  plannedGateOpen?: string
+  plannedGateClose?: string
+  plannedSiCutoff?: string
+  plannedVgmCutoff?: string
+  plannedCyCutoff?: string
+  // Agent details tab
+  shipper?: string
+  consignee?: string
+  notifyParty?: string
+  originAgentName?: string
+  destinationAgentName?: string
+  transshipmentAgent?: string
+  surveyorName?: string
+  // Container yard tab
+  emptyContainerYardOrigin?: string
+  emptyContainerYardDestination?: string
 }
 
 /* ── Customer Management module (CM Requirements v1) ─────────── */

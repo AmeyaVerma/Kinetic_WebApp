@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Plus, Trash2, Link2, Boxes, Ship, DollarSign, ClipboardCheck } from 'lucide-react'
 import { Card } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
@@ -7,7 +8,6 @@ import { CsvButton } from '../components/ui/CsvButton'
 import { StatusChip } from '../components/ui/StatusChip'
 import { Modal } from '../components/ui/Modal'
 import { Field, Select, TextInput } from '../components/ui/Field'
-import { FfDetail } from '../components/ff/FfDetail'
 import { useDataStore } from '../store/useDataStore'
 import { ffGp, INCOTERMS, CREDIT_LIMIT_USD } from '../lib/ff'
 import { mockCustomers, mockVendors } from '../mocks/masters'
@@ -24,12 +24,11 @@ const STAGE_CHIP: Record<FfStage, ChipStatus> = {
 }
 
 export function FreightPage() {
+  const navigate = useNavigate()
   const [wizardOpen, setWizardOpen] = useState(false)
-  const [selectedId, setSelectedId] = useState<string | null>(null)
   const { ffShipments } = useDataStore()
 
   const parents = useMemo(() => ffShipments.filter((f) => !f.parentId), [ffShipments])
-  const selected = ffShipments.find((f) => f.id === selectedId) ?? null
 
   const kpis = useMemo(() => {
     const open = parents.filter((f) => f.stage !== 'Closed')
@@ -109,8 +108,8 @@ export function FreightPage() {
                     shipment={f}
                     gp={gp}
                     childCount={children.length}
-                    selected={selectedId === f.id}
-                    onClick={() => setSelectedId(f.id === selectedId ? null : f.id)}
+                    selected={false}
+                    onClick={() => navigate(`/freight/${f.id}`)}
                   />
                 )
               })}
@@ -119,9 +118,11 @@ export function FreightPage() {
         </div>
       </Card>
 
-      {selected && <FfDetail shipment={selected} />}
-
-      <FfWizard open={wizardOpen} onClose={() => setWizardOpen(false)} onCreated={(id) => { setWizardOpen(false); setSelectedId(id) }} />
+      <FfWizard
+        open={wizardOpen}
+        onClose={() => setWizardOpen(false)}
+        onCreated={(id) => { setWizardOpen(false); navigate(`/freight/${id}`) }}
+      />
     </div>
   )
 }

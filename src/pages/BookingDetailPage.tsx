@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { ArrowLeft, Check, Container as ContainerIcon, Ban } from 'lucide-react'
 import { Card } from '../components/ui/Card'
@@ -9,18 +9,21 @@ import { Tabs } from '../components/ui/Tabs'
 import { FieldPill, TextInput } from '../components/ui/Field'
 import { DocumentsTab } from '../components/booking/DocumentsTab'
 import { InvoicingTab } from '../components/booking/InvoicingTab'
-import { CustomFieldsCard } from '../components/booking/CustomFieldsCard'
+import { ContainerActivitiesTab } from '../components/booking/ContainerActivitiesTab'
 import { useDataStore } from '../store/useDataStore'
 import { cyclePct, deriveStatus, milestoneDefs, statusSequence } from '../lib/milestones'
 import { StageStepper } from '../components/ui/StageStepper'
+import { EditableDatePill } from '../components/ui/EditableDatePill'
+import { EditableTextPill } from '../components/ui/EditableTextPill'
+import { MarkMilestoneButton } from '../components/ui/MarkMilestoneButton'
 import {
   BOOKING_WORKFLOW_STATUSES,
   WORKFLOW_STATUS_CHIP,
   workflowStatusOf,
 } from '../lib/bookingStatus'
 import { mockAgents, mockDepots, mockVendors } from '../mocks/masters'
-import { CONTAINER_ACTIVITY_DEFS } from '../mocks/seed'
-import type { BookingWorkflowStatus } from '../lib/types'
+import { HAZMAT_FIELD_LABELS } from '../lib/types'
+import type { BookingWorkflowStatus, HazmatDetails, HazmatStatus } from '../lib/types'
 
 const TABS = [
   { key: 'container', label: 'Container info' },
@@ -43,6 +46,7 @@ export function BookingDetailPage() {
     activities,
     cancelBooking,
     updateShipmentDates,
+    updatePlannedDate,
     setBookingWorkflowStatus,
   } = useDataStore()
 
@@ -159,19 +163,17 @@ export function BookingDetailPage() {
           <ShipmentDetailsTab
             booking={booking}
             entries={entries}
-            onMark={(key) => markMilestone(booking.id, key, 'Ops')}
+            onMark={(key, completedAt) => markMilestone(booking.id, key, 'Ops', completedAt)}
             onDateChange={(dates) => updateShipmentDates(booking.id, dates, 'Ops')}
+            onPlannedDateChange={(field, value) => updatePlannedDate(booking.id, field, value, 'Ops')}
           />
         )}
         {tab === 'agents' && <AgentDetailsTab booking={booking} />}
         {tab === 'yard' && <ContainerYardTab booking={booking} />}
-        {tab === 'activities' && <ContainerActivitiesTab bookingId={booking.id} />}
+        {tab === 'activities' && <ContainerActivitiesTab recordId={booking.id} />}
         {tab === 'invoicing' && <InvoicingTab booking={booking} />}
         {tab === 'documents' && <DocumentsTab booking={booking} />}
       </Card>
-
-      {/* Custom fields (Workflow §11 — user-defined) */}
-      <CustomFieldsCard bookingId={booking.id} />
 
       {/* Activity log — append-only audit */}
       <Card>
@@ -199,12 +201,30 @@ export function BookingDetailPage() {
 /* ── Tab: Container info ─────────────────────────────────────── */
 
 function ContainerInfoTab({ booking }: { booking: import('../lib/types').Booking }) {
+  const { updateContainerInfoField } = useDataStore()
+  const setField = (field: 'numberOfContainers' | 'sizeOfContainer' | 'sealNo' | 'customSealNo') =>
+    (v: string) => updateContainerInfoField(booking.id, field, v, 'Ops')
+
   return (
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
       <FieldPill label="Container type" value={booking.containerType} />
       <FieldPill label="Quantity" value={String(booking.containerQty)} />
-      <FieldPill label="Container numbers" value={booking.containerNos.join(', ') || 'Not yet assigned (via CRO)'} />
-      <FieldPill label="Seal no." value={booking.sealNo} />
+      <EditableTextPill
+        label="Number of containers"
+        value={booking.numberOfContainers ?? ''}
+        onChange={setField('numberOfContainers')}
+      />
+      <EditableTextPill
+        label="Size of container"
+        value={booking.sizeOfContainer ?? ''}
+        onChange={setField('sizeOfContainer')}
+      />
+      <EditableTextPill label="Seal No." value={booking.sealNo} onChange={setField('sealNo')} />
+      <EditableTextPill
+        label="Custom Seal No."
+        value={booking.customSealNo ?? ''}
+        onChange={setField('customSealNo')}
+      />
       <FieldPill label="Free days (origin)" value={`${booking.freeDaysOrigin} days`} />
       <FieldPill label="Free days (destination)" value={`${booking.freeDaysDest} days`} />
     </div>
@@ -214,14 +234,49 @@ function ContainerInfoTab({ booking }: { booking: import('../lib/types').Booking
 /* ── Tab: Product info ───────────────────────────────────────── */
 
 function ProductInfoTab({ booking }: { booking: import('../lib/types').Booking }) {
+  const { setHazmatStatus, updateHazmatDetail } = useDataStore()
+  const hazStatus: HazmatStatus = booking.hazmatStatus ?? 'Non-Haz'
+  const details = booking.hazmatDetails ?? {}
+
   return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-      <FieldPill label="Commodity" value={booking.commodity} />
-      <FieldPill label="HS code" value={booking.hsCode} />
-      <FieldPill label="Packages" value={`${booking.packages} ${booking.packageType.toLowerCase()}`} />
-      <FieldPill label="Gross weight" value={`${booking.grossWeightKg.toLocaleString()} kg`} />
-      <FieldPill label="Freight terms" value={booking.freightTerms} />
-      <FieldPill label="Principal" value={booking.principal} />
+    <div className="space-y-6">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        <FieldPill label="Commodity" value={booking.commodity} />
+        <FieldPill label="HS code" value={booking.hsCode} />
+        <FieldPill label="Packages" value={`${booking.packages} ${booking.packageType.toLowerCase()}`} />
+        <FieldPill label="Gross weight" value={`${booking.grossWeightKg.toLocaleString()} kg`} />
+        <FieldPill label="Freight terms" value={booking.freightTerms} />
+        <FieldPill label="Principal" value={booking.principal} />
+        <label className="block rounded-btn border border-line bg-surface-2/60 px-3 py-2 focus-within:border-primary">
+          <p className="font-mono text-[10px] uppercase tracking-wide text-muted">Haz / Non-Haz</p>
+          <select
+            value={hazStatus}
+            onChange={(e) => setHazmatStatus(booking.id, e.target.value as HazmatStatus, 'Ops')}
+            className="mt-0.5 w-full bg-transparent text-[13px] text-heading focus:outline-none"
+          >
+            <option value="Non-Haz" className="bg-surface text-heading">Non-Haz</option>
+            <option value="Haz" className="bg-surface text-heading">Haz</option>
+          </select>
+        </label>
+      </div>
+
+      {hazStatus === 'Haz' && (
+        <div>
+          <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted">
+            IMDG / hazardous cargo details
+          </p>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            {(Object.keys(HAZMAT_FIELD_LABELS) as (keyof HazmatDetails)[]).map((field) => (
+              <EditableTextPill
+                key={field}
+                label={HAZMAT_FIELD_LABELS[field]}
+                value={details[field] ?? ''}
+                onChange={(v) => updateHazmatDetail(booking.id, field, v, 'Ops')}
+              />
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -233,11 +288,16 @@ function ShipmentDetailsTab({
   entries,
   onMark,
   onDateChange,
+  onPlannedDateChange,
 }: {
   booking: import('../lib/types').Booking
   entries: import('../lib/types').MilestoneEntry[]
-  onMark: (key: string) => void
+  onMark: (key: string, completedAt: string) => void
   onDateChange: (dates: { etd?: string; eta?: string }) => void
+  onPlannedDateChange: (
+    field: 'plannedGateOpen' | 'plannedGateClose' | 'plannedSiCutoff' | 'plannedVgmCutoff' | 'plannedCyCutoff',
+    value: string,
+  ) => void
 }) {
   const defs = milestoneDefs(booking.direction)
   return (
@@ -250,6 +310,31 @@ function ShipmentDetailsTab({
         <EditableDatePill label="ETA" value={booking.eta} onChange={(v) => onDateChange({ eta: v })} />
         <FieldPill label="Terminal" value={booking.terminal ?? ''} />
         <FieldPill label="MBL No." value={booking.mblNo ?? ''} />
+        <EditableDatePill
+          label="Gate open (planned)"
+          value={booking.plannedGateOpen ?? ''}
+          onChange={(v) => onPlannedDateChange('plannedGateOpen', v)}
+        />
+        <EditableDatePill
+          label="Gate close (planned)"
+          value={booking.plannedGateClose ?? ''}
+          onChange={(v) => onPlannedDateChange('plannedGateClose', v)}
+        />
+        <EditableDatePill
+          label="SI cut-off (planned)"
+          value={booking.plannedSiCutoff ?? ''}
+          onChange={(v) => onPlannedDateChange('plannedSiCutoff', v)}
+        />
+        <EditableDatePill
+          label="VGM cut-off (planned)"
+          value={booking.plannedVgmCutoff ?? ''}
+          onChange={(v) => onPlannedDateChange('plannedVgmCutoff', v)}
+        />
+        <EditableDatePill
+          label="CY cut-off (planned)"
+          value={booking.plannedCyCutoff ?? ''}
+          onChange={(v) => onPlannedDateChange('plannedCyCutoff', v)}
+        />
       </div>
 
       <div>
@@ -282,9 +367,7 @@ function ShipmentDetailsTab({
                     {new Date(entry.completedAt!).toLocaleDateString()} · {entry.completedBy}
                   </span>
                 ) : (
-                  <Button size="sm" variant="ghost" onClick={() => onMark(d.key)}>
-                    Mark
-                  </Button>
+                  <MarkMilestoneButton onConfirm={(date) => onMark(d.key, date)} />
                 )}
               </div>
             )
@@ -295,38 +378,10 @@ function ShipmentDetailsTab({
   )
 }
 
-/** Date field editable by typing or via the native calendar picker; saves on blur. */
-function EditableDatePill({
-  label,
-  value,
-  onChange,
-}: {
-  label: string
-  value: string
-  onChange: (v: string) => void
-}) {
-  const [draft, setDraft] = useState(value)
-  useEffect(() => setDraft(value), [value])
-
-  return (
-    <label className="block rounded-btn border border-line bg-surface-2/60 px-3 py-2 focus-within:border-primary">
-      <p className="font-mono text-[10px] uppercase tracking-wide text-muted">{label}</p>
-      <input
-        type="date"
-        value={draft}
-        onChange={(e) => setDraft(e.target.value)}
-        onBlur={() => {
-          if (draft && draft !== value) onChange(draft)
-        }}
-        className="mt-0.5 w-full bg-transparent text-[13px] text-heading focus:outline-none"
-      />
-    </label>
-  )
-}
-
 /* ── Tab: Agent details ──────────────────────────────────────── */
 
 function AgentDetailsTab({ booking }: { booking: import('../lib/types').Booking }) {
+  const { updateTransshipmentAgent } = useDataStore()
   const origin = mockAgents.find((a) => a.id === booking.originAgentId)
   const dest = mockAgents.find((a) => a.id === booking.destinationAgentId)
   const surveyor = mockVendors.find((v) => v.id === booking.surveyorId)
@@ -334,6 +389,11 @@ function AgentDetailsTab({ booking }: { booking: import('../lib/types').Booking 
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
       <FieldPill label="Origin agent" value={origin ? `${origin.name} (${origin.country})` : ''} />
       <FieldPill label="Destination agent" value={dest ? `${dest.name} (${dest.country})` : ''} />
+      <EditableTextPill
+        label="Transshipment agent"
+        value={booking.transshipmentAgent ?? ''}
+        onChange={(v) => updateTransshipmentAgent(booking.id, v, 'Ops')}
+      />
       <FieldPill label="Surveyor" value={surveyor?.name ?? ''} />
       <FieldPill label="Shipper" value={booking.shipper} />
       <FieldPill label="Consignee" value={booking.consignee} />
@@ -345,7 +405,7 @@ function AgentDetailsTab({ booking }: { booking: import('../lib/types').Booking 
 /* ── Tab: Container yard — CRO workflow (doc §3) ─────────────── */
 
 function ContainerYardTab({ booking }: { booking: import('../lib/types').Booking }) {
-  const { cros, generateCro, croPickup } = useDataStore()
+  const { cros, generateCro, croPickup, updateEmptyYardField } = useDataStore()
   const cro = cros.find((c) => c.bookingId === booking.id)
   const depot = mockDepots.find((d) => d.id === booking.emptyYardId)
   const [containerNo, setContainerNo] = useState('')
@@ -355,6 +415,16 @@ function ContainerYardTab({ booking }: { booking: import('../lib/types').Booking
       <div className="grid grid-cols-2 gap-3">
         <FieldPill label="Empty container yard" value={depot ? `${depot.name} — ${depot.location}` : ''} />
         <FieldPill label="CRO status" value={cro?.status ?? 'Not generated'} />
+        <EditableTextPill
+          label="Empty container yard origin"
+          value={booking.emptyContainerYardOrigin ?? ''}
+          onChange={(v) => updateEmptyYardField(booking.id, 'emptyContainerYardOrigin', v, 'Ops')}
+        />
+        <EditableTextPill
+          label="Empty container yard destination"
+          value={booking.emptyContainerYardDestination ?? ''}
+          onChange={(v) => updateEmptyYardField(booking.id, 'emptyContainerYardDestination', v, 'Ops')}
+        />
       </div>
 
       <div className="rounded-card border border-line bg-surface-2/40 p-5">
@@ -405,57 +475,3 @@ function ContainerYardTab({ booking }: { booking: import('../lib/types').Booking
   )
 }
 
-/* ── Tab: Container activities (doc §2 — origin + destination) ─ */
-
-function ContainerActivitiesTab({ bookingId }: { bookingId: string }) {
-  const { containerActivities, markContainerActivity } = useDataStore()
-  const acts =
-    containerActivities[bookingId] ?? CONTAINER_ACTIVITY_DEFS.map((d) => ({ ...d, completedAt: null }))
-
-  const sections = [
-    { key: 'origin' as const, label: 'Origin activities' },
-    { key: 'destination' as const, label: 'Destination activities' },
-  ]
-
-  return (
-    <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-      {sections.map((sec) => (
-        <div key={sec.key}>
-          <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted">{sec.label}</p>
-          <div className="space-y-1.5">
-            {acts
-              .filter((a) => a.section === sec.key)
-              .map((a) => (
-                <div
-                  key={a.key}
-                  className={`flex items-center gap-3 rounded-btn border px-4 py-2.5 ${
-                    a.completedAt ? 'border-primary/30 bg-primary/5' : 'border-line bg-surface'
-                  }`}
-                >
-                  <span
-                    className={`flex h-5 w-5 items-center justify-center rounded-full ${
-                      a.completedAt ? 'bg-primary text-white' : 'border border-line text-transparent'
-                    }`}
-                  >
-                    <Check size={12} />
-                  </span>
-                  <span className={`flex-1 text-[13px] ${a.completedAt ? 'font-medium text-heading' : 'text-body'}`}>
-                    {a.label}
-                  </span>
-                  {a.completedAt ? (
-                    <span className="font-mono text-[11px] text-muted">
-                      {new Date(a.completedAt).toLocaleDateString()}
-                    </span>
-                  ) : (
-                    <Button size="sm" variant="ghost" onClick={() => markContainerActivity(bookingId, a.key)}>
-                      Mark
-                    </Button>
-                  )}
-                </div>
-              ))}
-          </div>
-        </div>
-      ))}
-    </div>
-  )
-}
