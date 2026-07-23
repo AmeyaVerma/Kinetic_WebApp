@@ -1,12 +1,16 @@
 import { Check } from 'lucide-react'
 import { MarkMilestoneButton } from '../ui/MarkMilestoneButton'
 import { useDataStore } from '../../store/useDataStore'
+import { useAuthStore, useCurrentUser } from '../../store/useAuthStore'
 import { CONTAINER_ACTIVITY_DEFS } from '../../mocks/seed'
 
 /* ── Origin + destination container activities — generic, keyed by any
    record id (bookingId or FF shipment id share the same store slice). ── */
 export function ContainerActivitiesTab({ recordId }: { recordId: string }) {
   const { containerActivities, markContainerActivity } = useDataStore()
+  const currentUser = useCurrentUser()
+  const viewAsRole = useAuthStore((s) => s.viewAsRole)
+  const isAdmin = (viewAsRole ?? currentUser?.role) === 'admin'
   const acts =
     containerActivities[recordId] ?? CONTAINER_ACTIVITY_DEFS.map((d) => ({ ...d, completedAt: null }))
 
@@ -41,9 +45,19 @@ export function ContainerActivitiesTab({ recordId }: { recordId: string }) {
                     {a.label}
                   </span>
                   {a.completedAt ? (
-                    <span className="font-mono text-[11px] text-muted">
-                      {new Date(a.completedAt).toLocaleDateString()}
-                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-mono text-[11px] text-muted">
+                        {new Date(a.completedAt).toLocaleDateString()}
+                      </span>
+                      {isAdmin && (
+                        <MarkMilestoneButton
+                          initialDate={a.completedAt.slice(0, 10)}
+                          onConfirm={(date) =>
+                            markContainerActivity(recordId, a.key, date, currentUser?.name ?? 'Admin')
+                          }
+                        />
+                      )}
+                    </div>
                   ) : (
                     <MarkMilestoneButton onConfirm={(date) => markContainerActivity(recordId, a.key, date)} />
                   )}

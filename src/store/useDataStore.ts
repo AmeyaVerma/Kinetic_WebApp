@@ -180,6 +180,9 @@ interface DataState {
 
   // Milestones (doc §6)
   markMilestone: (bookingId: string, key: string, actor: string, completedAt?: string) => void
+  /** Admin-only: change the date on an already-completed milestone (markMilestone
+      refuses to touch one that's already marked; UI gates this to Admin). */
+  updateMilestoneDate: (bookingId: string, key: string, completedAt: string, actor: string) => void
 
   // CRO (doc §3)
   generateCro: (bookingId: string) => void
@@ -195,7 +198,7 @@ interface DataState {
   uploadDocument: (bookingId: string, docType: BookingDocument['docType'], actor: string) => void
 
   // Container activities
-  markContainerActivity: (bookingId: string, key: string, completedAt?: string) => void
+  markContainerActivity: (bookingId: string, key: string, completedAt?: string, actor?: string) => void
 
   // Invoicing (doc §8)
   addCharge: (c: Omit<ChargeLine, 'id'>) => void
@@ -590,6 +593,19 @@ export const useDataStore = create<DataState>((set, get) => ({
       }
     }),
 
+  updateMilestoneDate: (bookingId, key, completedAt, actor) =>
+    set((s) => {
+      const entry = s.milestones.find((m) => m.bookingId === bookingId && m.key === key)
+      if (!entry || !entry.completedAt || entry.completedAt === completedAt) return s
+      const label = key.replace(/_/g, ' ')
+      return {
+        milestones: s.milestones.map((m) =>
+          m.bookingId === bookingId && m.key === key ? { ...m, completedAt, completedBy: actor } : m,
+        ),
+        activities: log(s.activities, bookingId, actor, `Milestone date corrected (Admin): ${label} → ${completedAt}`),
+      }
+    }),
+
   generateCro: (bookingId) =>
     set((s) => {
       if (s.cros.some((c) => c.bookingId === bookingId)) return s
@@ -711,7 +727,9 @@ export const useDataStore = create<DataState>((set, get) => ({
       activities: log(s.activities, bookingId, actor, `Document uploaded: ${docType}`),
     })),
 
-  markContainerActivity: (bookingId, key, completedAt) =>
+  markContainerActivity: (bookingId, key, completedAt, actor) => {
+    const wasCompleted = get()
+      .containerActivities[bookingId]?.find((a) => a.key === key)?.completedAt
     set((s) => ({
       containerActivities: {
         ...s.containerActivities,
@@ -719,8 +737,16 @@ export const useDataStore = create<DataState>((set, get) => ({
           (a) => (a.key === key ? { ...a, completedAt: completedAt ?? now() } : a),
         ),
       },
-      activities: log(s.activities, bookingId, 'Ops', `Container activity: ${key.replace(/_/g, ' ')}`),
-    })),
+      activities: log(
+        s.activities,
+        bookingId,
+        actor ?? 'Ops',
+        wasCompleted
+          ? `Container activity date corrected (Admin): ${key.replace(/_/g, ' ')} → ${completedAt}`
+          : `Container activity: ${key.replace(/_/g, ' ')}`,
+      ),
+    }))
+  },
 
   addCharge: (c) =>
     set((s) => ({ charges: [...s.charges, { ...c, id: uid('ch') }] })),

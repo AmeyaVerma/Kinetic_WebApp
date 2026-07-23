@@ -11,6 +11,7 @@ import { DocumentsTab } from '../components/booking/DocumentsTab'
 import { InvoicingTab } from '../components/booking/InvoicingTab'
 import { ContainerActivitiesTab } from '../components/booking/ContainerActivitiesTab'
 import { useDataStore } from '../store/useDataStore'
+import { useAuthStore, useCurrentUser } from '../store/useAuthStore'
 import { cyclePct, deriveStatus, milestoneDefs, statusSequence } from '../lib/milestones'
 import { StageStepper } from '../components/ui/StageStepper'
 import { EditableDatePill } from '../components/ui/EditableDatePill'
@@ -39,6 +40,7 @@ const TABS = [
 export function BookingDetailPage() {
   const { id } = useParams<{ id: string }>()
   const [tab, setTab] = useState('container')
+  const currentUser = useCurrentUser()
   const {
     bookings,
     milestones,
@@ -47,6 +49,7 @@ export function BookingDetailPage() {
     cancelBooking,
     updateShipmentDates,
     updatePlannedDate,
+    updateMilestoneDate,
     setBookingWorkflowStatus,
   } = useDataStore()
 
@@ -164,6 +167,7 @@ export function BookingDetailPage() {
             booking={booking}
             entries={entries}
             onMark={(key, completedAt) => markMilestone(booking.id, key, 'Ops', completedAt)}
+            onEditDate={(key, completedAt) => updateMilestoneDate(booking.id, key, completedAt, currentUser?.name ?? 'Admin')}
             onDateChange={(dates) => updateShipmentDates(booking.id, dates, 'Ops')}
             onPlannedDateChange={(field, value) => updatePlannedDate(booking.id, field, value, 'Ops')}
           />
@@ -287,12 +291,14 @@ function ShipmentDetailsTab({
   booking,
   entries,
   onMark,
+  onEditDate,
   onDateChange,
   onPlannedDateChange,
 }: {
   booking: import('../lib/types').Booking
   entries: import('../lib/types').MilestoneEntry[]
   onMark: (key: string, completedAt: string) => void
+  onEditDate: (key: string, completedAt: string) => void
   onDateChange: (dates: { etd?: string; eta?: string }) => void
   onPlannedDateChange: (
     field: 'plannedGateOpen' | 'plannedGateClose' | 'plannedSiCutoff' | 'plannedVgmCutoff' | 'plannedCyCutoff',
@@ -300,6 +306,9 @@ function ShipmentDetailsTab({
   ) => void
 }) {
   const defs = milestoneDefs(booking.direction)
+  const currentUser = useCurrentUser()
+  const viewAsRole = useAuthStore((s) => s.viewAsRole)
+  const isAdmin = (viewAsRole ?? currentUser?.role) === 'admin'
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
@@ -363,9 +372,17 @@ function ShipmentDetailsTab({
                   {d.label}
                 </span>
                 {entry ? (
-                  <span className="font-mono text-[11px] text-muted">
-                    {new Date(entry.completedAt!).toLocaleDateString()} · {entry.completedBy}
-                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-mono text-[11px] text-muted">
+                      {new Date(entry.completedAt!).toLocaleDateString()} · {entry.completedBy}
+                    </span>
+                    {isAdmin && (
+                      <MarkMilestoneButton
+                        initialDate={entry.completedAt!.slice(0, 10)}
+                        onConfirm={(date) => onEditDate(d.key, date)}
+                      />
+                    )}
+                  </div>
                 ) : (
                   <MarkMilestoneButton onConfirm={(date) => onMark(d.key, date)} />
                 )}
