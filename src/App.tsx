@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
-import type { ReactNode } from 'react'
+import { useEffect, type ReactNode } from 'react'
 import { Layout } from './components/layout/Layout'
 import { DesignSystemPage } from './pages/DesignSystemPage'
 import { PlaceholderPage } from './pages/PlaceholderPage'
@@ -34,9 +34,28 @@ function Guard({ module, children }: { module: ModuleKey; children: ReactNode })
 
 export default function App() {
   const user = useCurrentUser()
+  const session = useAuthStore((s) => s.session)
+  const profileStatus = useAuthStore((s) => s.profileStatus)
+  const authLoading = useAuthStore((s) => s.authLoading)
+  const initAuth = useAuthStore((s) => s.initAuth)
+  const signOut = useAuthStore((s) => s.signOut)
+
+  useEffect(() => {
+    initAuth()
+  }, [initAuth])
+
+  // Checking for a persisted Supabase session — avoid flashing the login
+  // screen before we know whether the user is already signed in.
+  if (authLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-bg">
+        <p className="text-sm text-muted">Loading…</p>
+      </div>
+    )
+  }
 
   // Not signed in → login screen only
-  if (!user) {
+  if (!session) {
     return (
       <BrowserRouter>
         <Routes>
@@ -44,6 +63,22 @@ export default function App() {
         </Routes>
       </BrowserRouter>
     )
+  }
+
+  // Signed in, but an Admin hasn't approved + assigned a role yet
+  if (profileStatus === 'Pending' || profileStatus === null) {
+    return <AccountStatusScreen onSignOut={signOut} kind="pending" />
+  }
+
+  // Signed in, but the account has been suspended/rejected
+  if (profileStatus === 'Suspended') {
+    return <AccountStatusScreen onSignOut={signOut} kind="suspended" />
+  }
+
+  if (!user) {
+    // Shouldn't happen given the checks above, but keep TypeScript honest
+    // and avoid ever rendering the shell without a resolved profile.
+    return <AccountStatusScreen onSignOut={signOut} kind="pending" />
   }
 
   // External roles → scoped portal, no internal shell
@@ -83,5 +118,30 @@ export default function App() {
         </Route>
       </Routes>
     </BrowserRouter>
+  )
+}
+
+/** Shown to a signed-in Supabase user whose profile isn't yet Active —
+    either awaiting Admin approval + role assignment, or suspended/rejected. */
+function AccountStatusScreen({ kind, onSignOut }: { kind: 'pending' | 'suspended'; onSignOut: () => void }) {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-bg px-4">
+      <div className="w-full max-w-sm rounded-card border border-line bg-surface p-6 text-center shadow-card">
+        <h1 className="text-base font-semibold text-heading">
+          {kind === 'pending' ? 'Awaiting Admin approval' : 'Account suspended'}
+        </h1>
+        <p className="mt-2 text-sm text-muted">
+          {kind === 'pending'
+            ? "You're signed in, but an Admin still needs to approve your account and assign you a role before you can access the app."
+            : 'This account has been suspended. Contact your administrator if you believe this is a mistake.'}
+        </p>
+        <button
+          onClick={onSignOut}
+          className="mt-5 text-xs font-medium text-link hover:underline"
+        >
+          Sign out
+        </button>
+      </div>
+    </div>
   )
 }

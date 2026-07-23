@@ -14,7 +14,7 @@ import type { AppUser } from '../store/useAuthStore'
 /** The "different building" for external roles — a scoped, read-only
     view of only their own shipments. RLS enforces this for real later. */
 export function ExternalPortal({ user }: { user: AppUser }) {
-  const { logout } = useAuthStore()
+  const { signOut } = useAuthStore()
   const { theme, setTheme } = useUiStore()
   const { bookings, milestones } = useDataStore()
 
@@ -60,7 +60,7 @@ export function ExternalPortal({ user }: { user: AppUser }) {
             <p className="text-[11px] text-muted">{user.scopeName}</p>
           </div>
           <button
-            onClick={logout}
+            onClick={signOut}
             className="flex items-center gap-1.5 rounded-btn border border-line bg-surface px-3 py-1.5 text-xs font-medium text-body hover:bg-surface-2"
           >
             <LogOut size={14} /> Sign out

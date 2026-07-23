@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { UserPlus, ShieldCheck, KeyRound, Trash2, Eye } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { UserPlus, ShieldCheck, KeyRound, Trash2, Eye, Check, X, UserCheck } from 'lucide-react'
 import { Card } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'
 import { CsvButton } from '../../components/ui/CsvButton'
@@ -22,6 +22,7 @@ import type { AppUser, UserStatus } from '../../store/useAuthStore'
 
 const STATUS_CHIP: Record<UserStatus, ChipStatus> = {
   Active: 'Delivered',
+  Pending: 'Pending',
   Invited: 'Pending',
   Suspended: 'Cancelled',
 }
@@ -29,8 +30,12 @@ const STATUS_CHIP: Record<UserStatus, ChipStatus> = {
 const ALL_ROLES: Role[] = [...INTERNAL_ROLES, 'customer', 'agent']
 
 export function UsersRolesPage() {
-  const [tab, setTab] = useState('users')
-  const { users, audit } = useAuthStore()
+  const [tab, setTab] = useState('pending')
+  const { users, audit, pendingSignups, fetchPendingSignups } = useAuthStore()
+
+  useEffect(() => {
+    fetchPendingSignups()
+  }, [fetchPendingSignups])
 
   return (
     <div className="space-y-5">
@@ -50,6 +55,7 @@ export function UsersRolesPage() {
 
       <Tabs
         tabs={[
+          { key: 'pending', label: 'Pending approvals', badge: pendingSignups.length || undefined },
           { key: 'users', label: 'Users', badge: users.length },
           { key: 'roles', label: 'Roles & permissions' },
           { key: 'audit', label: 'Audit trail', badge: undefined },
@@ -58,6 +64,7 @@ export function UsersRolesPage() {
         onChange={setTab}
       />
 
+      {tab === 'pending' && <PendingApprovalsTab />}
       {tab === 'users' && <UsersTab />}
       {tab === 'roles' && <RolesTab />}
       {tab === 'audit' && (
@@ -82,6 +89,58 @@ export function UsersRolesPage() {
           </div>
         </Card>
       )}
+    </div>
+  )
+}
+
+/* ── Pending approvals (real, Supabase-backed) ───────────────── */
+
+function PendingApprovalsTab() {
+  const { pendingSignups, approveSignup, rejectSignup } = useAuthStore()
+  const [roleChoice, setRoleChoice] = useState<Record<string, Role>>({})
+
+  if (pendingSignups.length === 0) {
+    return (
+      <Card className="flex h-40 items-center justify-center">
+        <p className="flex items-center gap-2 text-sm text-muted">
+          <UserCheck size={16} /> No signups waiting on approval
+        </p>
+      </Card>
+    )
+  }
+
+  return (
+    <div className="space-y-3">
+      {pendingSignups.map((p) => {
+        const role = roleChoice[p.id] ?? 'ops'
+        return (
+          <Card key={p.id} className="flex flex-wrap items-center justify-between gap-3 p-4">
+            <div>
+              <p className="text-[13px] font-medium text-heading">{p.name}</p>
+              <p className="font-mono text-xs text-muted">{p.email}</p>
+              <p className="text-[11px] text-muted">
+                Signed up {new Date(p.createdAt).toLocaleString()}
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <Select
+                value={role}
+                onChange={(e) => setRoleChoice((r) => ({ ...r, [p.id]: e.target.value as Role }))}
+              >
+                {INTERNAL_ROLES.map((r) => (
+                  <option key={r} value={r}>{ROLE_LABELS[r]}</option>
+                ))}
+              </Select>
+              <Button size="sm" onClick={() => approveSignup(p.id, role)}>
+                <Check size={14} /> Approve
+              </Button>
+              <Button size="sm" variant="ghost" className="text-accent-coral" onClick={() => rejectSignup(p.id)}>
+                <X size={14} /> Reject
+              </Button>
+            </div>
+          </Card>
+        )
+      })}
     </div>
   )
 }

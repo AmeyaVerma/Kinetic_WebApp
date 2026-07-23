@@ -1,13 +1,19 @@
 /* ── Auth + user directory store ─────────────────────────────────
-   Holds the login session and the STAFF user directory the Admin
-   manages in Users & Roles. External customer/agent logins are
-   governed inside their own records, not here (design §4).        */
+   Real session/identity (Phase 1 — Supabase Auth): `session`/`profile`
+   below are the actual signed-in user, persisted by Supabase across
+   navigation and reloads. The `users` directory + admin actions
+   (assignRole, inviteUser, etc.) still run on the in-memory mock list —
+   the Users & Roles admin page hasn't been migrated to Supabase yet
+   (that's a later phase). External customer/agent logins are governed
+   inside their own records, not here (design §4).                  */
 
 import { create } from 'zustand'
+import type { Session } from '@supabase/supabase-js'
+import { supabase } from '../lib/supabaseClient'
 import type { Role } from '../lib/types'
 import type { Access, ModuleKey, Override } from '../lib/rbac'
 
-export type UserStatus = 'Active' | 'Invited' | 'Suspended'
+export type UserStatus = 'Active' | 'Pending' | 'Invited' | 'Suspended'
 
 export interface AppUser {
   id: string
@@ -47,17 +53,69 @@ const seedUsers: AppUser[] = [
   { id: 'u10', name: 'Khalid Mansoor (Gulf Star)', email: 'ops@gulfstar.ae', role: 'agent', status: 'Active', mfaEnabled: true, lastLogin: '2026-07-13T07:55:00Z', overrides: {}, scopeName: 'Gulf Star Shipping LLC' },
 ]
 
+interface ProfileRow {
+  id: string
+  name: string
+  email: string
+  role: Role | null // null while Pending — no access until an Admin assigns one
+  status: UserStatus
+  mfa_enabled: boolean
+  created_at: string
+}
+
+/** A real signed-in AppUser only exists once an Admin has approved the
+    account and assigned a role — otherwise the caller should be shown the
+    pending/suspended screen instead (see `profileStatus` in the store). */
+function rowToAppUser(row: ProfileRow): AppUser | null {
+  if (row.status !== 'Active' || !row.role) return null
+  return {
+    id: row.id,
+    name: row.name,
+    email: row.email,
+    role: row.role,
+    status: row.status,
+    mfaEnabled: row.mfa_enabled,
+    lastLogin: null,
+    overrides: {},
+  }
+}
+
+export interface PendingSignup {
+  id: string
+  name: string
+  email: string
+  createdAt: string
+}
+
 interface AuthState {
   users: AppUser[]
-  currentUserId: string | null
   viewAsRole: Role | null // admin-only "preview as" — never escalates
   audit: AuditEntry[]
 
-  login: (userId: string) => void
-  logout: () => void
+  // Real session (Supabase Auth) — persisted across navigation/reload
+  session: Session | null
+  profile: AppUser | null
+  /** Raw status of the signed-in row even when `profile` is null (Pending/Suspended) —
+      lets the UI show "waiting for approval" instead of bouncing back to sign-in. */
+  profileStatus: UserStatus | null
+  authLoading: boolean
+  authError: string | null
+
+  initAuth: () => void
+  signIn: (email: string, password: string) => Promise<{ error: string | null }>
+  signUp: (email: string, password: string, name: string) => Promise<{ error: string | null }>
+  signOut: () => Promise<void>
   setViewAs: (role: Role | null) => void
 
-  // Admin actions
+  // Real Admin approval queue (Supabase-backed) — every other admin action
+  // below this still runs on the in-memory mock directory, see note above.
+  pendingSignups: PendingSignup[]
+  fetchPendingSignups: () => Promise<void>
+  approveSignup: (userId: string, role: Role) => Promise<void>
+  rejectSignup: (userId: string) => Promise<void>
+
+  // Admin actions — still on the in-memory mock directory (Users & Roles
+  // page migration is a later phase); real signed-in users aren't in `users`.
   assignRole: (userId: string, role: Role) => void
   setOverride: (userId: string, key: ModuleKey, access: Access | 'inherit') => void
   setStatus: (userId: string, status: UserStatus) => void
@@ -69,33 +127,130 @@ function logAudit(list: AuditEntry[], actor: string, action: string): AuditEntry
   return [{ id: uid(), at: now(), actor, action }, ...list]
 }
 
-export const useAuthStore = create<AuthState>((set) => ({
+async function fetchProfileRow(userId: string): Promise<ProfileRow | null> {
+  const { data, error } = await supabase.from('profiles').select('*').eq('id', userId).single()
+  if (error || !data) return null
+  return data as ProfileRow
+}
+
+export const useAuthStore = create<AuthState>((set, get) => ({
   users: seedUsers,
-  currentUserId: null,
   viewAsRole: null,
   audit: [
     { id: 'a0', at: '2026-07-01T09:00:00Z', actor: 'System', action: 'RBAC initialised — 8 roles, 10 staff/external logins seeded' },
   ],
 
-  login: (userId) =>
-    set((s) => {
-      const u = s.users.find((x) => x.id === userId)
-      if (!u) return s
-      return {
-        currentUserId: userId,
-        viewAsRole: null,
-        users: s.users.map((x) => (x.id === userId ? { ...x, lastLogin: now() } : x)),
-      }
-    }),
+  session: null,
+  profile: null,
+  profileStatus: null,
+  authLoading: true,
+  authError: null,
+  pendingSignups: [],
 
-  logout: () => set({ currentUserId: null, viewAsRole: null }),
+  initAuth: () => {
+    const applyRow = (row: ProfileRow | null) =>
+      set({ profile: row ? rowToAppUser(row) : null, profileStatus: row?.status ?? null })
+
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      const row = session ? await fetchProfileRow(session.user.id) : null
+      applyRow(row)
+      set({ session, authLoading: false })
+    })
+
+    supabase.auth.onAuthStateChange((_event, session) => {
+      set({ session, authLoading: false })
+      if (session) {
+        fetchProfileRow(session.user.id).then(applyRow)
+      } else {
+        set({ profile: null, profileStatus: null, viewAsRole: null })
+      }
+    })
+  },
+
+  signIn: async (email, password) => {
+    set({ authError: null })
+    const { error } = await supabase.auth.signInWithPassword({ email, password })
+    if (error) {
+      set({ authError: error.message })
+      return { error: error.message }
+    }
+    return { error: null }
+  },
+
+  signUp: async (email, password, name) => {
+    set({ authError: null })
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: { data: { name } },
+    })
+    if (error) {
+      set({ authError: error.message })
+      return { error: error.message }
+    }
+    return { error: null }
+  },
+
+  signOut: async () => {
+    await supabase.auth.signOut()
+    set({ session: null, profile: null, profileStatus: null, viewAsRole: null })
+  },
 
   setViewAs: (role) => set({ viewAsRole: role }),
+
+  fetchPendingSignups: async () => {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('status', 'Pending')
+      .order('created_at', { ascending: true })
+    if (error || !data) return
+    set({
+      pendingSignups: (data as ProfileRow[]).map((r) => ({
+        id: r.id,
+        name: r.name,
+        email: r.email,
+        createdAt: r.created_at,
+      })),
+    })
+  },
+
+  approveSignup: async (userId, role) => {
+    const pending = get().pendingSignups.find((p) => p.id === userId)
+    const { error } = await supabase
+      .from('profiles')
+      .update({ role, status: 'Active' })
+      .eq('id', userId)
+    if (error) return
+    const actor = get().profile?.name ?? 'Admin'
+    set((s) => ({
+      pendingSignups: s.pendingSignups.filter((p) => p.id !== userId),
+      audit: pending
+        ? logAudit(s.audit, actor, `Approved ${pending.name} (${pending.email}) as ${role}`)
+        : s.audit,
+    }))
+  },
+
+  rejectSignup: async (userId) => {
+    const pending = get().pendingSignups.find((p) => p.id === userId)
+    const { error } = await supabase
+      .from('profiles')
+      .update({ status: 'Suspended' })
+      .eq('id', userId)
+    if (error) return
+    const actor = get().profile?.name ?? 'Admin'
+    set((s) => ({
+      pendingSignups: s.pendingSignups.filter((p) => p.id !== userId),
+      audit: pending
+        ? logAudit(s.audit, actor, `Rejected signup ${pending.name} (${pending.email})`)
+        : s.audit,
+    }))
+  },
 
   assignRole: (userId, role) =>
     set((s) => {
       const u = s.users.find((x) => x.id === userId)
-      const actor = s.users.find((x) => x.id === s.currentUserId)?.name ?? 'Admin'
+      const actor = get().profile?.name ?? 'Admin'
       if (!u || u.role === role) return s
       return {
         users: s.users.map((x) => (x.id === userId ? { ...x, role } : x)),
@@ -106,7 +261,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   setOverride: (userId, key, access) =>
     set((s) => {
       const u = s.users.find((x) => x.id === userId)
-      const actor = s.users.find((x) => x.id === s.currentUserId)?.name ?? 'Admin'
+      const actor = get().profile?.name ?? 'Admin'
       if (!u) return s
       const overrides = { ...u.overrides }
       if (access === 'inherit') delete overrides[key]
@@ -120,7 +275,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   setStatus: (userId, status) =>
     set((s) => {
       const u = s.users.find((x) => x.id === userId)
-      const actor = s.users.find((x) => x.id === s.currentUserId)?.name ?? 'Admin'
+      const actor = get().profile?.name ?? 'Admin'
       if (!u) return s
       return {
         users: s.users.map((x) => (x.id === userId ? { ...x, status } : x)),
@@ -130,7 +285,7 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   inviteUser: (input) =>
     set((s) => {
-      const actor = s.users.find((x) => x.id === s.currentUserId)?.name ?? 'Admin'
+      const actor = get().profile?.name ?? 'Admin'
       const user: AppUser = {
         id: uid(),
         name: input.name,
@@ -150,7 +305,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   removeUser: (userId) =>
     set((s) => {
       const u = s.users.find((x) => x.id === userId)
-      const actor = s.users.find((x) => x.id === s.currentUserId)?.name ?? 'Admin'
+      const actor = get().profile?.name ?? 'Admin'
       if (!u) return s
       return {
         users: s.users.filter((x) => x.id !== userId),
@@ -159,7 +314,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     }),
 }))
 
-/** The user actually logged in. */
+/** The real signed-in user (Supabase session), or null while checking / signed out. */
 export function useCurrentUser(): AppUser | null {
-  return useAuthStore((s) => s.users.find((u) => u.id === s.currentUserId) ?? null)
+  return useAuthStore((s) => s.profile)
 }

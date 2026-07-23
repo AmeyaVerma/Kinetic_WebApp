@@ -8,7 +8,7 @@ import type { Role } from '../../lib/types'
 
 export function Topbar({ user, notifications = 0 }: { user: AppUser; notifications?: number }) {
   const { toggleSidebar } = useUiStore()
-  const { logout, viewAsRole, setViewAs } = useAuthStore()
+  const { signOut, viewAsRole, setViewAs } = useAuthStore()
   const [menuOpen, setMenuOpen] = useState(false)
   const [viewOpen, setViewOpen] = useState(false)
   const isAdmin = user.role === 'admin'
@@ -109,7 +109,7 @@ export function Topbar({ user, notifications = 0 }: { user: AppUser; notificatio
                   <p className="mt-1 text-[11px] text-muted">Role: {ROLE_LABELS[user.role]}</p>
                 </div>
                 <button
-                  onClick={() => { setMenuOpen(false); logout() }}
+                  onClick={() => { setMenuOpen(false); signOut() }}
                   className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-xs font-medium text-body hover:bg-surface-2"
                 >
                   <LogOut size={14} /> Sign out
