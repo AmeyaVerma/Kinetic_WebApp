@@ -13,6 +13,8 @@ import { CustomersPage } from './pages/CustomersPage'
 import { AgentsPage } from './pages/AgentsPage'
 import { HrPage } from './pages/HrPage'
 import { LoginPage } from './pages/LoginPage'
+import { ResetPasswordPage } from './pages/ResetPasswordPage'
+import { SettingsPage } from './pages/SettingsPage'
 import { ExternalPortal } from './pages/ExternalPortal'
 import { UsersRolesPage } from './pages/admin/UsersRolesPage'
 import { useAuthStore, useCurrentUser } from './store/useAuthStore'
@@ -37,6 +39,7 @@ export default function App() {
   const session = useAuthStore((s) => s.session)
   const profileStatus = useAuthStore((s) => s.profileStatus)
   const authLoading = useAuthStore((s) => s.authLoading)
+  const recoveryMode = useAuthStore((s) => s.recoveryMode)
   const initAuth = useAuthStore((s) => s.initAuth)
   const signOut = useAuthStore((s) => s.signOut)
 
@@ -52,6 +55,12 @@ export default function App() {
         <p className="text-sm text-muted">Loading…</p>
       </div>
     )
+  }
+
+  // Arrived via a password-reset email link — set the new password before
+  // anything else, regardless of session/profile state.
+  if (recoveryMode) {
+    return <ResetPasswordPage />
   }
 
   // Not signed in → login screen only
@@ -111,7 +120,7 @@ export default function App() {
           <Route path="/portal/agent" element={<Guard module="agents"><AgentsPage /></Guard>} />
           <Route path="/reports" element={<Guard module="reports"><PlaceholderPage title="Reports" /></Guard>} />
           <Route path="/hr" element={<Guard module="hr"><HrPage /></Guard>} />
-          <Route path="/settings" element={<Guard module="settings"><PlaceholderPage title="Settings" /></Guard>} />
+          <Route path="/settings" element={<Guard module="settings"><SettingsPage /></Guard>} />
           <Route path="/admin/users" element={<Guard module="users"><UsersRolesPage /></Guard>} />
           <Route path="/design-system" element={<DesignSystemPage />} />
           <Route path="*" element={<Navigate to={LANDING[user.role]} replace />} />

@@ -100,12 +100,21 @@ interface AuthState {
   profileStatus: UserStatus | null
   authLoading: boolean
   authError: string | null
+  /** True after the user clicks a password-reset email link (Supabase fires a
+      PASSWORD_RECOVERY event). While true the app shows the "set new password"
+      screen instead of the normal shell, even though a session now exists. */
+  recoveryMode: boolean
 
   initAuth: () => void
   signIn: (email: string, password: string) => Promise<{ error: string | null }>
   signUp: (email: string, password: string, name: string) => Promise<{ error: string | null }>
   signOut: () => Promise<void>
   setViewAs: (role: Role | null) => void
+
+  // Password reset / change (Supabase Auth)
+  sendPasswordReset: (email: string) => Promise<{ error: string | null }>
+  updatePassword: (newPassword: string) => Promise<{ error: string | null }>
+  clearRecoveryMode: () => void
 
   // Real Admin approval queue (Supabase-backed) — every other admin action
   // below this still runs on the in-memory mock directory, see note above.
@@ -145,6 +154,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   profileStatus: null,
   authLoading: true,
   authError: null,
+  recoveryMode: false,
   pendingSignups: [],
 
   initAuth: () => {
@@ -157,7 +167,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       set({ session, authLoading: false })
     })
 
-    supabase.auth.onAuthStateChange((_event, session) => {
+    supabase.auth.onAuthStateChange((event, session) => {
+      // Arriving via a reset-email link: show the set-new-password screen
+      // rather than dropping the user straight into the app.
+      if (event === 'PASSWORD_RECOVERY') set({ recoveryMode: true })
       set({ session, authLoading: false })
       if (session) {
         fetchProfileRow(session.user.id).then(applyRow)
@@ -185,18 +198,42 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       options: { data: { name } },
     })
     if (error) {
-      set({ authError: error.message })
-      return { error: error.message }
+      // The 10-account cap is enforced in the `handle_new_user` DB trigger
+      // (supabase/migrations/0003_account_limit.sql); Supabase Auth wraps
+      // trigger failures in a generic message rather than passing ours through.
+      const msg = /account_limit_reached|database error saving new user/i.test(error.message)
+        ? 'Account limit reached — this workspace allows a maximum of 10 accounts.'
+        : error.message
+      set({ authError: msg })
+      return { error: msg }
     }
     return { error: null }
   },
 
   signOut: async () => {
     await supabase.auth.signOut()
-    set({ session: null, profile: null, profileStatus: null, viewAsRole: null })
+    set({ session: null, profile: null, profileStatus: null, viewAsRole: null, recoveryMode: false })
   },
 
   setViewAs: (role) => set({ viewAsRole: role }),
+
+  // Emails a reset link. `redirectTo` must be an allowed URL in
+  // Supabase → Authentication → URL Configuration (add localhost + the
+  // deployed origin). Clicking the link returns here and fires
+  // PASSWORD_RECOVERY, which flips `recoveryMode` on.
+  sendPasswordReset: async (email) => {
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: window.location.origin,
+    })
+    return { error: error ? error.message : null }
+  },
+
+  updatePassword: async (newPassword) => {
+    const { error } = await supabase.auth.updateUser({ password: newPassword })
+    return { error: error ? error.message : null }
+  },
+
+  clearRecoveryMode: () => set({ recoveryMode: false }),
 
   fetchPendingSignups: async () => {
     const { data, error } = await supabase
