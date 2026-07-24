@@ -4,6 +4,7 @@
    State resets on refresh (same contract as the v5 prototype).  */
 
 import { create } from 'zustand'
+import { supabase } from '../lib/supabaseClient'
 import type {
   ActivityEntry,
   AgentRecord,
@@ -85,6 +86,130 @@ let seq = 1000
 const uid = (p: string) => `${p}${++seq}`
 const now = () => new Date().toISOString()
 
+/* ── Supabase mapping (NVOCC pilot only — see supabase/migrations/0005) ──
+   The app's Booking.id stays the human bookingRef everywhere (routes,
+   charge/milestone lookups); dbId is the real DB uuid, used only to link
+   child rows (charges, documents) to the real record. A booking that only
+   ever existed in mock data has dbId === undefined. */
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function rowToBooking(row: any): Booking {
+  return {
+    id: row.booking_ref,
+    dbId: row.id,
+    bookingRef: row.booking_ref,
+    module: row.module,
+    direction: row.direction,
+    bookingPartyId: row.booking_party_id,
+    bookingPartyName: row.booking_party_name,
+    bookingDate: row.booking_date,
+    principal: row.principal,
+    shipper: row.shipper,
+    consignee: row.consignee,
+    notifyParty: row.notify_party,
+    originAgentId: row.origin_agent_id,
+    destinationAgentId: row.destination_agent_id,
+    transshipmentAgent: row.transshipment_agent ?? undefined,
+    emptyContainerYardOrigin: row.empty_container_yard_origin ?? undefined,
+    emptyContainerYardDestination: row.empty_container_yard_destination ?? undefined,
+    freeDaysOrigin: row.free_days_origin,
+    freeDaysDest: row.free_days_dest,
+    transitTime: row.transit_time,
+    vesselId: row.vessel_id,
+    vesselName: row.vessel_name,
+    voyageNo: row.voyage_no,
+    pol: row.pol,
+    pod: row.pod,
+    etd: row.etd,
+    eta: row.eta,
+    freightTerms: row.freight_terms,
+    surveyorId: row.surveyor_id,
+    emptyYardId: row.empty_yard_id,
+    terminal: row.terminal ?? undefined,
+    mblNo: row.mbl_no ?? undefined,
+    plannedGateOpen: row.planned_gate_open ?? undefined,
+    plannedGateClose: row.planned_gate_close ?? undefined,
+    plannedSiCutoff: row.planned_si_cutoff ?? undefined,
+    plannedVgmCutoff: row.planned_vgm_cutoff ?? undefined,
+    plannedCyCutoff: row.planned_cy_cutoff ?? undefined,
+    containerType: row.container_type,
+    containerQty: row.container_qty,
+    containerNos: row.container_nos ?? [],
+    commodity: row.commodity,
+    hsCode: row.hs_code,
+    packages: row.packages,
+    packageType: row.package_type,
+    grossWeightKg: row.gross_weight_kg,
+    sealNo: row.seal_no,
+    numberOfContainers: row.number_of_containers ?? undefined,
+    sizeOfContainer: row.size_of_container ?? undefined,
+    customSealNo: row.custom_seal_no ?? undefined,
+    hazmatStatus: row.hazmat_status ?? undefined,
+    hazmatDetails: row.hazmat_details ?? undefined,
+    hblNo: row.hbl_no,
+    cancelled: row.cancelled,
+    createdAt: row.created_at,
+    workflowStatus: row.workflow_status ?? undefined,
+  }
+}
+
+function bookingToInsertRow(b: Booking) {
+  return {
+    booking_ref: b.bookingRef,
+    module: b.module,
+    direction: b.direction,
+    booking_party_id: b.bookingPartyId,
+    booking_party_name: b.bookingPartyName,
+    booking_date: b.bookingDate || null,
+    principal: b.principal,
+    shipper: b.shipper,
+    consignee: b.consignee,
+    notify_party: b.notifyParty,
+    origin_agent_id: b.originAgentId,
+    destination_agent_id: b.destinationAgentId,
+    transshipment_agent: b.transshipmentAgent ?? null,
+    empty_container_yard_origin: b.emptyContainerYardOrigin ?? null,
+    empty_container_yard_destination: b.emptyContainerYardDestination ?? null,
+    free_days_origin: b.freeDaysOrigin,
+    free_days_dest: b.freeDaysDest,
+    transit_time: b.transitTime,
+    vessel_id: b.vesselId,
+    vessel_name: b.vesselName,
+    voyage_no: b.voyageNo,
+    pol: b.pol,
+    pod: b.pod,
+    etd: b.etd || null,
+    eta: b.eta || null,
+    freight_terms: b.freightTerms,
+    surveyor_id: b.surveyorId,
+    empty_yard_id: b.emptyYardId,
+    terminal: b.terminal ?? null,
+    mbl_no: b.mblNo ?? null,
+    planned_gate_open: b.plannedGateOpen || null,
+    planned_gate_close: b.plannedGateClose || null,
+    planned_si_cutoff: b.plannedSiCutoff || null,
+    planned_vgm_cutoff: b.plannedVgmCutoff || null,
+    planned_cy_cutoff: b.plannedCyCutoff || null,
+    container_type: b.containerType,
+    container_qty: b.containerQty,
+    container_nos: b.containerNos,
+    commodity: b.commodity,
+    hs_code: b.hsCode,
+    packages: b.packages,
+    package_type: b.packageType,
+    gross_weight_kg: b.grossWeightKg,
+    seal_no: b.sealNo,
+    number_of_containers: b.numberOfContainers ?? null,
+    size_of_container: b.sizeOfContainer ?? null,
+    custom_seal_no: b.customSealNo ?? null,
+    hazmat_status: b.hazmatStatus ?? 'Non-Haz',
+    hazmat_details: b.hazmatDetails ?? null,
+    hbl_no: b.hblNo,
+    cancelled: b.cancelled,
+    workflow_status: b.workflowStatus ?? 'Booked',
+  }
+}
+
 const CONTAINER_INFO_FIELD_LABELS = {
   numberOfContainers: 'Number of containers',
   sizeOfContainer: 'Size of container',
@@ -149,6 +274,10 @@ interface DataState {
   convertToBooking: (quoteId: string) => void
 
   // Booking (doc §1–2)
+  /** Pulls real bookings from Supabase (NVOCC pilot table) and merges them
+      into local state — additive, never removes the existing demo bookings.
+      Safe to call repeatedly (e.g. on every NVOCC page mount). */
+  fetchBookings: () => Promise<void>
   createBooking: (
     b: Omit<Booking, 'id' | 'bookingRef' | 'hblNo' | 'cancelled' | 'createdAt' | 'module'>,
     charges: Omit<ChargeLine, 'id' | 'bookingId'>[],
@@ -437,6 +566,27 @@ export const useDataStore = create<DataState>((set, get) => ({
     }))
   },
 
+  fetchBookings: async () => {
+    const { data, error } = await supabase
+      .from('bookings')
+      .select('*')
+      .order('created_at', { ascending: false })
+    if (error || !data) return
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const fetched = (data as any[]).map(rowToBooking)
+    set((s) => {
+      const existingRefs = new Set(s.bookings.map((b) => b.bookingRef))
+      const newOnes = fetched.filter((b) => !existingRefs.has(b.bookingRef))
+      // Patch dbId onto any local booking that now has a matching real row
+      // (covers the case where createBooking's insert resolved after fetch).
+      const patched = s.bookings.map((b) => {
+        const match = fetched.find((f) => f.bookingRef === b.bookingRef)
+        return match ? { ...b, dbId: match.dbId } : b
+      })
+      return { bookings: [...newOnes, ...patched] }
+    })
+  },
+
   createBooking: (b, chargeLines) => {
     // Real numbering scheme from the live tracker: KLNVO2627XXXXXX
     const existing = get().bookings
@@ -465,6 +615,39 @@ export const useDataStore = create<DataState>((set, get) => ({
       ],
       activities: log(s.activities, id, 'Ops', `Booking created — ${bookingRef}`),
     }))
+
+    // Persist to Supabase in the background — UI already updated optimistically
+    // above, so this doesn't block the wizard. On success, patch the real DB
+    // uuid onto the booking (dbId) so it's ready for documents/etc. later.
+    ;(async () => {
+      const { data, error } = await supabase
+        .from('bookings')
+        .insert(bookingToInsertRow(booking))
+        .select()
+        .single()
+      if (error || !data) {
+        console.error('createBooking: failed to persist to Supabase', error)
+        return
+      }
+      const dbId = data.id as string
+      set((s) => ({
+        bookings: s.bookings.map((x) => (x.id === id ? { ...x, dbId } : x)),
+      }))
+      if (chargeLines.length) {
+        const rows = chargeLines.map((c) => ({
+          booking_id: dbId,
+          charge_code_id: c.chargeCodeId,
+          charge_name: c.chargeName,
+          type: c.type,
+          amount: c.amount,
+          currency: c.currency,
+          vendor_id: c.vendorId,
+        }))
+        const { error: chargeErr } = await supabase.from('booking_charges').insert(rows)
+        if (chargeErr) console.error('createBooking: failed to persist charges', chargeErr)
+      }
+    })()
+
     return id
   },
 

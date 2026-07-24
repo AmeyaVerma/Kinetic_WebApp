@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Plus, ArrowRight, Ship, Truck, CheckCircle2, FileText, Users2 } from 'lucide-react'
 import { Card, CardHeader } from '../components/ui/Card'
@@ -40,7 +40,11 @@ export function NvoccPage() {
   const [quoteFor, setQuoteFor] = useState<Lead | null>(null)
   const [convertLead, setConvertLead] = useState<Lead | null>(null)
 
-  const { bookings, milestones, leads } = useDataStore()
+  const { bookings, milestones, leads, fetchBookings } = useDataStore()
+
+  useEffect(() => {
+    fetchBookings()
+  }, [fetchBookings])
 
   const nvoccBookings = useMemo(
     () => bookings.filter((b) => b.module === 'nvocc'),

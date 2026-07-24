@@ -225,6 +225,13 @@ export interface Booking {
   /** Manual operational status (Workflow v3 §9). Optional on legacy/seed records —
       normalise with `workflowStatusOf()` which falls back to cancelled → Booked. */
   workflowStatus?: BookingWorkflowStatus
+  /** Supabase row id (uuid), present only once this booking has actually been
+      persisted to the real `bookings` table — undefined for legacy/demo
+      bookings that only ever existed in mock data. `id` above stays the
+      human bookingRef everywhere in the app (routes, charge/milestone keys);
+      this is purely the internal DB key used to attach child rows (charges,
+      documents, etc.) to the real record. */
+  dbId?: string
 }
 
 /* ── Charges / costing (doc §2, booking_charges) ─────────────── */
