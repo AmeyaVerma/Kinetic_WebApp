@@ -9,7 +9,6 @@ import {
   UserCog,
   FileBarChart2,
   Contact,
-  Settings,
   ShieldCheck,
   type LucideIcon,
 } from 'lucide-react'
@@ -35,5 +34,4 @@ export const NAV_ITEMS: NavItem[] = [
   { label: 'Reports', path: '/reports', icon: FileBarChart2, module: 'reports' },
   { label: 'HR', path: '/hr', icon: Contact, module: 'hr' },
   { label: 'Users & Roles', path: '/admin/users', icon: ShieldCheck, module: 'users' },
-  { label: 'Settings', path: '/settings', icon: Settings, module: 'settings' },
 ]

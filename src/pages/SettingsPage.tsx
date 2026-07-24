@@ -1,8 +1,10 @@
-import { useState } from 'react'
-import { User, ShieldCheck, SlidersHorizontal, Building2 } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { User, ShieldCheck, SlidersHorizontal, Building2, Sun, Moon } from 'lucide-react'
 import { Card, CardHeader } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { useAuthStore, useCurrentUser } from '../store/useAuthStore'
+import { useUiStore } from '../store/useUiStore'
+import { useOrgStore } from '../store/useOrgStore'
 import { ROLE_LABELS } from '../lib/rbac'
 
 const inputCls =
@@ -178,20 +180,128 @@ function SecuritySection() {
 }
 
 function PreferencesSection() {
+  const { theme, setTheme } = useUiStore()
   return (
     <SectionCard icon={SlidersHorizontal} title="Preferences">
-      <p className="text-sm text-muted">
-        Theme, default landing page, and date/number formatting — coming soon.
+      <div>
+        <p className="text-xs font-medium text-body">Theme</p>
+        <div className="mt-2 inline-flex rounded-btn border border-line p-1">
+          <button
+            onClick={() => setTheme('light')}
+            className={`flex items-center gap-1.5 rounded-[6px] px-3 py-1.5 text-xs font-medium ${
+              theme === 'light' ? 'bg-primary text-white' : 'text-body hover:bg-surface-2'
+            }`}
+          >
+            <Sun size={13} /> Light
+          </button>
+          <button
+            onClick={() => setTheme('dark')}
+            className={`flex items-center gap-1.5 rounded-[6px] px-3 py-1.5 text-xs font-medium ${
+              theme === 'dark' ? 'bg-primary text-white' : 'text-body hover:bg-surface-2'
+            }`}
+          >
+            <Moon size={13} /> Dark
+          </button>
+        </div>
+      </div>
+      <p className="mt-4 text-sm text-muted">
+        Default landing page and date/number formatting — coming soon.
       </p>
     </SectionCard>
   )
 }
 
 function WorkspaceSection() {
+  const { name, defaultCurrency, taxId, address, setOrgProfile } = useOrgStore()
+  const { accountCount, fetchAccountCount } = useAuthStore()
+  const [form, setForm] = useState({ name, defaultCurrency, taxId, address })
+  const [saved, setSaved] = useState(false)
+
+  useEffect(() => {
+    fetchAccountCount()
+  }, [fetchAccountCount])
+
+  const save = (e: React.FormEvent) => {
+    e.preventDefault()
+    setOrgProfile(form)
+    setSaved(true)
+    setTimeout(() => setSaved(false), 2000)
+  }
+
+  const limitPct = accountCount != null ? Math.min(100, (accountCount / 10) * 100) : 0
+  const nearLimit = accountCount != null && accountCount >= 8
+
   return (
     <SectionCard icon={Building2} title="Workspace (Admin)">
-      <p className="text-sm text-muted">
-        Organization profile, dropdown master options, and account limits — coming soon.
+      <div className="mb-5">
+        <p className="text-xs font-medium text-body">Account usage</p>
+        <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-surface-2">
+          <div
+            className={`h-full rounded-full ${nearLimit ? 'bg-accent-coral' : 'bg-primary'}`}
+            style={{ width: `${limitPct}%` }}
+          />
+        </div>
+        <p className={`mt-1.5 text-xs ${nearLimit ? 'text-accent-coral' : 'text-muted'}`}>
+          {accountCount != null ? `${accountCount} of 10 accounts used` : 'Loading…'}
+          {nearLimit && ' — approaching the workspace limit.'}
+        </p>
+      </div>
+
+      <form onSubmit={save} className="space-y-3">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-body">Organization name</label>
+            <input
+              type="text"
+              value={form.name}
+              onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+              className={inputCls}
+            />
+          </div>
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-body">Default currency</label>
+            <select
+              value={form.defaultCurrency}
+              onChange={(e) => setForm((f) => ({ ...f, defaultCurrency: e.target.value as 'USD' | 'INR' }))}
+              className={inputCls}
+            >
+              <option value="INR">INR</option>
+              <option value="USD">USD</option>
+            </select>
+          </div>
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-body">Tax ID / GSTIN</label>
+            <input
+              type="text"
+              value={form.taxId}
+              onChange={(e) => setForm((f) => ({ ...f, taxId: e.target.value }))}
+              placeholder="e.g. 27AAAAA0000A1Z5"
+              className={inputCls}
+            />
+          </div>
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-body">Registered address</label>
+            <input
+              type="text"
+              value={form.address}
+              onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))}
+              className={inputCls}
+            />
+          </div>
+        </div>
+        <div className="flex items-center gap-3 pt-1">
+          <Button type="submit">Save organization profile</Button>
+          {saved && <p className="text-xs text-primary">Saved.</p>}
+        </div>
+      </form>
+
+      <p className="mt-4 text-xs text-muted">
+        This isn't wired into app branding yet (sidebar/login still show "Kinetic Line" as fixed text) —
+        that's a separate follow-up so it doesn't get changed silently.
+      </p>
+
+      <p className="mt-3 border-t border-line pt-3 text-sm text-muted">
+        Dropdown master options (customers, container types, charge codes) and audit-log export — coming soon.
       </p>
     </SectionCard>
   )

@@ -123,6 +123,11 @@ interface AuthState {
   approveSignup: (userId: string, role: Role) => Promise<void>
   rejectSignup: (userId: string) => Promise<void>
 
+  /** Total rows in `profiles` — the 10-account cap (0003_account_limit.sql)
+      counts against this. Admin-only: RLS only lets admins select every row. */
+  accountCount: number | null
+  fetchAccountCount: () => Promise<void>
+
   // Admin actions — still on the in-memory mock directory (Users & Roles
   // page migration is a later phase); real signed-in users aren't in `users`.
   assignRole: (userId: string, role: Role) => void
@@ -156,6 +161,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   authError: null,
   recoveryMode: false,
   pendingSignups: [],
+  accountCount: null,
 
   initAuth: () => {
     const applyRow = (row: ProfileRow | null) =>
@@ -266,6 +272,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         ? logAudit(s.audit, actor, `Approved ${pending.name} (${pending.email}) as ${role}`)
         : s.audit,
     }))
+  },
+
+  fetchAccountCount: async () => {
+    const { count, error } = await supabase
+      .from('profiles')
+      .select('*', { count: 'exact', head: true })
+    if (error) return
+    set({ accountCount: count })
   },
 
   rejectSignup: async (userId) => {

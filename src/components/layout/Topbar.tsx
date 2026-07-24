@@ -1,15 +1,19 @@
 import { useState } from 'react'
-import { Search, Bell, Menu, ChevronDown, LogOut, Eye, EyeOff } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { Search, Bell, Menu, ChevronDown, LogOut, Eye, EyeOff, Settings } from 'lucide-react'
 import { useUiStore } from '../../store/useUiStore'
 import { useAuthStore } from '../../store/useAuthStore'
-import { INTERNAL_ROLES, ROLE_LABELS } from '../../lib/rbac'
+import { INTERNAL_ROLES, ROLE_LABELS, effectiveAccess } from '../../lib/rbac'
 import type { AppUser } from '../../store/useAuthStore'
 import type { Role } from '../../lib/types'
 
 export function Topbar({ user, notifications = 0 }: { user: AppUser; notifications?: number }) {
   const { toggleSidebar } = useUiStore()
   const { signOut, viewAsRole, setViewAs } = useAuthStore()
+  const navigate = useNavigate()
   const [menuOpen, setMenuOpen] = useState(false)
+  const role = viewAsRole ?? user.role
+  const canSeeSettings = effectiveAccess(role, viewAsRole ? undefined : user.overrides, 'settings') !== 'none'
   const [viewOpen, setViewOpen] = useState(false)
   const isAdmin = user.role === 'admin'
   const initials = user.name.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase()
@@ -108,6 +112,14 @@ export function Topbar({ user, notifications = 0 }: { user: AppUser; notificatio
                   <p className="font-mono text-[11px] text-muted">{user.email}</p>
                   <p className="mt-1 text-[11px] text-muted">Role: {ROLE_LABELS[user.role]}</p>
                 </div>
+                {canSeeSettings && (
+                  <button
+                    onClick={() => { setMenuOpen(false); navigate('/settings') }}
+                    className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-xs font-medium text-body hover:bg-surface-2"
+                  >
+                    <Settings size={14} /> Settings
+                  </button>
+                )}
                 <button
                   onClick={() => { setMenuOpen(false); signOut() }}
                   className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-xs font-medium text-body hover:bg-surface-2"
