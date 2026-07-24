@@ -210,6 +210,129 @@ function bookingToInsertRow(b: Booking) {
   }
 }
 
+/* ── Supabase persistence helpers ─────────────────────────────────
+   Every one of these is a no-op if dbId is undefined (a demo/mock
+   booking that was never actually created via createBooking) — local
+   state still updates as before either way, this only adds the
+   background DB write for real bookings. Errors are logged, never
+   thrown — a failed background sync shouldn't break the UI action
+   that already completed locally. */
+
+function findDbId(bookings: Booking[], bookingId: string): string | undefined {
+  return bookings.find((b) => b.id === bookingId)?.dbId
+}
+
+function persistBookingUpdate(dbId: string | undefined, patch: Record<string, unknown>, label: string) {
+  if (!dbId) return
+  ;(async () => {
+    const { error } = await supabase.from('bookings').update(patch).eq('id', dbId)
+    if (error) console.error(`${label}: failed to persist`, error)
+  })()
+}
+
+function persistMilestoneUpsert(
+  dbId: string | undefined,
+  key: string,
+  completedAt: string | null,
+  completedBy: string | null,
+) {
+  if (!dbId) return
+  ;(async () => {
+    const { error } = await supabase
+      .from('booking_milestones')
+      .upsert({ booking_id: dbId, key, completed_at: completedAt, completed_by: completedBy }, { onConflict: 'booking_id,key' })
+    if (error) console.error('markMilestone: failed to persist', error)
+  })()
+}
+
+function persistContainerActivityUpsert(dbId: string | undefined, key: string, completedAt: string | null) {
+  if (!dbId) return
+  const def = CONTAINER_ACTIVITY_DEFS.find((d) => d.key === key)
+  ;(async () => {
+    const { error } = await supabase.from('container_activities').upsert(
+      { booking_id: dbId, key, completed_at: completedAt, label: def?.label ?? null, section: def?.section ?? null },
+      { onConflict: 'booking_id,key' },
+    )
+    if (error) console.error('markContainerActivity: failed to persist', error)
+  })()
+}
+
+function persistBlVersionInsert(dbId: string | undefined, version: BlVersion) {
+  if (!dbId) return
+  ;(async () => {
+    const { error } = await supabase.from('bl_versions').insert({
+      booking_id: dbId,
+      version: version.version,
+      fields: version.fields,
+      edited_by: version.editedBy,
+      edited_by_role: version.editedByRole,
+      amendment: version.amendment,
+    })
+    if (error) console.error('saveBl: failed to persist version', error)
+  })()
+}
+
+function persistBlStateUpsert(
+  dbId: string | undefined,
+  lifecycle: string,
+  releaseType: string | null,
+  currentFields: BlFields,
+) {
+  if (!dbId) return
+  ;(async () => {
+    const { error } = await supabase
+      .from('bl_state')
+      .upsert(
+        { booking_id: dbId, lifecycle, release_type: releaseType, current_fields: currentFields },
+        { onConflict: 'booking_id' },
+      )
+    if (error) console.error('saveBl: failed to persist bl_state', error)
+  })()
+}
+
+function persistBlStatePatch(dbId: string | undefined, patch: Record<string, unknown>, label: string) {
+  if (!dbId) return
+  ;(async () => {
+    const { error } = await supabase.from('bl_state').update(patch).eq('booking_id', dbId)
+    if (error) console.error(`${label}: failed to persist bl_state`, error)
+  })()
+}
+
+function persistCroInsert(dbId: string | undefined) {
+  if (!dbId) return
+  ;(async () => {
+    const { error } = await supabase
+      .from('cro_documents')
+      .insert({ booking_id: dbId, status: 'Issued', container_no: null, issued_at: now() })
+    if (error) console.error('generateCro: failed to persist', error)
+    const { error: docErr } = await supabase
+      .from('booking_documents')
+      .insert({ booking_id: dbId, doc_type: 'CRO', status: 'uploaded', uploaded_by: 'MNR', uploaded_at: now() })
+    if (docErr) console.error('generateCro: failed to persist CRO document row', docErr)
+  })()
+}
+
+function persistCroUpdate(dbId: string | undefined, status: string, containerNo: string | null) {
+  if (!dbId) return
+  ;(async () => {
+    const { error } = await supabase
+      .from('cro_documents')
+      .update({ status, container_no: containerNo })
+      .eq('booking_id', dbId)
+    if (error) console.error('croPickup: failed to persist', error)
+  })()
+}
+
+function persistDocumentInsert(dbId: string | undefined, docType: string, uploadedBy: string) {
+  if (!dbId) return
+  ;(async () => {
+    const { error } = await supabase
+      .from('booking_documents')
+      .insert({ booking_id: dbId, doc_type: docType, status: 'uploaded', uploaded_by: uploadedBy, uploaded_at: now() })
+    if (error) console.error('uploadDocument: failed to persist', error)
+  })()
+}
+
 const CONTAINER_INFO_FIELD_LABELS = {
   numberOfContainers: 'Number of containers',
   sizeOfContainer: 'Size of container',
@@ -662,6 +785,7 @@ export const useDataStore = create<DataState>((set, get) => ({
           activities: log(s.activities, bookingId, 'System', 'Void blocked — open invoice requires credit note first'),
         }
       }
+      persistBookingUpdate(findDbId(s.bookings, bookingId), { cancelled: true, workflow_status: 'Cancelled' }, 'cancelBooking')
       return {
         bookings: s.bookings.map((x) =>
           x.id === bookingId ? { ...x, cancelled: true, workflowStatus: 'Cancelled' } : x,
@@ -678,6 +802,7 @@ export const useDataStore = create<DataState>((set, get) => ({
       if (dates.etd !== undefined && dates.etd !== booking.etd) changed.push(`ETD → ${dates.etd}`)
       if (dates.eta !== undefined && dates.eta !== booking.eta) changed.push(`ETA → ${dates.eta}`)
       if (changed.length === 0) return s
+      persistBookingUpdate(booking.dbId, { etd: dates.etd, eta: dates.eta }, 'updateShipmentDates')
       return {
         bookings: s.bookings.map((b) => (b.id === bookingId ? { ...b, ...dates } : b)),
         activities: log(s.activities, bookingId, actor, `Shipment dates updated — ${changed.join(', ')}`),
@@ -688,6 +813,8 @@ export const useDataStore = create<DataState>((set, get) => ({
     set((s) => {
       const booking = s.bookings.find((b) => b.id === bookingId)
       if (!booking || (booking[field] ?? '') === value) return s
+      const column = field.replace(/([A-Z])/g, '_$1').toLowerCase()
+      persistBookingUpdate(booking.dbId, { [column]: value }, 'updatePlannedDate')
       return {
         bookings: s.bookings.map((b) => (b.id === bookingId ? { ...b, [field]: value } : b)),
         activities: log(s.activities, bookingId, actor, `${PLANNED_DATE_FIELD_LABELS[field]} set → ${value}`),
@@ -698,6 +825,11 @@ export const useDataStore = create<DataState>((set, get) => ({
     set((s) => {
       const booking = s.bookings.find((b) => b.id === bookingId)
       if (!booking || booking.workflowStatus === status) return s
+      persistBookingUpdate(
+        booking.dbId,
+        { workflow_status: status, cancelled: status === 'Cancelled' },
+        'setBookingWorkflowStatus',
+      )
       return {
         bookings: s.bookings.map((b) =>
           b.id === bookingId
@@ -712,6 +844,7 @@ export const useDataStore = create<DataState>((set, get) => ({
     set((s) => {
       const booking = s.bookings.find((b) => b.id === bookingId)
       if (!booking || booking.hazmatStatus === status) return s
+      persistBookingUpdate(booking.dbId, { hazmat_status: status }, 'setHazmatStatus')
       return {
         bookings: s.bookings.map((b) => (b.id === bookingId ? { ...b, hazmatStatus: status } : b)),
         activities: log(s.activities, bookingId, actor, `Product info: cargo marked ${status}`),
@@ -722,10 +855,12 @@ export const useDataStore = create<DataState>((set, get) => ({
     set((s) => {
       const booking = s.bookings.find((b) => b.id === bookingId)
       if (!booking || (booking.hazmatDetails?.[field] ?? '') === value) return s
+      const nextDetails = { ...booking.hazmatDetails, [field]: value }
+      persistBookingUpdate(booking.dbId, { hazmat_details: nextDetails }, 'updateHazmatDetail')
       return {
         bookings: s.bookings.map((b) =>
           b.id === bookingId
-            ? { ...b, hazmatDetails: { ...b.hazmatDetails, [field]: value } }
+            ? { ...b, hazmatDetails: nextDetails }
             : b,
         ),
         activities: log(s.activities, bookingId, actor, `Hazmat ${field} updated`),
@@ -736,6 +871,8 @@ export const useDataStore = create<DataState>((set, get) => ({
     set((s) => {
       const booking = s.bookings.find((b) => b.id === bookingId)
       if (!booking || (booking[field] ?? '') === value) return s
+      const column = field.replace(/([A-Z])/g, '_$1').toLowerCase()
+      persistBookingUpdate(booking.dbId, { [column]: value }, 'updateContainerInfoField')
       return {
         bookings: s.bookings.map((b) => (b.id === bookingId ? { ...b, [field]: value } : b)),
         activities: log(s.activities, bookingId, actor, `${CONTAINER_INFO_FIELD_LABELS[field]} updated`),
@@ -746,6 +883,7 @@ export const useDataStore = create<DataState>((set, get) => ({
     set((s) => {
       const booking = s.bookings.find((b) => b.id === bookingId)
       if (!booking || (booking.transshipmentAgent ?? '') === value) return s
+      persistBookingUpdate(booking.dbId, { transshipment_agent: value }, 'updateTransshipmentAgent')
       return {
         bookings: s.bookings.map((b) => (b.id === bookingId ? { ...b, transshipmentAgent: value } : b)),
         activities: log(s.activities, bookingId, actor, 'Transshipment agent updated'),
@@ -757,6 +895,8 @@ export const useDataStore = create<DataState>((set, get) => ({
       const booking = s.bookings.find((b) => b.id === bookingId)
       if (!booking || (booking[field] ?? '') === value) return s
       const label = field === 'emptyContainerYardOrigin' ? 'Empty container yard (origin)' : 'Empty container yard (destination)'
+      const column = field.replace(/([A-Z])/g, '_$1').toLowerCase()
+      persistBookingUpdate(booking.dbId, { [column]: value }, 'updateEmptyYardField')
       return {
         bookings: s.bookings.map((b) => (b.id === bookingId ? { ...b, [field]: value } : b)),
         activities: log(s.activities, bookingId, actor, `${label} updated`),
@@ -767,10 +907,12 @@ export const useDataStore = create<DataState>((set, get) => ({
     set((s) => {
       if (s.milestones.some((m) => m.bookingId === bookingId && m.key === key && m.completedAt)) return s
       const label = key.replace(/_/g, ' ')
+      const resolvedAt = completedAt ?? now()
+      persistMilestoneUpsert(findDbId(s.bookings, bookingId), key, resolvedAt, actor)
       return {
         milestones: [
           ...s.milestones.filter((m) => !(m.bookingId === bookingId && m.key === key)),
-          { bookingId, key, completedAt: completedAt ?? now(), completedBy: actor },
+          { bookingId, key, completedAt: resolvedAt, completedBy: actor },
         ],
         activities: log(s.activities, bookingId, actor, `Milestone: ${label}`),
       }
@@ -781,6 +923,7 @@ export const useDataStore = create<DataState>((set, get) => ({
       const entry = s.milestones.find((m) => m.bookingId === bookingId && m.key === key)
       if (!entry || !entry.completedAt || entry.completedAt === completedAt) return s
       const label = key.replace(/_/g, ' ')
+      persistMilestoneUpsert(findDbId(s.bookings, bookingId), key, completedAt, actor)
       return {
         milestones: s.milestones.map((m) =>
           m.bookingId === bookingId && m.key === key ? { ...m, completedAt, completedBy: actor } : m,
@@ -792,6 +935,8 @@ export const useDataStore = create<DataState>((set, get) => ({
   generateCro: (bookingId) =>
     set((s) => {
       if (s.cros.some((c) => c.bookingId === bookingId)) return s
+      persistCroInsert(findDbId(s.bookings, bookingId))
+      persistMilestoneUpsert(findDbId(s.bookings, bookingId), 'cro_released', now(), 'MNR')
       return {
         cros: [{ id: uid('cro'), bookingId, status: 'Issued', containerNo: null, issuedAt: now() }, ...s.cros],
         documents: [
@@ -807,28 +952,37 @@ export const useDataStore = create<DataState>((set, get) => ({
     }),
 
   croPickup: (bookingId, containerNo) =>
-    set((s) => ({
-      cros: s.cros.map((c) =>
-        c.bookingId === bookingId ? { ...c, status: 'Container picked up', containerNo } : c,
-      ),
-      bookings: s.bookings.map((b) =>
-        b.id === bookingId ? { ...b, containerNos: [...b.containerNos, containerNo] } : b,
-      ),
-      milestones: [
-        ...s.milestones.filter((m) => !(m.bookingId === bookingId && m.key === 'container_picked_up')),
-        { bookingId, key: 'container_picked_up', completedAt: now(), completedBy: 'MNR' },
-      ],
-      containerActivities: {
-        ...s.containerActivities,
-        [bookingId]: (s.containerActivities[bookingId] ?? CONTAINER_ACTIVITY_DEFS.map((d) => ({ ...d, completedAt: null }))).map(
-          (a) => (a.key === 'gate_out' ? { ...a, completedAt: now() } : a),
+    set((s) => {
+      const dbId = findDbId(s.bookings, bookingId)
+      const booking = s.bookings.find((b) => b.id === bookingId)
+      persistCroUpdate(dbId, 'Container picked up', containerNo)
+      persistMilestoneUpsert(dbId, 'container_picked_up', now(), 'MNR')
+      persistContainerActivityUpsert(dbId, 'gate_out', now())
+      if (booking) persistBookingUpdate(dbId, { container_nos: [...booking.containerNos, containerNo] }, 'croPickup')
+      return {
+        cros: s.cros.map((c) =>
+          c.bookingId === bookingId ? { ...c, status: 'Container picked up', containerNo } : c,
         ),
-      },
-      activities: log(s.activities, bookingId, 'MNR', `Container ${containerNo} picked up — gate-out logged`),
-    })),
+        bookings: s.bookings.map((b) =>
+          b.id === bookingId ? { ...b, containerNos: [...b.containerNos, containerNo] } : b,
+        ),
+        milestones: [
+          ...s.milestones.filter((m) => !(m.bookingId === bookingId && m.key === 'container_picked_up')),
+          { bookingId, key: 'container_picked_up', completedAt: now(), completedBy: 'MNR' },
+        ],
+        containerActivities: {
+          ...s.containerActivities,
+          [bookingId]: (s.containerActivities[bookingId] ?? CONTAINER_ACTIVITY_DEFS.map((d) => ({ ...d, completedAt: null }))).map(
+            (a) => (a.key === 'gate_out' ? { ...a, completedAt: now() } : a),
+          ),
+        },
+        activities: log(s.activities, bookingId, 'MNR', `Container ${containerNo} picked up — gate-out logged`),
+      }
+    }),
 
   saveBl: (bookingId, fields, actor, role) =>
     set((s) => {
+      const dbId = findDbId(s.bookings, bookingId)
       const existing = s.blStates.find((b) => b.bookingId === bookingId)
       const versions = s.blVersions.filter((v) => v.bookingId === bookingId)
       const version: BlVersion = {
@@ -841,6 +995,8 @@ export const useDataStore = create<DataState>((set, get) => ({
         editedAt: now(),
         amendment: existing?.lifecycle === 'Approved' || existing?.lifecycle === 'Released',
       }
+      persistBlVersionInsert(dbId, version)
+      persistBlStateUpsert(dbId, existing ? 'Edited' : 'Draft', existing?.releaseType ?? null, fields)
       return {
         blVersions: [...s.blVersions, version],
         blStates: existing
@@ -855,6 +1011,9 @@ export const useDataStore = create<DataState>((set, get) => ({
   submitCustomerBlEdit: (bookingId, changes, actor) =>
     set((s) => {
       const booking = s.bookings.find((b) => b.id === bookingId)
+      // Note: the approval itself stays local-only — the cross-cutting
+      // `approvals` table isn't part of the NVOCC pilot schema yet.
+      persistBlStatePatch(booking?.dbId, { lifecycle: 'Awaiting approval' }, 'submitCustomerBlEdit')
       return {
         blStates: s.blStates.map((b) =>
           b.bookingId === bookingId ? { ...b, lifecycle: 'Awaiting approval' } : b,
@@ -878,46 +1037,61 @@ export const useDataStore = create<DataState>((set, get) => ({
     }),
 
   approveBl: (bookingId, actor) =>
-    set((s) => ({
-      blStates: s.blStates.map((b) =>
-        b.bookingId === bookingId ? { ...b, lifecycle: 'Approved' } : b,
-      ),
-      milestones: [
-        ...s.milestones.filter((m) => !(m.bookingId === bookingId && m.key === 'bl_draft_approved')),
-        { bookingId, key: 'bl_draft_approved', completedAt: now(), completedBy: actor },
-      ],
-      activities: log(s.activities, bookingId, actor, 'BL approved and locked (Admin)'),
-    })),
+    set((s) => {
+      const dbId = findDbId(s.bookings, bookingId)
+      persistBlStatePatch(dbId, { lifecycle: 'Approved' }, 'approveBl')
+      persistMilestoneUpsert(dbId, 'bl_draft_approved', now(), actor)
+      return {
+        blStates: s.blStates.map((b) =>
+          b.bookingId === bookingId ? { ...b, lifecycle: 'Approved' } : b,
+        ),
+        milestones: [
+          ...s.milestones.filter((m) => !(m.bookingId === bookingId && m.key === 'bl_draft_approved')),
+          { bookingId, key: 'bl_draft_approved', completedAt: now(), completedBy: actor },
+        ],
+        activities: log(s.activities, bookingId, actor, 'BL approved and locked (Admin)'),
+      }
+    }),
 
   releaseBl: (bookingId, releaseType) =>
-    set((s) => ({
-      blStates: s.blStates.map((b) =>
-        b.bookingId === bookingId ? { ...b, lifecycle: 'Released', releaseType } : b,
-      ),
-      milestones: [
-        ...s.milestones.filter((m) => !(m.bookingId === bookingId && m.key === 'original_bl_released')),
-        { bookingId, key: 'original_bl_released', completedAt: now(), completedBy: 'Ops' },
-      ],
-      activities: log(s.activities, bookingId, 'Ops', `BL released — ${releaseType}`),
-    })),
+    set((s) => {
+      const dbId = findDbId(s.bookings, bookingId)
+      persistBlStatePatch(dbId, { lifecycle: 'Released', release_type: releaseType }, 'releaseBl')
+      persistMilestoneUpsert(dbId, 'original_bl_released', now(), 'Ops')
+      return {
+        blStates: s.blStates.map((b) =>
+          b.bookingId === bookingId ? { ...b, lifecycle: 'Released', releaseType } : b,
+        ),
+        milestones: [
+          ...s.milestones.filter((m) => !(m.bookingId === bookingId && m.key === 'original_bl_released')),
+          { bookingId, key: 'original_bl_released', completedAt: now(), completedBy: 'Ops' },
+        ],
+        activities: log(s.activities, bookingId, 'Ops', `BL released — ${releaseType}`),
+      }
+    }),
 
   uploadDocument: (bookingId, docType, actor) =>
-    set((s) => ({
-      documents: [
-        { id: uid('doc'), bookingId, docType, status: 'uploaded' as const, uploadedBy: actor, uploadedAt: now() },
-        ...s.documents,
-      ],
-      activities: log(s.activities, bookingId, actor, `Document uploaded: ${docType}`),
-    })),
+    set((s) => {
+      persistDocumentInsert(findDbId(s.bookings, bookingId), docType, actor)
+      return {
+        documents: [
+          { id: uid('doc'), bookingId, docType, status: 'uploaded' as const, uploadedBy: actor, uploadedAt: now() },
+          ...s.documents,
+        ],
+        activities: log(s.activities, bookingId, actor, `Document uploaded: ${docType}`),
+      }
+    }),
 
   markContainerActivity: (bookingId, key, completedAt, actor) => {
     const wasCompleted = get()
       .containerActivities[bookingId]?.find((a) => a.key === key)?.completedAt
+    const resolvedAt = completedAt ?? now()
+    persistContainerActivityUpsert(findDbId(get().bookings, bookingId), key, resolvedAt)
     set((s) => ({
       containerActivities: {
         ...s.containerActivities,
         [bookingId]: (s.containerActivities[bookingId] ?? CONTAINER_ACTIVITY_DEFS.map((d) => ({ ...d, completedAt: null }))).map(
-          (a) => (a.key === key ? { ...a, completedAt: completedAt ?? now() } : a),
+          (a) => (a.key === key ? { ...a, completedAt: resolvedAt } : a),
         ),
       },
       activities: log(
@@ -931,11 +1105,46 @@ export const useDataStore = create<DataState>((set, get) => ({
     }))
   },
 
-  addCharge: (c) =>
-    set((s) => ({ charges: [...s.charges, { ...c, id: uid('ch') }] })),
+  addCharge: (c) => {
+    const localId = uid('ch')
+    set((s) => ({ charges: [...s.charges, { ...c, id: localId }] }))
+    const dbId = findDbId(get().bookings, c.bookingId)
+    if (dbId) {
+      ;(async () => {
+        const { data, error } = await supabase
+          .from('booking_charges')
+          .insert({
+            booking_id: dbId,
+            charge_code_id: c.chargeCodeId,
+            charge_name: c.chargeName,
+            type: c.type,
+            amount: c.amount,
+            currency: c.currency,
+            vendor_id: c.vendorId,
+          })
+          .select()
+          .single()
+        if (error || !data) {
+          console.error('addCharge: failed to persist', error)
+          return
+        }
+        set((s) => ({
+          charges: s.charges.map((x) => (x.id === localId ? { ...x, dbId: data.id as string } : x)),
+        }))
+      })()
+    }
+  },
 
-  removeCharge: (chargeId) =>
-    set((s) => ({ charges: s.charges.filter((c) => c.id !== chargeId) })),
+  removeCharge: (chargeId) => {
+    const charge = get().charges.find((c) => c.id === chargeId)
+    set((s) => ({ charges: s.charges.filter((c) => c.id !== chargeId) }))
+    if (charge?.dbId) {
+      ;(async () => {
+        const { error } = await supabase.from('booking_charges').delete().eq('id', charge.dbId)
+        if (error) console.error('removeCharge: failed to persist', error)
+      })()
+    }
+  },
 
   generateInvoice: (bookingId, type, chargeIds) =>
     set((s) => {

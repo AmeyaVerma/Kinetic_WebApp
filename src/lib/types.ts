@@ -245,6 +245,8 @@ export interface ChargeLine {
   amount: number
   currency: 'USD' | 'INR'
   vendorId: string | null
+  /** Real Supabase row id, once persisted — see Booking.dbId for the same pattern. */
+  dbId?: string
 }
 
 /* ── Milestones (doc §6, booking_milestones) ─────────────────── */
