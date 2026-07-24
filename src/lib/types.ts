@@ -288,6 +288,10 @@ export interface BookingDocument {
   status: DocStatus
   uploadedBy: string | null
   uploadedAt: string | null
+  /** Path within the `booking-documents` Storage bucket — set only for
+      real uploads (uploadDocumentFile); undefined for the old fake/local
+      status-only entries (e.g. generateCro's placeholder CRO doc row). */
+  storagePath?: string
 }
 
 /* ── CRO (doc §3, cro_documents) ─────────────────────────────── */

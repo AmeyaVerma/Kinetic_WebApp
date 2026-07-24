@@ -16,6 +16,7 @@ import type {
   Booking,
   BookingDocument,
   BookingWorkflowStatus,
+  DocStatus,
   HazmatDetails,
   HazmatStatus,
   ChargeCodeMaster,
@@ -448,6 +449,24 @@ interface DataState {
 
   // Documents (doc §5)
   uploadDocument: (bookingId: string, docType: BookingDocument['docType'], actor: string) => void
+  /** Pulls real document rows (with storagePath) for a booking from
+      Supabase and merges them into local state — additive, same pattern
+      as fetchBookings. No-ops if the booking has no dbId. */
+  fetchDocuments: (bookingId: string) => Promise<void>
+  /** Real upload: puts the file in Supabase Storage (booking-documents
+      bucket) then inserts the booking_documents row pointing at it.
+      Returns an error string on failure so the UI can show it. No-ops
+      with an explanatory error if the booking has no dbId yet (legacy
+      demo booking, never persisted). */
+  uploadDocumentFile: (
+    bookingId: string,
+    docType: BookingDocument['docType'],
+    actor: string,
+    file: File,
+  ) => Promise<{ error: string | null }>
+  /** Signed, time-limited URL to view/download a stored document (the
+      bucket is private, so there's no permanent public URL). */
+  getDocumentUrl: (storagePath: string) => Promise<string | null>
 
   // Container activities
   markContainerActivity: (bookingId: string, key: string, completedAt?: string, actor?: string) => void
@@ -1081,6 +1100,83 @@ export const useDataStore = create<DataState>((set, get) => ({
         activities: log(s.activities, bookingId, actor, `Document uploaded: ${docType}`),
       }
     }),
+
+  fetchDocuments: async (bookingId) => {
+    const dbId = findDbId(get().bookings, bookingId)
+    if (!dbId) return
+    const { data, error } = await supabase
+      .from('booking_documents')
+      .select('*')
+      .eq('booking_id', dbId)
+      .order('uploaded_at', { ascending: false })
+    if (error || !data) return
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const fetched = (data as any[]).map((row) => ({
+      id: row.id as string,
+      bookingId,
+      docType: row.doc_type as BookingDocument['docType'],
+      status: row.status as DocStatus,
+      uploadedBy: row.uploaded_by,
+      uploadedAt: row.uploaded_at,
+      storagePath: row.storage_path ?? undefined,
+    }))
+    set((s) => {
+      const existingIds = new Set(s.documents.map((d) => d.id))
+      const newOnes = fetched.filter((d) => !existingIds.has(d.id))
+      return { documents: [...newOnes, ...s.documents] }
+    })
+  },
+
+  uploadDocumentFile: async (bookingId, docType, actor, file) => {
+    const dbId = findDbId(get().bookings, bookingId)
+    if (!dbId) {
+      return { error: 'This booking is demo data (not yet saved to the database) — real upload is unavailable for it.' }
+    }
+    const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
+    const path = `${dbId}/${docType}/${Date.now()}_${safeName}`
+
+    const { error: uploadErr } = await supabase.storage.from('booking-documents').upload(path, file)
+    if (uploadErr) return { error: uploadErr.message }
+
+    const { data, error: insertErr } = await supabase
+      .from('booking_documents')
+      .insert({
+        booking_id: dbId,
+        doc_type: docType,
+        status: 'uploaded',
+        storage_path: path,
+        uploaded_by: actor,
+        uploaded_at: now(),
+      })
+      .select()
+      .single()
+    if (insertErr || !data) return { error: insertErr?.message ?? 'Upload succeeded but saving the record failed.' }
+
+    set((s) => ({
+      documents: [
+        {
+          id: data.id as string,
+          bookingId,
+          docType,
+          status: 'uploaded',
+          uploadedBy: actor,
+          uploadedAt: data.uploaded_at as string,
+          storagePath: path,
+        },
+        ...s.documents.filter((d) => !(d.bookingId === bookingId && d.docType === docType && !d.storagePath)),
+      ],
+      activities: log(s.activities, bookingId, actor, `Document uploaded: ${docType} (${file.name})`),
+    }))
+    return { error: null }
+  },
+
+  getDocumentUrl: async (storagePath) => {
+    const { data, error } = await supabase.storage
+      .from('booking-documents')
+      .createSignedUrl(storagePath, 60)
+    if (error || !data) return null
+    return data.signedUrl
+  },
 
   markContainerActivity: (bookingId, key, completedAt, actor) => {
     const wasCompleted = get()

@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { Upload, FileText, Lock, CheckCircle2, ShieldAlert } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { Upload, FileText, Lock, CheckCircle2, ShieldAlert, Eye, Loader2 } from 'lucide-react'
 import { Button } from '../ui/Button'
 import { StatusChip } from '../ui/StatusChip'
 import { Field, Select, TextInput, Textarea } from '../ui/Field'
@@ -62,12 +62,26 @@ export const BL_FIELD_LABELS: { key: keyof BlFields; label: string; widget: BlFi
 ]
 
 export function DocumentsTab({ booking }: { booking: Booking }) {
-  const { documents, blStates, blVersions, uploadDocument, saveBl, submitCustomerBlEdit, approveBl, releaseBl } =
-    useDataStore()
+  const {
+    documents,
+    blStates,
+    blVersions,
+    saveBl,
+    submitCustomerBlEdit,
+    approveBl,
+    releaseBl,
+    fetchDocuments,
+    uploadDocumentFile,
+    getDocumentUrl,
+  } = useDataStore()
   const currentUser = useCurrentUser()
   const viewAsRole = useAuthStore((s) => s.viewAsRole)
   const effectiveRole = viewAsRole ?? currentUser?.role
   const isAdmin = effectiveRole === 'admin'
+
+  useEffect(() => {
+    fetchDocuments(booking.id)
+  }, [fetchDocuments, booking.id])
 
   const docs = documents.filter((d) => d.bookingId === booking.id)
   const bl = blStates.find((b) => b.bookingId === booking.id)
@@ -286,37 +300,109 @@ export function DocumentsTab({ booking }: { booking: Booking }) {
         <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted">
           Documents — sequence and trigger
         </p>
+        {!booking.dbId && (
+          <p className="mb-3 rounded-btn border border-line bg-surface-2 px-3 py-2 text-xs text-muted">
+            This is demo data, not a saved booking — real file upload is unavailable here. Create a new booking to try it.
+          </p>
+        )}
         <div className="space-y-2">
           {DOC_SEQUENCE.map((d, i) => {
             const uploaded = docs.find((x) => x.docType === d.type)
             return (
-              <div
+              <DocumentRow
                 key={d.type}
-                className="flex items-center gap-3 rounded-btn border border-line bg-surface px-4 py-2.5"
-              >
-                <span className="w-6 font-mono text-[11px] text-muted">{String(i + 1).padStart(2, '0')}</span>
-                <div className="flex-1 min-w-0">
-                  <p className="text-[13px] font-medium text-heading">{d.type}</p>
-                  <p className="truncate text-[11px] text-muted">{d.trigger}</p>
-                </div>
-                {uploaded ? (
-                  <span className="flex items-center gap-1.5 text-xs text-primary">
-                    <CheckCircle2 size={14} />
-                    {uploaded.status} · {uploaded.uploadedBy}
-                  </span>
-                ) : (
-                  <>
-                    <StatusChip status="Pending" />
-                    <Button size="sm" variant="ghost" onClick={() => uploadDocument(booking.id, d.type, 'Ops')}>
-                      <Upload size={13} /> Upload
-                    </Button>
-                  </>
-                )}
-              </div>
+                index={i}
+                docType={d.type}
+                trigger={d.trigger}
+                uploaded={uploaded}
+                canUpload={!!booking.dbId}
+                onUpload={(file) => uploadDocumentFile(booking.id, d.type, currentUser?.name ?? 'Ops', file)}
+                onView={uploaded?.storagePath ? () => getDocumentUrl(uploaded.storagePath!) : undefined}
+              />
             )
           })}
         </div>
       </div>
+    </div>
+  )
+}
+
+function DocumentRow({
+  index,
+  docType,
+  trigger,
+  uploaded,
+  canUpload,
+  onUpload,
+  onView,
+}: {
+  index: number
+  docType: DocType
+  trigger: string
+  uploaded: { status: string; uploadedBy: string | null; storagePath?: string } | undefined
+  canUpload: boolean
+  onUpload: (file: File) => Promise<{ error: string | null }>
+  onView?: () => Promise<string | null>
+}) {
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+
+  const pickFile = () => {
+    setError('')
+    fileInputRef.current?.click()
+  }
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    e.target.value = '' // allow re-selecting the same file later
+    if (!file) return
+    setBusy(true)
+    setError('')
+    const { error: uploadError } = await onUpload(file)
+    setBusy(false)
+    if (uploadError) setError(uploadError)
+  }
+
+  const handleView = async () => {
+    if (!onView) return
+    const url = await onView()
+    if (url) window.open(url, '_blank', 'noopener,noreferrer')
+    else setError('Could not open document — try again.')
+  }
+
+  return (
+    <div className="rounded-btn border border-line bg-surface px-4 py-2.5">
+      <div className="flex items-center gap-3">
+        <span className="w-6 font-mono text-[11px] text-muted">{String(index + 1).padStart(2, '0')}</span>
+        <div className="flex-1 min-w-0">
+          <p className="text-[13px] font-medium text-heading">{docType}</p>
+          <p className="truncate text-[11px] text-muted">{trigger}</p>
+        </div>
+        {uploaded ? (
+          <div className="flex items-center gap-2">
+            <span className="flex items-center gap-1.5 text-xs text-primary">
+              <CheckCircle2 size={14} />
+              {uploaded.status} · {uploaded.uploadedBy}
+            </span>
+            {onView && (
+              <Button size="sm" variant="ghost" onClick={handleView}>
+                <Eye size={13} /> View
+              </Button>
+            )}
+          </div>
+        ) : (
+          <>
+            <StatusChip status="Pending" />
+            <input ref={fileInputRef} type="file" hidden onChange={handleFileChange} />
+            <Button size="sm" variant="ghost" disabled={!canUpload || busy} onClick={pickFile} className="disabled:opacity-40">
+              {busy ? <Loader2 size={13} className="animate-spin" /> : <Upload size={13} />}
+              {busy ? 'Uploading…' : 'Upload'}
+            </Button>
+          </>
+        )}
+      </div>
+      {error && <p className="mt-1.5 ml-9 text-[11px] text-accent-coral">{error}</p>}
     </div>
   )
 }
