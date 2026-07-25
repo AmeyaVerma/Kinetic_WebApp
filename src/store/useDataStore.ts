@@ -709,6 +709,18 @@ interface DataState {
   ffMarkPaid: (id: string) => void
   ffFinancialClose: (id: string) => void
 
+  // FF document upload (own table/bucket — see supabase/migrations/0009).
+  // Reuses the same local `documents` array as NVOCC (already generic on
+  // bookingId), just talks to ff_documents + the ff-documents bucket.
+  fetchFfDocuments: (shipmentId: string) => Promise<void>
+  uploadFfDocumentFile: (
+    shipmentId: string,
+    docType: BookingDocument['docType'],
+    actor: string,
+    file: File,
+  ) => Promise<{ error: string | null }>
+  getFfDocumentUrl: (storagePath: string) => Promise<string | null>
+
   // ── Customer Management (CM Requirements v1) ──
   customers: CustomerRecord[]
   updateCustomer: (id: string, patch: Partial<CustomerRecord>, auditNote: string) => void
@@ -1333,6 +1345,83 @@ export const useDataStore = create<DataState>((set, get) => ({
   getDocumentUrl: async (storagePath) => {
     const { data, error } = await supabase.storage
       .from('booking-documents')
+      .createSignedUrl(storagePath, 60)
+    if (error || !data) return null
+    return data.signedUrl
+  },
+
+  fetchFfDocuments: async (shipmentId) => {
+    const dbId = findFfDbId(get().ffShipments, shipmentId)
+    if (!dbId) return
+    const { data, error } = await supabase
+      .from('ff_documents')
+      .select('*')
+      .eq('ff_shipment_id', dbId)
+      .order('uploaded_at', { ascending: false })
+    if (error || !data) return
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const fetched = (data as any[]).map((row) => ({
+      id: row.id as string,
+      bookingId: shipmentId,
+      docType: row.doc_type as BookingDocument['docType'],
+      status: row.status as DocStatus,
+      uploadedBy: row.uploaded_by,
+      uploadedAt: row.uploaded_at,
+      storagePath: row.storage_path ?? undefined,
+    }))
+    set((s) => {
+      const existingIds = new Set(s.documents.map((d) => d.id))
+      const newOnes = fetched.filter((d) => !existingIds.has(d.id))
+      return { documents: [...newOnes, ...s.documents] }
+    })
+  },
+
+  uploadFfDocumentFile: async (shipmentId, docType, actor, file) => {
+    const dbId = findFfDbId(get().ffShipments, shipmentId)
+    if (!dbId) {
+      return { error: 'This shipment is demo data (not yet saved to the database) — real upload is unavailable for it.' }
+    }
+    const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
+    const path = `${dbId}/${docType}/${Date.now()}_${safeName}`
+
+    const { error: uploadErr } = await supabase.storage.from('ff-documents').upload(path, file)
+    if (uploadErr) return { error: uploadErr.message }
+
+    const { data, error: insertErr } = await supabase
+      .from('ff_documents')
+      .insert({
+        ff_shipment_id: dbId,
+        doc_type: docType,
+        status: 'uploaded',
+        storage_path: path,
+        uploaded_by: actor,
+        uploaded_at: now(),
+      })
+      .select()
+      .single()
+    if (insertErr || !data) return { error: insertErr?.message ?? 'Upload succeeded but saving the record failed.' }
+
+    set((s) => ({
+      documents: [
+        {
+          id: data.id as string,
+          bookingId: shipmentId,
+          docType,
+          status: 'uploaded',
+          uploadedBy: actor,
+          uploadedAt: data.uploaded_at as string,
+          storagePath: path,
+        },
+        ...s.documents.filter((d) => !(d.bookingId === shipmentId && d.docType === docType && !d.storagePath)),
+      ],
+      activities: log(s.activities, shipmentId, actor, `Document uploaded: ${docType} (${file.name})`),
+    }))
+    return { error: null }
+  },
+
+  getFfDocumentUrl: async (storagePath) => {
+    const { data, error } = await supabase.storage
+      .from('ff-documents')
       .createSignedUrl(storagePath, 60)
     if (error || !data) return null
     return data.signedUrl

@@ -327,7 +327,7 @@ export function DocumentsTab({ booking }: { booking: Booking }) {
   )
 }
 
-function DocumentRow({
+export function DocumentRow({
   index,
   docType,
   trigger,

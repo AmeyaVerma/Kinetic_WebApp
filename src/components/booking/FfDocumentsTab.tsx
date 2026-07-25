@@ -1,22 +1,38 @@
-import { useState } from 'react'
-import { Upload, FileText, Lock, CheckCircle2, ShieldAlert } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { FileText, Lock, ShieldAlert } from 'lucide-react'
 import { Button } from '../ui/Button'
-import { StatusChip } from '../ui/StatusChip'
 import { Field, Select, TextInput, Textarea } from '../ui/Field'
 import { useDataStore } from '../../store/useDataStore'
 import { useAuthStore, useCurrentUser } from '../../store/useAuthStore'
-import { BL_FIELD_LABELS, DOC_SEQUENCE } from './DocumentsTab'
+import { BL_FIELD_LABELS, DOC_SEQUENCE, DocumentRow } from './DocumentsTab'
 import type { BlFields, FfShipment } from '../../lib/types'
 
 /** Same BL panel + document sequence as NVOCC's DocumentsTab, adapted to an
-    FfShipment record (no vessel-booking-specific fields like hblNo/pol/pod). */
+    FfShipment record (no vessel-booking-specific fields like hblNo/pol/pod).
+    Note: saveBl/approveBl/releaseBl below still only persist for NVOCC —
+    bl_versions/bl_state are FK'd to `bookings`, not `ff_shipments`, so the
+    BL panel here stays local-only for now (documents below are real). */
 export function FfDocumentsTab({ shipment }: { shipment: FfShipment }) {
-  const { documents, blStates, blVersions, uploadDocument, saveBl, submitCustomerBlEdit, approveBl, releaseBl } =
-    useDataStore()
+  const {
+    documents,
+    blStates,
+    blVersions,
+    saveBl,
+    submitCustomerBlEdit,
+    approveBl,
+    releaseBl,
+    fetchFfDocuments,
+    uploadFfDocumentFile,
+    getFfDocumentUrl,
+  } = useDataStore()
   const currentUser = useCurrentUser()
   const viewAsRole = useAuthStore((s) => s.viewAsRole)
   const effectiveRole = viewAsRole ?? currentUser?.role
   const isAdmin = effectiveRole === 'admin'
+
+  useEffect(() => {
+    fetchFfDocuments(shipment.id)
+  }, [fetchFfDocuments, shipment.id])
 
   const docs = documents.filter((d) => d.bookingId === shipment.id)
   const bl = blStates.find((b) => b.bookingId === shipment.id)
@@ -235,33 +251,25 @@ export function FfDocumentsTab({ shipment }: { shipment: FfShipment }) {
         <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted">
           Documents — sequence and trigger
         </p>
+        {!shipment.dbId && (
+          <p className="mb-3 rounded-btn border border-line bg-surface-2 px-3 py-2 text-xs text-muted">
+            This is demo data, not a saved shipment — real file upload is unavailable here. Create a new FF shipment to try it.
+          </p>
+        )}
         <div className="space-y-2">
           {DOC_SEQUENCE.map((d, i) => {
             const uploaded = docs.find((x) => x.docType === d.type)
             return (
-              <div
+              <DocumentRow
                 key={d.type}
-                className="flex items-center gap-3 rounded-btn border border-line bg-surface px-4 py-2.5"
-              >
-                <span className="w-6 font-mono text-[11px] text-muted">{String(i + 1).padStart(2, '0')}</span>
-                <div className="flex-1 min-w-0">
-                  <p className="text-[13px] font-medium text-heading">{d.type}</p>
-                  <p className="truncate text-[11px] text-muted">{d.trigger}</p>
-                </div>
-                {uploaded ? (
-                  <span className="flex items-center gap-1.5 text-xs text-primary">
-                    <CheckCircle2 size={14} />
-                    {uploaded.status} · {uploaded.uploadedBy}
-                  </span>
-                ) : (
-                  <>
-                    <StatusChip status="Pending" />
-                    <Button size="sm" variant="ghost" onClick={() => uploadDocument(shipment.id, d.type, 'Ops')}>
-                      <Upload size={13} /> Upload
-                    </Button>
-                  </>
-                )}
-              </div>
+                index={i}
+                docType={d.type}
+                trigger={d.trigger}
+                uploaded={uploaded}
+                canUpload={!!shipment.dbId}
+                onUpload={(file) => uploadFfDocumentFile(shipment.id, d.type, currentUser?.name ?? 'Ops', file)}
+                onView={uploaded?.storagePath ? () => getFfDocumentUrl(uploaded.storagePath!) : undefined}
+              />
             )
           })}
         </div>
