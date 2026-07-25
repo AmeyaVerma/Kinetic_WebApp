@@ -27,7 +27,10 @@ on conflict (id) do update set
   allowed_mime_types = excluded.allowed_mime_types,
   public = excluded.public;
 
-alter table storage.objects enable row level security;
+-- storage.objects already has RLS enabled by default on every Supabase
+-- project, and its owner is the internal supabase_storage_admin role —
+-- we can create/drop policies on it (granted), but can't toggle RLS
+-- on/off ourselves, so that statement is intentionally omitted here.
 
 drop policy if exists "booking-documents read" on storage.objects;
 create policy "booking-documents read"
