@@ -21,7 +21,7 @@ as $$
 $$;
 
 -- ── ff_shipments ──────────────────────────────────────────────
-create table public.ff_shipments (
+create table if not exists public.ff_shipments (
   id uuid primary key default gen_random_uuid(),
   tenant_id uuid not null default public.default_tenant_id() references public.tenants(id),
   ref text not null,
@@ -106,7 +106,7 @@ create table public.ff_shipments (
 );
 
 -- ── ff_vendor_lines ───────────────────────────────────────────
-create table public.ff_vendor_lines (
+create table if not exists public.ff_vendor_lines (
   id uuid primary key default gen_random_uuid(),
   tenant_id uuid not null default public.default_tenant_id() references public.tenants(id),
   ff_shipment_id uuid not null references public.ff_shipments(id) on delete cascade,
@@ -127,11 +127,13 @@ begin
   loop
     execute format('alter table public.%I enable row level security', t);
 
+    execute format('drop policy if exists %I on public.%I', 'read ' || t, t);
     execute format($f$
       create policy "read %1$s" on public.%1$I for select
       using (tenant_id = public.auth_tenant_id() and public.can_read_ff())
     $f$, t);
 
+    execute format('drop policy if exists %I on public.%I', 'write ' || t, t);
     execute format($f$
       create policy "write %1$s" on public.%1$I for all
       using (tenant_id = public.auth_tenant_id() and public.can_write_ff())
