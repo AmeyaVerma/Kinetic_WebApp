@@ -468,6 +468,29 @@ function ffShipmentToInsertRow(s: FfShipment) {
   }
 }
 
+/* ── FF persistence helpers — same no-op-if-no-dbId contract as the
+   NVOCC ones above. */
+
+function findFfDbId(ffShipments: FfShipment[], shipmentId: string): string | undefined {
+  return ffShipments.find((f) => f.id === shipmentId)?.dbId
+}
+
+function persistFfUpdate(dbId: string | undefined, patch: Record<string, unknown>, label: string) {
+  if (!dbId) return
+  ;(async () => {
+    const { error } = await supabase.from('ff_shipments').update(patch).eq('id', dbId)
+    if (error) console.error(`${label}: failed to persist`, error)
+  })()
+}
+
+function persistFfVendorLineUpdate(dbId: string | undefined, patch: Record<string, unknown>, label: string) {
+  if (!dbId) return
+  ;(async () => {
+    const { error } = await supabase.from('ff_vendor_lines').update(patch).eq('id', dbId)
+    if (error) console.error(`${label}: failed to persist`, error)
+  })()
+}
+
 const CONTAINER_INFO_FIELD_LABELS = {
   numberOfContainers: 'Number of containers',
   sizeOfContainer: 'Size of container',
@@ -1915,48 +1938,84 @@ export const useDataStore = create<DataState>((set, get) => ({
       set((state) => ({
         ffShipments: state.ffShipments.map((x) => (x.id === id ? { ...x, dbId } : x)),
       }))
-      if (shipment.vendorLines.length) {
-        const rows = shipment.vendorLines.map((v) => ({
-          ff_shipment_id: dbId,
-          role: v.role,
-          vendor_id: v.vendorId,
-          vendor_name: v.vendorName,
-          buy_amount: v.buyAmount,
-          billed_amount: v.billedAmount,
-          variance_flag: v.varianceFlag,
+      // Inserted one at a time (not a batch) so each real row's id can be
+      // matched back to its local line — needed later by ffMatchVendorBill.
+      for (const v of shipment.vendorLines) {
+        const { data: vRow, error: vErr } = await supabase
+          .from('ff_vendor_lines')
+          .insert({
+            ff_shipment_id: dbId,
+            role: v.role,
+            vendor_id: v.vendorId,
+            vendor_name: v.vendorName,
+            buy_amount: v.buyAmount,
+            billed_amount: v.billedAmount,
+            variance_flag: v.varianceFlag,
+          })
+          .select()
+          .single()
+        if (vErr || !vRow) {
+          console.error('createFfShipment: failed to persist a vendor line', vErr)
+          continue
+        }
+        const vendorDbId = vRow.id as string
+        set((state) => ({
+          ffShipments: state.ffShipments.map((x) =>
+            x.id === id
+              ? { ...x, vendorLines: x.vendorLines.map((line) => (line.id === v.id ? { ...line, dbId: vendorDbId } : line)) }
+              : x,
+          ),
         }))
-        const { error: vendorErr } = await supabase.from('ff_vendor_lines').insert(rows)
-        if (vendorErr) console.error('createFfShipment: failed to persist vendor lines', vendorErr)
       }
     })()
 
     return id
   },
 
-  addChildHbl: (parentId, child) =>
-    set((s) => {
-      const parent = s.ffShipments.find((f) => f.id === parentId)
-      if (!parent || parent.consolClosed) return s
-      const childCount = s.ffShipments.filter((f) => f.parentId === parentId).length
-      const ref = `${parent.ref}/H${childCount + 1}`
-      const shipment: FfShipment = {
-        ...parent,
-        id: ref,
-        ref,
-        isConsolParent: false,
-        parentId,
-        customerId: child.customerId,
-        customerName: child.customerName,
-        sellAmount: child.sellAmount,
-        vendorLines: [],
-        creditHold: false,
-        createdAt: now(),
-      }
-      return {
-        ffShipments: [...s.ffShipments, shipment],
-        activities: log(s.activities, parentId, 'Ops', `Child HBL ${ref} added — ${child.customerName} (manifest auto-updated)`),
-      }
-    }),
+  addChildHbl: (parentId, child) => {
+    const parent = get().ffShipments.find((f) => f.id === parentId)
+    if (!parent || parent.consolClosed) return
+    const childCount = get().ffShipments.filter((f) => f.parentId === parentId).length
+    const ref = `${parent.ref}/H${childCount + 1}`
+    const shipment: FfShipment = {
+      ...parent,
+      id: ref,
+      ref,
+      isConsolParent: false,
+      parentId,
+      customerId: child.customerId,
+      customerName: child.customerName,
+      sellAmount: child.sellAmount,
+      vendorLines: [],
+      creditHold: false,
+      createdAt: now(),
+    }
+    set((s) => ({
+      ffShipments: [...s.ffShipments, shipment],
+      activities: log(s.activities, parentId, 'Ops', `Child HBL ${ref} added — ${child.customerName} (manifest auto-updated)`),
+    }))
+
+    // Persist the child as its own ff_shipments row — same fire-and-forget
+    // pattern as createFfShipment. Only proceeds if the parent itself has a
+    // real dbId; a demo-data parent has nothing to link a child DB row to.
+    if (parent.dbId) {
+      ;(async () => {
+        const { data, error } = await supabase
+          .from('ff_shipments')
+          .insert({ ...ffShipmentToInsertRow(shipment), parent_id: parent.dbId })
+          .select()
+          .single()
+        if (error || !data) {
+          console.error('addChildHbl: failed to persist to Supabase', error)
+          return
+        }
+        const dbId = data.id as string
+        set((s) => ({
+          ffShipments: s.ffShipments.map((x) => (x.id === ref ? { ...x, dbId } : x)),
+        }))
+      })()
+    }
+  },
 
   closeConsolRun: (parentId) =>
     set((s) => {
@@ -1966,25 +2025,56 @@ export const useDataStore = create<DataState>((set, get) => ({
       // Container-level cost apportioned across child HBLs by revenue share
       const containerCost = buyTotal(parent)
       const totalSell = children.reduce((a, c) => a + c.sellAmount, 0) || 1
+
+      persistFfUpdate(parent.dbId, { consol_closed: true }, 'closeConsolRun')
+
       return {
         ffShipments: s.ffShipments.map((f) => {
           if (f.id === parentId) return { ...f, consolClosed: true }
           if (f.parentId === parentId) {
             const share = Math.round(containerCost * (f.sellAmount / totalSell))
-            return {
-              ...f,
-              vendorLines: [
-                {
-                  id: uid('fv'),
-                  role: 'Carrier' as const,
-                  vendorId: 'vn1',
-                  vendorName: 'Apportioned container cost (by revenue share)',
-                  buyAmount: share,
-                  billedAmount: null,
-                  varianceFlag: false,
-                },
-              ],
+            const newLine = {
+              id: uid('fv'),
+              role: 'Carrier' as const,
+              vendorId: 'vn1',
+              vendorName: 'Apportioned container cost (by revenue share)',
+              buyAmount: share,
+              billedAmount: null,
+              varianceFlag: false,
             }
+            // Real insert for the new apportioned line, if this child has a
+            // real dbId — mirrors createFfShipment's per-line insert so the
+            // returned id can be patched back for later ffMatchVendorBill.
+            if (f.dbId) {
+              ;(async () => {
+                const { data, error } = await supabase
+                  .from('ff_vendor_lines')
+                  .insert({
+                    ff_shipment_id: f.dbId,
+                    role: newLine.role,
+                    vendor_id: newLine.vendorId,
+                    vendor_name: newLine.vendorName,
+                    buy_amount: newLine.buyAmount,
+                    billed_amount: newLine.billedAmount,
+                    variance_flag: newLine.varianceFlag,
+                  })
+                  .select()
+                  .single()
+                if (error || !data) {
+                  console.error('closeConsolRun: failed to persist apportioned vendor line', error)
+                  return
+                }
+                const vendorDbId = data.id as string
+                set((state) => ({
+                  ffShipments: state.ffShipments.map((x) =>
+                    x.id === f.id
+                      ? { ...x, vendorLines: x.vendorLines.map((v) => (v.id === newLine.id ? { ...v, dbId: vendorDbId } : v)) }
+                      : x,
+                  ),
+                }))
+              })()
+            }
+            return { ...f, vendorLines: [newLine] }
           }
           return f
         }),
@@ -1993,32 +2083,44 @@ export const useDataStore = create<DataState>((set, get) => ({
     }),
 
   ffConfirmCarrier: (id, opts) =>
-    set((s) => ({
-      ffShipments: s.ffShipments.map((f) =>
-        f.id === id ? { ...f, ...opts, rateReconfirmed: true } : f,
-      ),
-      activities: log(
-        s.activities,
-        id,
-        'Ops',
-        opts.linkedNvoccRef
-          ? `Linked internally to NVOCC ${opts.linkedNvoccRef} as master — milestones auto-subscribe`
-          : `External carrier confirmed: ${opts.carrierName} — booking confirmation uploaded`,
-      ),
-    })),
+    set((s) => {
+      persistFfUpdate(
+        findFfDbId(s.ffShipments, id),
+        { linked_nvocc_ref: opts.linkedNvoccRef, carrier_name: opts.carrierName, agent_id: opts.agentId, rate_reconfirmed: true },
+        'ffConfirmCarrier',
+      )
+      return {
+        ffShipments: s.ffShipments.map((f) =>
+          f.id === id ? { ...f, ...opts, rateReconfirmed: true } : f,
+        ),
+        activities: log(
+          s.activities,
+          id,
+          'Ops',
+          opts.linkedNvoccRef
+            ? `Linked internally to NVOCC ${opts.linkedNvoccRef} as master — milestones auto-subscribe`
+            : `External carrier confirmed: ${opts.carrierName} — booking confirmation uploaded`,
+        ),
+      }
+    }),
 
   ffPickupComplete: (id) =>
-    set((s) => ({
-      ffShipments: s.ffShipments.map((f) =>
-        f.id === id ? { ...f, pickupProof: true, stage: 'Documentation' } : f,
-      ),
-      activities: log(s.activities, id, 'Transporter', 'Cargo collected — signed proof of collection logged as milestone'),
-    })),
+    set((s) => {
+      persistFfUpdate(findFfDbId(s.ffShipments, id), { pickup_proof: true, stage: 'Documentation' }, 'ffPickupComplete')
+      return {
+        ffShipments: s.ffShipments.map((f) =>
+          f.id === id ? { ...f, pickupProof: true, stage: 'Documentation' } : f,
+        ),
+        activities: log(s.activities, id, 'Transporter', 'Cargo collected — signed proof of collection logged as milestone'),
+      }
+    }),
 
   updateFfField: (shipmentId, field, value, actor) =>
     set((s) => {
       const f = s.ffShipments.find((x) => x.id === shipmentId)
       if (!f || (f[field] ?? '') === value) return s
+      const column = String(field).replace(/([A-Z])/g, '_$1').toLowerCase()
+      persistFfUpdate(f.dbId, { [column]: value }, 'updateFfField')
       return {
         ffShipments: s.ffShipments.map((x) => (x.id === shipmentId ? { ...x, [field]: value } : x)),
         activities: log(s.activities, shipmentId, actor, `${String(field)} updated`),
@@ -2029,6 +2131,7 @@ export const useDataStore = create<DataState>((set, get) => ({
     set((s) => {
       const f = s.ffShipments.find((x) => x.id === shipmentId)
       if (!f || f.workflowStatus === status) return s
+      persistFfUpdate(f.dbId, { workflow_status: status }, 'setFfWorkflowStatus')
       return {
         ffShipments: s.ffShipments.map((x) => (x.id === shipmentId ? { ...x, workflowStatus: status } : x)),
         activities: log(s.activities, shipmentId, actor, `Shipment status → ${status}`),
@@ -2039,6 +2142,7 @@ export const useDataStore = create<DataState>((set, get) => ({
     set((s) => {
       const f = s.ffShipments.find((x) => x.id === shipmentId)
       if (!f || f.hazmatStatus === status) return s
+      persistFfUpdate(f.dbId, { hazmat_status: status }, 'setFfHazmatStatus')
       return {
         ffShipments: s.ffShipments.map((x) => (x.id === shipmentId ? { ...x, hazmatStatus: status } : x)),
         activities: log(s.activities, shipmentId, actor, `Product info: cargo marked ${status}`),
@@ -2049,9 +2153,11 @@ export const useDataStore = create<DataState>((set, get) => ({
     set((s) => {
       const f = s.ffShipments.find((x) => x.id === shipmentId)
       if (!f || (f.hazmatDetails?.[field] ?? '') === value) return s
+      const nextDetails = { ...f.hazmatDetails, [field]: value }
+      persistFfUpdate(f.dbId, { hazmat_details: nextDetails }, 'updateFfHazmatDetail')
       return {
         ffShipments: s.ffShipments.map((x) =>
-          x.id === shipmentId ? { ...x, hazmatDetails: { ...x.hazmatDetails, [field]: value } } : x,
+          x.id === shipmentId ? { ...x, hazmatDetails: nextDetails } : x,
         ),
         activities: log(s.activities, shipmentId, actor, `Hazmat ${field} updated`),
       }
@@ -2062,35 +2168,45 @@ export const useDataStore = create<DataState>((set, get) => ({
       const f = s.ffShipments.find((x) => x.id === id)
       if (!f) return s
       let patchS: Partial<FfShipment> = {}
+      let patchDb: Record<string, unknown> = {}
       let msg = ''
       switch (action) {
         case 'si_received':
           patchS = { siReceived: true }
+          patchDb = { si_received: true }
           msg = 'Shipping Instructions received — completeness checked'
           break
         case 'weight_variance':
           patchS = { weightVarianceFlagged: true }
+          patchDb = { weight_variance_flagged: true }
           msg = 'Weight/measure variance vs cargo receipt beyond tolerance — Ops sign-off required'
           break
         case 'mbl_uploaded':
           patchS = { mblUploaded: true }
+          patchDb = { mbl_uploaded: true }
           msg = 'Master document (MBL/MAWB) received from carrier and uploaded'
           break
         case 'draft_house':
           patchS = { houseDocStatus: 'Draft', houseDocVersion: f.houseDocVersion + 1 }
+          patchDb = { house_doc_status: 'Draft', house_doc_version: f.houseDocVersion + 1 }
           msg = `House ${f.mode === 'Air' ? 'AWB' : 'BL'} auto-drafted from SI + booking data (governed fields, clause library) — v${f.houseDocVersion + 1}`
           break
         case 'customer_edit':
           patchS = { houseDocStatus: 'Awaiting approval' }
+          patchDb = { house_doc_status: 'Awaiting approval' }
           msg = 'Customer edit on governed fields — routed to Ops Approval Queue'
           break
         case 'release':
           patchS = { houseDocStatus: 'Released', houseReleaseType: releaseType ?? 'Original', stage: 'Export & Transit' }
+          patchDb = { house_doc_status: 'Released', house_release_type: releaseType ?? 'Original', stage: 'Export & Transit' }
           msg = `House document RELEASED (${releaseType}) — locked; further edits need a formal Amendment`
           break
       }
+      persistFfUpdate(f.dbId, patchDb, 'ffDocAction')
       const extra: Partial<DataState> = {}
       if (action === 'customer_edit') {
+        // Approval itself stays local-only — no approvals table yet, same
+        // as NVOCC's submitCustomerBlEdit.
         extra.approvals = [
           {
             id: uid('ap'),
@@ -2117,41 +2233,51 @@ export const useDataStore = create<DataState>((set, get) => ({
       const f = s.ffShipments.find((x) => x.id === id)
       if (!f) return s
       let patchS: Partial<FfShipment> = {}
+      let patchDb: Record<string, unknown> = {}
       let msg = ''
       switch (action) {
         case 'broker':
           patchS = { brokerAssigned: true }
+          patchDb = { broker_assigned: true }
           msg = 'Customs broker assigned — shipping bill / export declaration filed before cut-off'
           break
         case 'hold':
           patchS = { exportHold: true }
+          patchDb = { export_hold: true }
           msg = 'EXPORT CUSTOMS HOLD — Ops + customer notified'
           break
         case 'resolve_hold':
           patchS = { exportHold: false }
+          patchDb = { export_hold: false }
           msg = 'Export hold resolved with broker'
           break
         case 'let_export':
           patchS = { letExportReceived: true }
+          patchDb = { let_export_received: true }
           msg = '"Let Export Order" / export clearance received'
           break
         case 'gate_in_vgm':
           patchS = { gateInDone: true, vgmDone: true }
+          patchDb = { gate_in_done: true, vgm_done: true }
           msg = f.mode === 'Air' ? 'Cargo tendered to airline — final SI/chargeable weight submitted' : 'Gate-in done — VGM submitted with final SI before carrier cut-off'
           break
         case 'cutoff_met':
           patchS = { cutoffMet: true }
+          patchDb = { cutoff_met: true }
           msg = 'Cut-off met — on schedule'
           break
         case 'cutoff_missed':
           patchS = { cutoffMet: false }
+          patchDb = { cutoff_met: false }
           msg = 'CUT-OFF MISSED — delay flag raised, re-plan to next sailing/flight'
           break
         case 'depart':
           patchS = { departed: true, cutoffMet: true, stage: 'Arrival & Delivery' }
+          patchDb = { departed: true, cutoff_met: true, stage: 'Arrival & Delivery' }
           msg = 'Departed — SOB/uplift confirmation received, notation added to released house document; in-transit vs ETA'
           break
       }
+      persistFfUpdate(f.dbId, patchDb, 'ffExportAction')
       return {
         ffShipments: s.ffShipments.map((x) => (x.id === id ? { ...x, ...patchS } : x)),
         activities: log(s.activities, id, 'Ops', msg),
@@ -2163,45 +2289,56 @@ export const useDataStore = create<DataState>((set, get) => ({
       const f = s.ffShipments.find((x) => x.id === id)
       if (!f) return s
       let patchS: Partial<FfShipment> = {}
+      let patchDb: Record<string, unknown> = {}
       let msg = ''
       switch (action) {
         case 'arrival_notice':
           patchS = { arrivalNoticeSent: true }
+          patchDb = { arrival_notice_sent: true }
           msg = 'Arrival Notice auto-generated → consignee/notify party; destination agent takes over'
           break
         case 'import_hold':
           patchS = { importHold: true }
+          patchDb = { import_hold: true }
           msg = 'IMPORT CUSTOMS HOLD — Ops + customer notified'
           break
         case 'resolve_hold':
           patchS = { importHold: false }
+          patchDb = { import_hold: false }
           msg = 'Import hold resolved with broker'
           break
         case 'out_of_charge':
           patchS = { outOfCharge: true }
+          patchDb = { out_of_charge: true }
           msg = 'Bill of Entry filed, duty paid — "Out of Charge" customs release confirmed'
           break
         case 'dd_customer':
           patchS = { ddOutcome: 'Customer-billed' }
+          patchDb = { dd_outcome: 'Customer-billed' }
           msg = 'Free time exceeded — D&D charge auto-drafted, customer-caused → billed to customer'
           break
         case 'dd_absorbed':
           patchS = { ddOutcome: 'Absorbed' }
+          patchDb = { dd_outcome: 'Absorbed' }
           msg = 'Free time exceeded — carrier/Kinetic-caused → absorbed as operational cost'
           break
         case 'dd_none':
           patchS = { ddOutcome: 'None' }
+          patchDb = { dd_outcome: 'None' }
           msg = 'Gate-out within free time — no D&D exposure'
           break
         case 'issue_do':
           patchS = { doIssued: true }
+          patchDb = { do_issued: true }
           msg = 'Delivery Order issued — last-mile transport dispatched'
           break
         case 'pod':
           patchS = { podCaptured: true, stage: 'Financial Close' }
+          patchDb = { pod_captured: true, stage: 'Financial Close' }
           msg = 'POD (signature/photo) captured — booking status → Delivered; financial closure begins'
           break
       }
+      persistFfUpdate(f.dbId, patchDb, 'ffArrivalAction')
       return {
         ffShipments: s.ffShipments.map((x) => (x.id === id ? { ...x, ...patchS } : x)),
         activities: log(s.activities, id, 'Agent/Ops', msg),
@@ -2213,6 +2350,7 @@ export const useDataStore = create<DataState>((set, get) => ({
       const f = s.ffShipments.find((x) => x.id === id)
       if (!f || f.clientInvoiced) return s
       const invoiceNo = `KLI-26-${String(500 + s.invoices.length)}`
+      persistFfUpdate(f.dbId, { client_invoiced: true }, 'ffInvoiceClient')
       return {
         ffShipments: s.ffShipments.map((x) => (x.id === id ? { ...x, clientInvoiced: true } : x)),
         invoices: [
@@ -2238,6 +2376,7 @@ export const useDataStore = create<DataState>((set, get) => ({
       const line = f?.vendorLines.find((v) => v.id === lineId)
       if (!f || !line) return s
       const flag = overTolerance(line.buyAmount, billedAmount)
+      persistFfVendorLineUpdate(line.dbId, { billed_amount: billedAmount, variance_flag: flag }, 'ffMatchVendorBill')
       const extra: Partial<DataState> = {}
       if (flag) {
         extra.approvals = [
@@ -2266,10 +2405,13 @@ export const useDataStore = create<DataState>((set, get) => ({
     }),
 
   ffMarkPaid: (id) =>
-    set((s) => ({
-      ffShipments: s.ffShipments.map((x) => (x.id === id ? { ...x, paid: true } : x)),
-      activities: log(s.activities, id, 'Finance', 'Client payment received in full — marked Paid'),
-    })),
+    set((s) => {
+      persistFfUpdate(findFfDbId(s.ffShipments, id), { paid: true }, 'ffMarkPaid')
+      return {
+        ffShipments: s.ffShipments.map((x) => (x.id === id ? { ...x, paid: true } : x)),
+        activities: log(s.activities, id, 'Finance', 'Client payment received in full — marked Paid'),
+      }
+    }),
 
   ffFinancialClose: (id) =>
     set((s) => {
@@ -2277,6 +2419,7 @@ export const useDataStore = create<DataState>((set, get) => ({
       if (!f) return s
       const allMatched = f.vendorLines.length > 0 && f.vendorLines.every((v) => v.billedAmount !== null)
       if (!f.paid || !allMatched) return s
+      persistFfUpdate(f.dbId, { stage: 'Closed' }, 'ffFinancialClose')
       return {
         ffShipments: s.ffShipments.map((x) => (x.id === id ? { ...x, stage: 'Closed' } : x)),
         activities: log(s.activities, id, 'Finance', 'Every vendor bill matched — P&L flipped to Actual GP; booking marked Financially Closed'),

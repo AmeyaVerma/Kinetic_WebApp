@@ -594,6 +594,8 @@ export interface FfVendorLine {
   /** Bill arrives independently later — null until matched (flow 5) */
   billedAmount: number | null
   varianceFlag: boolean
+  /** Real Supabase row id, once persisted — see Booking.dbId for the same pattern. */
+  dbId?: string
 }
 
 export type HouseDocStatus = 'None' | 'Draft' | 'Awaiting approval' | 'Released'
