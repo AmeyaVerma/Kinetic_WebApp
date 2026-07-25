@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
 import { Card } from '../components/ui/Card'
@@ -33,7 +33,11 @@ const TABS = [
 export function FfDetailPage() {
   const { id } = useParams<{ id: string }>()
   const [tab, setTab] = useState('container')
-  const { ffShipments, activities, setFfWorkflowStatus } = useDataStore()
+  const { ffShipments, activities, setFfWorkflowStatus, fetchFfShipments } = useDataStore()
+
+  useEffect(() => {
+    fetchFfShipments()
+  }, [fetchFfShipments])
 
   const shipment = ffShipments.find((f) => f.id === id)
   if (!shipment) {

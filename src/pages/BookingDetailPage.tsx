@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { ArrowLeft, Check, Container as ContainerIcon, Ban } from 'lucide-react'
 import { Card } from '../components/ui/Card'
@@ -51,7 +51,12 @@ export function BookingDetailPage() {
     updatePlannedDate,
     updateMilestoneDate,
     setBookingWorkflowStatus,
+    fetchBookings,
   } = useDataStore()
+
+  useEffect(() => {
+    fetchBookings()
+  }, [fetchBookings])
 
   const booking = bookings.find((b) => b.id === id)
   if (!booking) {
