@@ -334,6 +334,140 @@ function persistDocumentInsert(dbId: string | undefined, docType: string, upload
   })()
 }
 
+/* ── FF (Freight Forwarding) Supabase mapping — see supabase/migrations/0008.
+   Same id/dbId split as Booking: FfShipment.id stays the human `ref`
+   everywhere in the app, dbId is the real DB uuid. */
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function rowToFfShipment(row: any): FfShipment {
+  return {
+    id: row.ref,
+    dbId: row.id,
+    ref: row.ref,
+    mode: row.mode,
+    customerId: row.customer_id,
+    customerName: row.customer_name,
+    origin: row.origin,
+    destination: row.destination,
+    incoterm: row.incoterm,
+    stage: row.stage,
+    creditHold: row.credit_hold,
+    isConsolParent: row.is_consol_parent,
+    parentId: null, // resolved client-side below once all rows are loaded
+    consolClosed: row.consol_closed,
+    carrierName: row.carrier_name,
+    linkedNvoccRef: row.linked_nvocc_ref,
+    rateReconfirmed: row.rate_reconfirmed,
+    agentId: row.agent_id,
+    specialHandling: row.special_handling ?? null,
+    pickupProof: row.pickup_proof,
+    siReceived: row.si_received,
+    weightVarianceFlagged: row.weight_variance_flagged,
+    mblUploaded: row.mbl_uploaded,
+    houseDocStatus: row.house_doc_status,
+    houseDocVersion: row.house_doc_version,
+    houseReleaseType: row.house_release_type,
+    brokerAssigned: row.broker_assigned,
+    exportHold: row.export_hold,
+    letExportReceived: row.let_export_received,
+    gateInDone: row.gate_in_done,
+    vgmDone: row.vgm_done,
+    cutoffMet: row.cutoff_met,
+    departed: row.departed,
+    transhipmentLegs: row.transhipment_legs,
+    arrivalNoticeSent: row.arrival_notice_sent,
+    importHold: row.import_hold,
+    outOfCharge: row.out_of_charge,
+    ddOutcome: row.dd_outcome,
+    doIssued: row.do_issued,
+    podCaptured: row.pod_captured,
+    sellAmount: row.sell_amount,
+    vendorLines: [], // fetched/merged separately (ff_vendor_lines)
+    clientInvoiced: row.client_invoiced,
+    paid: row.paid,
+    createdAt: row.created_at,
+    workflowStatus: row.workflow_status ?? undefined,
+    containerType: row.container_type ?? undefined,
+    numberOfContainers: row.number_of_containers ?? undefined,
+    sizeOfContainer: row.size_of_container ?? undefined,
+    sealNo: row.seal_no ?? undefined,
+    customSealNo: row.custom_seal_no ?? undefined,
+    commodity: row.commodity ?? undefined,
+    hsCode: row.hs_code ?? undefined,
+    packages: row.packages ?? undefined,
+    packageType: row.package_type ?? undefined,
+    grossWeightKg: row.gross_weight_kg ?? undefined,
+    freightTerms: row.freight_terms ?? undefined,
+    hazmatStatus: row.hazmat_status ?? undefined,
+    hazmatDetails: row.hazmat_details ?? undefined,
+    vesselName: row.vessel_name ?? undefined,
+    voyageNo: row.voyage_no ?? undefined,
+    etd: row.etd ?? undefined,
+    eta: row.eta ?? undefined,
+    terminal: row.terminal ?? undefined,
+    mblNo: row.mbl_no ?? undefined,
+    plannedGateOpen: row.planned_gate_open ?? undefined,
+    plannedGateClose: row.planned_gate_close ?? undefined,
+    plannedSiCutoff: row.planned_si_cutoff ?? undefined,
+    plannedVgmCutoff: row.planned_vgm_cutoff ?? undefined,
+    plannedCyCutoff: row.planned_cy_cutoff ?? undefined,
+    shipper: row.shipper ?? undefined,
+    consignee: row.consignee ?? undefined,
+    notifyParty: row.notify_party ?? undefined,
+    originAgentName: row.origin_agent_name ?? undefined,
+    destinationAgentName: row.destination_agent_name ?? undefined,
+    transshipmentAgent: row.transshipment_agent ?? undefined,
+    surveyorName: row.surveyor_name ?? undefined,
+    emptyContainerYardOrigin: row.empty_container_yard_origin ?? undefined,
+    emptyContainerYardDestination: row.empty_container_yard_destination ?? undefined,
+  }
+}
+
+function ffShipmentToInsertRow(s: FfShipment) {
+  return {
+    ref: s.ref,
+    mode: s.mode,
+    customer_id: s.customerId,
+    customer_name: s.customerName,
+    origin: s.origin,
+    destination: s.destination,
+    incoterm: s.incoterm,
+    stage: s.stage,
+    credit_hold: s.creditHold,
+    is_consol_parent: s.isConsolParent,
+    consol_closed: s.consolClosed,
+    carrier_name: s.carrierName,
+    linked_nvocc_ref: s.linkedNvoccRef,
+    rate_reconfirmed: s.rateReconfirmed,
+    agent_id: s.agentId,
+    special_handling: s.specialHandling ?? null,
+    pickup_proof: s.pickupProof,
+    si_received: s.siReceived,
+    weight_variance_flagged: s.weightVarianceFlagged,
+    mbl_uploaded: s.mblUploaded,
+    house_doc_status: s.houseDocStatus,
+    house_doc_version: s.houseDocVersion,
+    house_release_type: s.houseReleaseType,
+    broker_assigned: s.brokerAssigned,
+    export_hold: s.exportHold,
+    let_export_received: s.letExportReceived,
+    gate_in_done: s.gateInDone,
+    vgm_done: s.vgmDone,
+    cutoff_met: s.cutoffMet,
+    departed: s.departed,
+    transhipment_legs: s.transhipmentLegs,
+    arrival_notice_sent: s.arrivalNoticeSent,
+    import_hold: s.importHold,
+    out_of_charge: s.outOfCharge,
+    dd_outcome: s.ddOutcome,
+    do_issued: s.doIssued,
+    pod_captured: s.podCaptured,
+    sell_amount: s.sellAmount,
+    client_invoiced: s.clientInvoiced,
+    paid: s.paid,
+  }
+}
+
 const CONTAINER_INFO_FIELD_LABELS = {
   numberOfContainers: 'Number of containers',
   sizeOfContainer: 'Size of container',
@@ -518,6 +652,9 @@ interface DataState {
 
   // ── Freight Forwarding (FF flowchart, 6 flows) ──
   ffShipments: FfShipment[]
+  /** Pulls real FF shipments from Supabase and merges them into local
+      state — additive, same pattern as fetchBookings. */
+  fetchFfShipments: () => Promise<void>
   createFfShipment: (
     s: Pick<FfShipment, 'mode' | 'customerId' | 'customerName' | 'origin' | 'destination' | 'incoterm' | 'sellAmount' | 'isConsolParent' | 'specialHandling'>,
     vendorLines: Omit<FfVendorLine, 'id' | 'billedAmount' | 'varianceFlag'>[],
@@ -1669,6 +1806,25 @@ export const useDataStore = create<DataState>((set, get) => ({
 
   ffShipments: mockFfShipments,
 
+  fetchFfShipments: async () => {
+    const { data, error } = await supabase
+      .from('ff_shipments')
+      .select('*')
+      .order('created_at', { ascending: false })
+    if (error || !data) return
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const fetched = (data as any[]).map(rowToFfShipment)
+    set((s) => {
+      const existingRefs = new Set(s.ffShipments.map((f) => f.ref))
+      const newOnes = fetched.filter((f) => !existingRefs.has(f.ref))
+      const patched = s.ffShipments.map((f) => {
+        const match = fetched.find((x) => x.ref === f.ref)
+        return match ? { ...f, dbId: match.dbId } : f
+      })
+      return { ffShipments: [...newOnes, ...patched] }
+    })
+  },
+
   createFfShipment: (s, vendorLines) => {
     const st = get()
     const maxSeq = st.ffShipments.reduce((max, x) => {
@@ -1741,6 +1897,39 @@ export const useDataStore = create<DataState>((set, get) => ({
         `FF booking ${ref} created (${s.mode})${creditHold ? ' — HELD: over credit limit, Finance sign-off required' : ''}${s.isConsolParent ? ' — LCL consolidation parent' : ''}`,
       ),
     }))
+
+    // Persist to Supabase in the background — same optimistic pattern as
+    // NVOCC's createBooking. Patches dbId onto the shipment on success and
+    // inserts its vendor lines, ready for later actions/documents.
+    ;(async () => {
+      const { data, error } = await supabase
+        .from('ff_shipments')
+        .insert(ffShipmentToInsertRow(shipment))
+        .select()
+        .single()
+      if (error || !data) {
+        console.error('createFfShipment: failed to persist to Supabase', error)
+        return
+      }
+      const dbId = data.id as string
+      set((state) => ({
+        ffShipments: state.ffShipments.map((x) => (x.id === id ? { ...x, dbId } : x)),
+      }))
+      if (shipment.vendorLines.length) {
+        const rows = shipment.vendorLines.map((v) => ({
+          ff_shipment_id: dbId,
+          role: v.role,
+          vendor_id: v.vendorId,
+          vendor_name: v.vendorName,
+          buy_amount: v.buyAmount,
+          billed_amount: v.billedAmount,
+          variance_flag: v.varianceFlag,
+        }))
+        const { error: vendorErr } = await supabase.from('ff_vendor_lines').insert(rows)
+        if (vendorErr) console.error('createFfShipment: failed to persist vendor lines', vendorErr)
+      }
+    })()
+
     return id
   },
 

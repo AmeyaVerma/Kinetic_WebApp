@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Plus, Trash2, Link2, Boxes, Ship, DollarSign, ClipboardCheck } from 'lucide-react'
 import { Card } from '../components/ui/Card'
@@ -26,7 +26,11 @@ const STAGE_CHIP: Record<FfStage, ChipStatus> = {
 export function FreightPage() {
   const navigate = useNavigate()
   const [wizardOpen, setWizardOpen] = useState(false)
-  const { ffShipments } = useDataStore()
+  const { ffShipments, fetchFfShipments } = useDataStore()
+
+  useEffect(() => {
+    fetchFfShipments()
+  }, [fetchFfShipments])
 
   const parents = useMemo(() => ffShipments.filter((f) => !f.parentId), [ffShipments])
 

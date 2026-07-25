@@ -692,6 +692,8 @@ export interface FfShipment {
   // Container yard tab
   emptyContainerYardOrigin?: string
   emptyContainerYardDestination?: string
+  /** Real Supabase row id, once persisted — see Booking.dbId for the same pattern. */
+  dbId?: string
 }
 
 /* ── Customer Management module (CM Requirements v1) ─────────── */
