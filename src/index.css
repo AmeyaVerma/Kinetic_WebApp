@@ -79,3 +79,14 @@ h1, h2, h3, h4, h5, h6 {
 *::-webkit-scrollbar-track {
   background: transparent;
 }
+
+/* Every browser renders a <select>'s open dropdown list with its OWN
+   background (white, ignoring the page's dark-mode theme) — but <option>
+   text still inherits our CSS text color, which is light in dark mode.
+   Result: unreadable options until hovered. Force dark text + white
+   background on every option in the app, not just per-component, so this
+   never has to be special-cased again. */
+select option {
+  color: #0F172A;
+  background: #FFFFFF;
+}

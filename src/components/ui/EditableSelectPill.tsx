@@ -25,9 +25,15 @@ export function EditableSelectPill({
         onChange={(e) => onChange(e.target.value)}
         className="mt-0.5 w-full bg-transparent text-[13px] text-heading focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
       >
-        {!options.includes(value) && value && <option value={value}>{value}</option>}
+        {/* The dropdown popup is browser-rendered with its own white
+            background regardless of page theme — options need an explicit
+            dark text color or they inherit the page's (possibly light)
+            text color and become unreadable until hovered. */}
+        {!options.includes(value) && value && (
+          <option value={value} className="bg-white text-[#0F172A]">{value}</option>
+        )}
         {options.map((o) => (
-          <option key={o} value={o}>{o}</option>
+          <option key={o} value={o} className="bg-white text-[#0F172A]">{o}</option>
         ))}
       </select>
       {hint && <p className="mt-1 text-[11px] text-accent-orange">{hint}</p>}
