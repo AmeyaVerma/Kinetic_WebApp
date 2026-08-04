@@ -211,7 +211,8 @@ export function BookingDetailPage() {
 /* ── Tab: Container info ─────────────────────────────────────── */
 
 function ContainerInfoTab({ booking }: { booking: import('../lib/types').Booking }) {
-  const { updateContainerInfoField, requestContainerTypeChange, approvals, masters } = useDataStore()
+  const { updateContainerInfoField, requestContainerTypeChange, updateContainerNos, approvals, masters } =
+    useDataStore()
   const currentUser = useCurrentUser()
   const viewAsRole = useAuthStore((s) => s.viewAsRole)
   const isAdmin = (viewAsRole ?? currentUser?.role) === 'admin'
@@ -224,38 +225,84 @@ function ContainerInfoTab({ booking }: { booking: import('../lib/types').Booking
     (a) => a.bookingId === booking.id && a.status === 'Pending' && a.fieldChange?.field === 'containerType',
   )
 
+  // "Number of containers" drives how many container-number fields show
+  // below — resizing keeps whatever numbers are already filled in and pads
+  // with blanks, rather than wiping the list every time the count changes.
+  const count = Math.max(0, parseInt(booking.numberOfContainers || '0', 10) || 0)
+
+  const setCount = (v: string) => {
+    const next = Math.max(0, Math.min(999, parseInt(v || '0', 10) || 0))
+    updateContainerInfoField(booking.id, 'numberOfContainers', v.trim() === '' ? '' : String(next), actor)
+    const resized = Array.from({ length: next }, (_, i) => booking.containerNos[i] ?? '')
+    updateContainerNos(booking.id, resized, actor)
+  }
+
+  const setContainerNoAt = (index: number) => (v: string) => {
+    const next = [...booking.containerNos]
+    while (next.length <= index) next.push('')
+    next[index] = v
+    updateContainerNos(booking.id, next, actor)
+  }
+
   return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-      <EditableSelectPill
-        label="Container type"
-        value={booking.containerType}
-        options={masters.containerTypes}
-        disabled={!!pendingContainerType}
-        hint={pendingContainerType ? `Pending Admin approval → ${pendingContainerType.fieldChange!.value}` : undefined}
-        onChange={(v) =>
-          isAdmin
-            ? updateContainerInfoField(booking.id, 'containerType', v, actor)
-            : requestContainerTypeChange(booking.id, v, actor)
-        }
-      />
-      <EditableTextPill
-        label="Number of containers"
-        value={booking.numberOfContainers ?? ''}
-        onChange={setField('numberOfContainers')}
-      />
-      <EditableTextPill
-        label="Size of container"
-        value={booking.sizeOfContainer ?? ''}
-        onChange={setField('sizeOfContainer')}
-      />
-      <EditableTextPill label="Seal No." value={booking.sealNo} onChange={setField('sealNo')} />
-      <EditableTextPill
-        label="Custom Seal No."
-        value={booking.customSealNo ?? ''}
-        onChange={setField('customSealNo')}
-      />
-      <FieldPill label="Free days (origin)" value={`${booking.freeDaysOrigin} days`} />
-      <FieldPill label="Free days (destination)" value={`${booking.freeDaysDest} days`} />
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        <EditableSelectPill
+          label="Container type"
+          value={booking.containerType}
+          options={masters.containerTypes}
+          disabled={!!pendingContainerType}
+          hint={pendingContainerType ? `Pending Admin approval → ${pendingContainerType.fieldChange!.value}` : undefined}
+          onChange={(v) =>
+            isAdmin
+              ? updateContainerInfoField(booking.id, 'containerType', v, actor)
+              : requestContainerTypeChange(booking.id, v, actor)
+          }
+        />
+        <EditableTextPill
+          label="Number of containers"
+          value={booking.numberOfContainers ?? ''}
+          onChange={setCount}
+        />
+        <EditableTextPill
+          label="Size of container"
+          value={booking.sizeOfContainer ?? ''}
+          onChange={setField('sizeOfContainer')}
+        />
+        <EditableTextPill label="Seal No." value={booking.sealNo} onChange={setField('sealNo')} />
+        <EditableTextPill
+          label="Custom Seal No."
+          value={booking.customSealNo ?? ''}
+          onChange={setField('customSealNo')}
+        />
+        <FieldPill label="Free days (origin)" value={`${booking.freeDaysOrigin} days`} />
+        <FieldPill label="Free days (destination)" value={`${booking.freeDaysDest} days`} />
+      </div>
+
+      <div className="rounded-card border border-line bg-surface-2/40 p-5">
+        <div className="flex items-center gap-2">
+          <ContainerIcon size={16} className="text-primary" />
+          <h3 className="text-[13px] font-semibold text-heading">
+            Container numbers {count > 0 && <span className="font-mono text-muted">({count})</span>}
+          </h3>
+        </div>
+        {count === 0 ? (
+          <p className="mt-2 text-xs text-muted">
+            Set "Number of containers" above to add each container's number.
+          </p>
+        ) : (
+          <div className="mt-3 grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+            {Array.from({ length: count }).map((_, i) => (
+              <EditableTextPill
+                key={i}
+                label={`Container ${i + 1}`}
+                value={booking.containerNos[i] ?? ''}
+                onChange={setContainerNoAt(i)}
+              />
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   )
 }

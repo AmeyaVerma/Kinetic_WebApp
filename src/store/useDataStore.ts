@@ -586,6 +586,12 @@ interface DataState {
       Admins should call updateContainerInfoField directly (no approval
       needed for their own edits). */
   requestContainerTypeChange: (bookingId: string, value: string, actor: string) => void
+  /** Replaces the whole containerNos array — used when the container count
+      changes (resizes the array) or a single slot is edited (same array,
+      one entry changed). Admin-direct, no approval gate (unlike container
+      type) since these are per-container identifiers, not a booking-wide
+      classification. */
+  updateContainerNos: (bookingId: string, containerNos: string[], actor: string) => void
   updateTransshipmentAgent: (bookingId: string, value: string, actor: string) => void
   updateEmptyYardField: (
     bookingId: string,
@@ -1101,6 +1107,17 @@ export const useDataStore = create<DataState>((set, get) => ({
           ...s.approvals,
         ],
         activities: log(s.activities, bookingId, actor, `Requested container type change → ${value} (Admin approval required)`),
+      }
+    }),
+
+  updateContainerNos: (bookingId, containerNos, actor) =>
+    set((s) => {
+      const booking = s.bookings.find((b) => b.id === bookingId)
+      if (!booking) return s
+      persistBookingUpdate(booking.dbId, { container_nos: containerNos }, 'updateContainerNos')
+      return {
+        bookings: s.bookings.map((b) => (b.id === bookingId ? { ...b, containerNos } : b)),
+        activities: log(s.activities, bookingId, actor, 'Container numbers updated'),
       }
     }),
 
