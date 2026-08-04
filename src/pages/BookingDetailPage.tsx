@@ -238,7 +238,6 @@ function ContainerInfoTab({ booking }: { booking: import('../lib/types').Booking
             : requestContainerTypeChange(booking.id, v, actor)
         }
       />
-      <FieldPill label="Quantity" value={String(booking.containerQty)} />
       <EditableTextPill
         label="Number of containers"
         value={booking.numberOfContainers ?? ''}
