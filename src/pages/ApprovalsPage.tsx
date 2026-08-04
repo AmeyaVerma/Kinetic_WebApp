@@ -17,6 +17,7 @@ const CATEGORY_TABS: { key: ApprovalEntityType | 'all'; label: string }[] = [
   { key: 'repair_estimate', label: 'Repair estimates' },
   { key: 'credit_hold', label: 'Credit holds' },
   { key: 'booking_request', label: 'Booking requests' },
+  { key: 'booking_field_edit', label: 'Booking field edits' },
 ]
 
 const TYPE_LABEL: Record<ApprovalEntityType, string> = {
@@ -30,6 +31,7 @@ const TYPE_LABEL: Record<ApprovalEntityType, string> = {
   blacklist: 'Blacklist (Regional Head)',
   agent_gate: 'Agent gate',
   leave_request: 'Leave request',
+  booking_field_edit: 'Booking field edit',
 }
 
 export function ApprovalsPage() {

@@ -496,6 +496,7 @@ const CONTAINER_INFO_FIELD_LABELS = {
   sizeOfContainer: 'Size of container',
   sealNo: 'Seal No.',
   customSealNo: 'Custom Seal No.',
+  containerType: 'Container type',
 } as const
 
 const PLANNED_DATE_FIELD_LABELS = {
@@ -576,10 +577,15 @@ interface DataState {
   updateHazmatDetail: (bookingId: string, field: keyof HazmatDetails, value: string, actor: string) => void
   updateContainerInfoField: (
     bookingId: string,
-    field: 'numberOfContainers' | 'sizeOfContainer' | 'sealNo' | 'customSealNo',
+    field: 'numberOfContainers' | 'sizeOfContainer' | 'sealNo' | 'customSealNo' | 'containerType',
     value: string,
     actor: string,
   ) => void
+  /** Non-admin path for changing container type on an EXISTING booking —
+      raises an Admin-approval request instead of applying immediately.
+      Admins should call updateContainerInfoField directly (no approval
+      needed for their own edits). */
+  requestContainerTypeChange: (bookingId: string, value: string, actor: string) => void
   updateTransshipmentAgent: (bookingId: string, value: string, actor: string) => void
   updateEmptyYardField: (
     bookingId: string,
@@ -1067,6 +1073,34 @@ export const useDataStore = create<DataState>((set, get) => ({
       return {
         bookings: s.bookings.map((b) => (b.id === bookingId ? { ...b, [field]: value } : b)),
         activities: log(s.activities, bookingId, actor, `${CONTAINER_INFO_FIELD_LABELS[field]} updated`),
+      }
+    }),
+
+  requestContainerTypeChange: (bookingId, value, actor) =>
+    set((s) => {
+      const booking = s.bookings.find((b) => b.id === bookingId)
+      if (!booking || booking.containerType === value) return s
+      // Refuse a duplicate request while one's already pending on this field.
+      const alreadyPending = s.approvals.some(
+        (a) => a.bookingId === bookingId && a.status === 'Pending' && a.fieldChange?.field === 'containerType',
+      )
+      if (alreadyPending) return s
+      return {
+        approvals: [
+          {
+            id: uid('ap'),
+            entityType: 'booking_field_edit' as const,
+            entityId: bookingId,
+            bookingId,
+            summary: `Container type change on ${booking.bookingRef}: ${booking.containerType} → ${value}`,
+            requestedBy: actor,
+            requestedAt: now(),
+            status: 'Pending' as const,
+            fieldChange: { field: 'containerType', value },
+          },
+          ...s.approvals,
+        ],
+        activities: log(s.activities, bookingId, actor, `Requested container type change → ${value} (Admin approval required)`),
       }
     }),
 
@@ -3075,6 +3109,14 @@ export const useDataStore = create<DataState>((set, get) => ({
         } else if (ap.entityType === 'quote') {
           patch = {
             quotes: s.quotes.map((q) => (q.id === ap.entityId ? { ...q, status: 'Sent' } : q)),
+          }
+        } else if (ap.entityType === 'booking_field_edit' && ap.bookingId && ap.fieldChange) {
+          const { field, value } = ap.fieldChange
+          const target = s.bookings.find((b) => b.id === ap.bookingId)
+          const column = field.replace(/([A-Z])/g, '_$1').toLowerCase()
+          persistBookingUpdate(target?.dbId, { [column]: value }, 'decideApproval:booking_field_edit')
+          patch = {
+            bookings: s.bookings.map((b) => (b.id === ap.bookingId ? { ...b, [field]: value } : b)),
           }
         }
       } else if (ap.entityType === 'bl_edit' && ap.bookingId) {

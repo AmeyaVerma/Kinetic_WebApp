@@ -16,6 +16,7 @@ import { cyclePct, deriveStatus, milestoneDefs, statusSequence } from '../lib/mi
 import { StageStepper } from '../components/ui/StageStepper'
 import { EditableDatePill } from '../components/ui/EditableDatePill'
 import { EditableTextPill } from '../components/ui/EditableTextPill'
+import { EditableSelectPill } from '../components/ui/EditableSelectPill'
 import { MarkMilestoneButton } from '../components/ui/MarkMilestoneButton'
 import {
   BOOKING_WORKFLOW_STATUSES,
@@ -210,13 +211,33 @@ export function BookingDetailPage() {
 /* ── Tab: Container info ─────────────────────────────────────── */
 
 function ContainerInfoTab({ booking }: { booking: import('../lib/types').Booking }) {
-  const { updateContainerInfoField } = useDataStore()
+  const { updateContainerInfoField, requestContainerTypeChange, approvals, masters } = useDataStore()
+  const currentUser = useCurrentUser()
+  const viewAsRole = useAuthStore((s) => s.viewAsRole)
+  const isAdmin = (viewAsRole ?? currentUser?.role) === 'admin'
+  const actor = currentUser?.name ?? 'Ops'
+
   const setField = (field: 'numberOfContainers' | 'sizeOfContainer' | 'sealNo' | 'customSealNo') =>
-    (v: string) => updateContainerInfoField(booking.id, field, v, 'Ops')
+    (v: string) => updateContainerInfoField(booking.id, field, v, actor)
+
+  const pendingContainerType = approvals.find(
+    (a) => a.bookingId === booking.id && a.status === 'Pending' && a.fieldChange?.field === 'containerType',
+  )
 
   return (
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-      <FieldPill label="Container type" value={booking.containerType} />
+      <EditableSelectPill
+        label="Container type"
+        value={booking.containerType}
+        options={masters.containerTypes}
+        disabled={!!pendingContainerType}
+        hint={pendingContainerType ? `Pending Admin approval → ${pendingContainerType.fieldChange!.value}` : undefined}
+        onChange={(v) =>
+          isAdmin
+            ? updateContainerInfoField(booking.id, 'containerType', v, actor)
+            : requestContainerTypeChange(booking.id, v, actor)
+        }
+      />
       <FieldPill label="Quantity" value={String(booking.containerQty)} />
       <EditableTextPill
         label="Number of containers"

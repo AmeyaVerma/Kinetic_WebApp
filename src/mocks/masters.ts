@@ -74,5 +74,14 @@ export const mockChargeCodes: ChargeCodeMaster[] = [
   { id: 'cc8', code: 'MISC', name: 'Miscellaneous' },
 ]
 
-export const CONTAINER_TYPES = ['20GP', '40GP', '40HC', '20RF', '40RF'] as const
+export const CONTAINER_TYPES = [
+  '20 ft dry',
+  '20 ft reefer',
+  '20 ft OT',
+  '40 ft dry',
+  '40 ft reefer',
+  '40 ft OT',
+  '40 ft ER',
+  '40 ft ISO',
+] as const
 export const PACKAGE_TYPES = ['Pallets', 'Cartons', 'Bags', 'Drums', 'Crates'] as const

@@ -423,6 +423,7 @@ export type ApprovalEntityType =
   | 'blacklist'
   | 'agent_gate'
   | 'leave_request'
+  | 'booking_field_edit'
 
 export type ApprovalStatus = 'Pending' | 'Approved' | 'Rejected'
 
@@ -437,6 +438,9 @@ export interface Approval {
   status: ApprovalStatus
   /** For bl_edit: proposed field changes awaiting ops approval */
   payload?: Partial<BlFields>
+  /** For booking_field_edit: a single non-admin field-level change awaiting
+      Admin approval (e.g. changing container type on an existing booking). */
+  fieldChange?: { field: string; value: string }
 }
 
 /* ── Activity log (append-only) ──────────────────────────────── */
