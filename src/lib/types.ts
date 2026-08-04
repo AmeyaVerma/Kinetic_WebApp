@@ -157,6 +157,21 @@ export type BookingStatus =
   | 'Closed'
   | 'Cancelled'
 
+/** One row of the per-container detail table on the Container info tab —
+    count driven by Booking.numberOfContainers. Numeric-looking fields stay
+    strings (same convention as the rest of this file's free-text fields)
+    since they're plain editable inputs, not computed/validated numbers. */
+export interface ContainerLineItem {
+  containerNo: string
+  emptyLaden: 'Empty' | 'Laden'
+  noOfPkgs: string
+  pkgUnit: string
+  grossWeight: string
+  netWeight: string
+  gateIn: string | null // ISO date
+  sob: string | null // ISO date — Shipped On Board
+}
+
 export interface Booking {
   id: string
   bookingRef: string // KINEXP-XXXX / KINIMP-XXXX
@@ -214,6 +229,10 @@ export interface Booking {
   numberOfContainers?: string
   sizeOfContainer?: string
   customSealNo?: string
+  /** One row per container — length driven by numberOfContainers, resized
+      (padded/truncated) as that count changes. Optional/missing on
+      legacy/seed records; treat as an empty array. */
+  containerDetails?: ContainerLineItem[]
   /** Product info — hazardous cargo. Optional on legacy/seed records; treat
       missing as 'Non-Haz'. `hazmatDetails` only applies when status is 'Haz'. */
   hazmatStatus?: HazmatStatus

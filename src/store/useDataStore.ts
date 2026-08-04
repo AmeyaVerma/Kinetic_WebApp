@@ -26,6 +26,7 @@ import type {
   VendorMaster,
   VesselMaster,
   ContainerActivity,
+  ContainerLineItem,
   CroDocument,
   CustomerRecord,
   DamagePoint,
@@ -145,6 +146,7 @@ function rowToBooking(row: any): Booking {
     numberOfContainers: row.number_of_containers ?? undefined,
     sizeOfContainer: row.size_of_container ?? undefined,
     customSealNo: row.custom_seal_no ?? undefined,
+    containerDetails: row.container_details ?? undefined,
     hazmatStatus: row.hazmat_status ?? undefined,
     hazmatDetails: row.hazmat_details ?? undefined,
     hblNo: row.hbl_no,
@@ -203,6 +205,7 @@ function bookingToInsertRow(b: Booking) {
     number_of_containers: b.numberOfContainers ?? null,
     size_of_container: b.sizeOfContainer ?? null,
     custom_seal_no: b.customSealNo ?? null,
+    container_details: b.containerDetails ?? null,
     hazmat_status: b.hazmatStatus ?? 'Non-Haz',
     hazmat_details: b.hazmatDetails ?? null,
     hbl_no: b.hblNo,
@@ -586,12 +589,12 @@ interface DataState {
       Admins should call updateContainerInfoField directly (no approval
       needed for their own edits). */
   requestContainerTypeChange: (bookingId: string, value: string, actor: string) => void
-  /** Replaces the whole containerNos array — used when the container count
-      changes (resizes the array) or a single slot is edited (same array,
-      one entry changed). Admin-direct, no approval gate (unlike container
-      type) since these are per-container identifiers, not a booking-wide
-      classification. */
-  updateContainerNos: (bookingId: string, containerNos: string[], actor: string) => void
+  /** Replaces the whole containerDetails array — used when the container
+      count changes (resizes the array, padding/truncating) or a single
+      row's field is edited (same array, one entry changed). Admin-direct,
+      no approval gate (unlike container type) since these are
+      per-container operational details, not a booking-wide classification. */
+  updateContainerDetails: (bookingId: string, details: ContainerLineItem[], actor: string) => void
   updateTransshipmentAgent: (bookingId: string, value: string, actor: string) => void
   updateEmptyYardField: (
     bookingId: string,
@@ -1110,14 +1113,14 @@ export const useDataStore = create<DataState>((set, get) => ({
       }
     }),
 
-  updateContainerNos: (bookingId, containerNos, actor) =>
+  updateContainerDetails: (bookingId, details, actor) =>
     set((s) => {
       const booking = s.bookings.find((b) => b.id === bookingId)
       if (!booking) return s
-      persistBookingUpdate(booking.dbId, { container_nos: containerNos }, 'updateContainerNos')
+      persistBookingUpdate(booking.dbId, { container_details: details }, 'updateContainerDetails')
       return {
-        bookings: s.bookings.map((b) => (b.id === bookingId ? { ...b, containerNos } : b)),
-        activities: log(s.activities, bookingId, actor, 'Container numbers updated'),
+        bookings: s.bookings.map((b) => (b.id === bookingId ? { ...b, containerDetails: details } : b)),
+        activities: log(s.activities, bookingId, actor, 'Container details updated'),
       }
     }),
 

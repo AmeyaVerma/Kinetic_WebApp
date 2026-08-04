@@ -210,8 +210,22 @@ export function BookingDetailPage() {
 
 /* ── Tab: Container info ─────────────────────────────────────── */
 
+const EMPTY_CONTAINER_ROW: import('../lib/types').ContainerLineItem = {
+  containerNo: '',
+  emptyLaden: 'Laden',
+  noOfPkgs: '',
+  pkgUnit: '',
+  grossWeight: '',
+  netWeight: '',
+  gateIn: null,
+  sob: null,
+}
+
+const cellInputCls =
+  'w-full min-w-[92px] rounded-md border border-line bg-surface px-2 py-1.5 text-xs text-heading focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary'
+
 function ContainerInfoTab({ booking }: { booking: import('../lib/types').Booking }) {
-  const { updateContainerInfoField, requestContainerTypeChange, updateContainerNos, approvals, masters } =
+  const { updateContainerInfoField, requestContainerTypeChange, updateContainerDetails, approvals, masters } =
     useDataStore()
   const currentUser = useCurrentUser()
   const viewAsRole = useAuthStore((s) => s.viewAsRole)
@@ -225,24 +239,26 @@ function ContainerInfoTab({ booking }: { booking: import('../lib/types').Booking
     (a) => a.bookingId === booking.id && a.status === 'Pending' && a.fieldChange?.field === 'containerType',
   )
 
-  // "Number of containers" drives how many container-number fields show
-  // below — resizing keeps whatever numbers are already filled in and pads
-  // with blanks, rather than wiping the list every time the count changes.
+  // "Number of containers" drives how many rows show in the table below —
+  // resizing keeps whatever's already filled in and pads/truncates rather
+  // than wiping the table every time the count changes.
   const count = Math.max(0, parseInt(booking.numberOfContainers || '0', 10) || 0)
+  const details = booking.containerDetails ?? []
 
   const setCount = (v: string) => {
     const next = Math.max(0, Math.min(999, parseInt(v || '0', 10) || 0))
     updateContainerInfoField(booking.id, 'numberOfContainers', v.trim() === '' ? '' : String(next), actor)
-    const resized = Array.from({ length: next }, (_, i) => booking.containerNos[i] ?? '')
-    updateContainerNos(booking.id, resized, actor)
+    const resized = Array.from({ length: next }, (_, i) => details[i] ?? EMPTY_CONTAINER_ROW)
+    updateContainerDetails(booking.id, resized, actor)
   }
 
-  const setContainerNoAt = (index: number) => (v: string) => {
-    const next = [...booking.containerNos]
-    while (next.length <= index) next.push('')
-    next[index] = v
-    updateContainerNos(booking.id, next, actor)
-  }
+  const setRowField = (index: number, field: keyof import('../lib/types').ContainerLineItem) =>
+    (v: string) => {
+      const next = [...details]
+      while (next.length <= index) next.push({ ...EMPTY_CONTAINER_ROW })
+      next[index] = { ...next[index], [field]: v === '' && (field === 'gateIn' || field === 'sob') ? null : v }
+      updateContainerDetails(booking.id, next, actor)
+    }
 
   return (
     <div className="space-y-4">
@@ -283,23 +299,108 @@ function ContainerInfoTab({ booking }: { booking: import('../lib/types').Booking
         <div className="flex items-center gap-2">
           <ContainerIcon size={16} className="text-primary" />
           <h3 className="text-[13px] font-semibold text-heading">
-            Container numbers {count > 0 && <span className="font-mono text-muted">({count})</span>}
+            Container details {count > 0 && <span className="font-mono text-muted">({count})</span>}
           </h3>
         </div>
         {count === 0 ? (
           <p className="mt-2 text-xs text-muted">
-            Set "Number of containers" above to add each container's number.
+            Set "Number of containers" above to add a row per container.
           </p>
         ) : (
-          <div className="mt-3 grid grid-cols-2 gap-2.5 sm:grid-cols-4">
-            {Array.from({ length: count }).map((_, i) => (
-              <EditableTextPill
-                key={i}
-                label={`Container ${i + 1}`}
-                value={booking.containerNos[i] ?? ''}
-                onChange={setContainerNoAt(i)}
-              />
-            ))}
+          <div className="mt-3 overflow-x-auto">
+            <table className="w-full min-w-[860px] border-separate border-spacing-0">
+              <thead>
+                <tr>
+                  {['Container No', 'Empty/Laden', 'No of Pkgs', 'Pkg Unit', 'Gross Weight', 'Net Weight', 'Gate in', 'SOB'].map((h) => (
+                    <th
+                      key={h}
+                      className="border-b border-line px-2 pb-2 text-left font-mono text-[10px] font-semibold uppercase tracking-wide text-muted"
+                    >
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {Array.from({ length: count }).map((_, i) => {
+                  const row = details[i] ?? EMPTY_CONTAINER_ROW
+                  return (
+                    <tr key={i}>
+                      <td className="border-b border-line px-2 py-1.5">
+                        <input
+                          type="text"
+                          value={row.containerNo}
+                          placeholder={`Container ${i + 1}`}
+                          onChange={(e) => setRowField(i, 'containerNo')(e.target.value)}
+                          className={cellInputCls}
+                        />
+                      </td>
+                      <td className="border-b border-line px-2 py-1.5">
+                        <select
+                          value={row.emptyLaden}
+                          onChange={(e) => setRowField(i, 'emptyLaden')(e.target.value)}
+                          className={cellInputCls}
+                        >
+                          <option value="Laden">Laden</option>
+                          <option value="Empty">Empty</option>
+                        </select>
+                      </td>
+                      <td className="border-b border-line px-2 py-1.5">
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          value={row.noOfPkgs}
+                          onChange={(e) => setRowField(i, 'noOfPkgs')(e.target.value)}
+                          className={cellInputCls}
+                        />
+                      </td>
+                      <td className="border-b border-line px-2 py-1.5">
+                        <input
+                          type="text"
+                          value={row.pkgUnit}
+                          onChange={(e) => setRowField(i, 'pkgUnit')(e.target.value)}
+                          className={cellInputCls}
+                        />
+                      </td>
+                      <td className="border-b border-line px-2 py-1.5">
+                        <input
+                          type="text"
+                          inputMode="decimal"
+                          value={row.grossWeight}
+                          onChange={(e) => setRowField(i, 'grossWeight')(e.target.value)}
+                          className={cellInputCls}
+                        />
+                      </td>
+                      <td className="border-b border-line px-2 py-1.5">
+                        <input
+                          type="text"
+                          inputMode="decimal"
+                          value={row.netWeight}
+                          onChange={(e) => setRowField(i, 'netWeight')(e.target.value)}
+                          className={cellInputCls}
+                        />
+                      </td>
+                      <td className="border-b border-line px-2 py-1.5">
+                        <input
+                          type="date"
+                          value={row.gateIn ?? ''}
+                          onChange={(e) => setRowField(i, 'gateIn')(e.target.value)}
+                          className={cellInputCls}
+                        />
+                      </td>
+                      <td className="border-b border-line px-2 py-1.5">
+                        <input
+                          type="date"
+                          value={row.sob ?? ''}
+                          onChange={(e) => setRowField(i, 'sob')(e.target.value)}
+                          className={cellInputCls}
+                        />
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
           </div>
         )}
       </div>
