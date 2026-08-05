@@ -23,7 +23,7 @@ import {
   WORKFLOW_STATUS_CHIP,
   workflowStatusOf,
 } from '../lib/bookingStatus'
-import { mockAgents, mockDepots, mockVendors } from '../mocks/masters'
+import { mockAgents, mockVendors } from '../mocks/masters'
 import { HAZMAT_FIELD_LABELS } from '../lib/types'
 import type { BookingWorkflowStatus, HazmatDetails, HazmatStatus } from '../lib/types'
 
@@ -774,13 +774,11 @@ function AgentDetailsTab({ booking }: { booking: import('../lib/types').Booking 
 function ContainerYardTab({ booking }: { booking: import('../lib/types').Booking }) {
   const { cros, generateCro, croPickup, updateEmptyYardField } = useDataStore()
   const cro = cros.find((c) => c.bookingId === booking.id)
-  const depot = mockDepots.find((d) => d.id === booking.emptyYardId)
   const [containerNo, setContainerNo] = useState('')
 
   return (
     <div className="space-y-5">
       <div className="grid grid-cols-2 gap-3">
-        <FieldPill label="Empty container yard" value={depot ? `${depot.name} — ${depot.location}` : ''} />
         <FieldPill label="CRO status" value={cro?.status ?? 'Not generated'} />
         <EditableTextPill
           label="Empty container yard origin"
