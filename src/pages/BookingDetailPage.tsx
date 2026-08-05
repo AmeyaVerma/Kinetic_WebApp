@@ -212,17 +212,59 @@ export function BookingDetailPage() {
 
 const EMPTY_CONTAINER_ROW: import('../lib/types').ContainerLineItem = {
   containerNo: '',
+  containerType: '',
   emptyLaden: 'Laden',
   noOfPkgs: '',
   pkgUnit: '',
   grossWeight: '',
   netWeight: '',
+  cargoWeight: '',
+  sealNo: '',
+  customSealNo: '',
+  pickupDate: null,
   gateIn: null,
   sob: null,
 }
 
+const DATE_FIELDS = ['pickupDate', 'gateIn', 'sob'] as const
+
 const cellInputCls =
   'w-full min-w-[92px] rounded-md border border-line bg-surface px-2 py-1.5 text-xs text-heading focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary'
+
+/** Weight input: free typing while focused, reformatted to 2 decimals with
+    a "kg" suffix on blur — so entering "19076" settles into "19076.00 kg"
+    without fighting the user mid-keystroke. */
+function WeightCell({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [draft, setDraft] = useState(value)
+  useEffect(() => setDraft(value), [value])
+
+  const commit = () => {
+    if (draft.trim() === '') {
+      if (value !== '') onChange('')
+      return
+    }
+    const n = parseFloat(draft)
+    const formatted = Number.isFinite(n) ? n.toFixed(2) : draft
+    setDraft(formatted)
+    if (formatted !== value) onChange(formatted)
+  }
+
+  return (
+    <div className="relative">
+      <input
+        type="text"
+        inputMode="decimal"
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+        className={`${cellInputCls} pr-8`}
+      />
+      <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted">
+        kg
+      </span>
+    </div>
+  )
+}
 
 function ContainerInfoTab({ booking }: { booking: import('../lib/types').Booking }) {
   const { updateContainerInfoField, requestContainerTypeChange, updateContainerDetails, approvals, masters } =
@@ -256,7 +298,8 @@ function ContainerInfoTab({ booking }: { booking: import('../lib/types').Booking
     (v: string) => {
       const next = [...details]
       while (next.length <= index) next.push({ ...EMPTY_CONTAINER_ROW })
-      next[index] = { ...next[index], [field]: v === '' && (field === 'gateIn' || field === 'sob') ? null : v }
+      const isDateField = (DATE_FIELDS as readonly string[]).includes(field)
+      next[index] = { ...next[index], [field]: v === '' && isDateField ? null : v }
       updateContainerDetails(booking.id, next, actor)
     }
 
@@ -314,10 +357,14 @@ function ContainerInfoTab({ booking }: { booking: import('../lib/types').Booking
           </p>
         ) : (
           <div className="mt-3 overflow-x-auto">
-            <table className="w-full min-w-[860px] border-separate border-spacing-0">
+            <table className="w-full min-w-[1440px] border-separate border-spacing-0">
               <thead>
                 <tr>
-                  {['Container No', 'Empty/Laden', 'No of Pkgs', 'Pkg Unit', 'Gross Weight', 'Net Weight', 'Gate in', 'SOB'].map((h) => (
+                  {[
+                    'Container No', 'Container Type', 'Empty/Laden', 'No of Pkgs', 'Pkg Unit',
+                    'Gross Weight', 'Net Weight', 'Cargo Weight', 'Seal', 'Custom Seal',
+                    'Pickup date', 'Gate in', 'SOB',
+                  ].map((h) => (
                     <th
                       key={h}
                       className="border-b border-line px-2 pb-2 text-left font-mono text-[10px] font-semibold uppercase tracking-wide text-muted"
@@ -340,6 +387,18 @@ function ContainerInfoTab({ booking }: { booking: import('../lib/types').Booking
                           onChange={(e) => setRowField(i, 'containerNo')(e.target.value)}
                           className={cellInputCls}
                         />
+                      </td>
+                      <td className="border-b border-line px-2 py-1.5">
+                        <select
+                          value={row.containerType}
+                          onChange={(e) => setRowField(i, 'containerType')(e.target.value)}
+                          className={cellInputCls}
+                        >
+                          <option value="">—</option>
+                          {masters.containerTypes.map((t) => (
+                            <option key={t} value={t}>{t}</option>
+                          ))}
+                        </select>
                       </td>
                       <td className="border-b border-line px-2 py-1.5">
                         <select
@@ -369,20 +428,35 @@ function ContainerInfoTab({ booking }: { booking: import('../lib/types').Booking
                         />
                       </td>
                       <td className="border-b border-line px-2 py-1.5">
+                        <WeightCell value={row.grossWeight} onChange={setRowField(i, 'grossWeight')} />
+                      </td>
+                      <td className="border-b border-line px-2 py-1.5">
+                        <WeightCell value={row.netWeight} onChange={setRowField(i, 'netWeight')} />
+                      </td>
+                      <td className="border-b border-line px-2 py-1.5">
+                        <WeightCell value={row.cargoWeight} onChange={setRowField(i, 'cargoWeight')} />
+                      </td>
+                      <td className="border-b border-line px-2 py-1.5">
                         <input
                           type="text"
-                          inputMode="decimal"
-                          value={row.grossWeight}
-                          onChange={(e) => setRowField(i, 'grossWeight')(e.target.value)}
+                          value={row.sealNo}
+                          onChange={(e) => setRowField(i, 'sealNo')(e.target.value)}
                           className={cellInputCls}
                         />
                       </td>
                       <td className="border-b border-line px-2 py-1.5">
                         <input
                           type="text"
-                          inputMode="decimal"
-                          value={row.netWeight}
-                          onChange={(e) => setRowField(i, 'netWeight')(e.target.value)}
+                          value={row.customSealNo}
+                          onChange={(e) => setRowField(i, 'customSealNo')(e.target.value)}
+                          className={cellInputCls}
+                        />
+                      </td>
+                      <td className="border-b border-line px-2 py-1.5">
+                        <input
+                          type="date"
+                          value={row.pickupDate ?? ''}
+                          onChange={(e) => setRowField(i, 'pickupDate')(e.target.value)}
                           className={cellInputCls}
                         />
                       </td>

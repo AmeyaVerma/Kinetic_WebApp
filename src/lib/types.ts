@@ -163,11 +163,16 @@ export type BookingStatus =
     since they're plain editable inputs, not computed/validated numbers. */
 export interface ContainerLineItem {
   containerNo: string
+  containerType: string
   emptyLaden: 'Empty' | 'Laden'
   noOfPkgs: string
   pkgUnit: string
-  grossWeight: string
-  netWeight: string
+  grossWeight: string // kg, formatted to 2 decimals on blur
+  netWeight: string // kg, formatted to 2 decimals on blur
+  cargoWeight: string // kg, formatted to 2 decimals on blur
+  sealNo: string
+  customSealNo: string
+  pickupDate: string | null // ISO date
   gateIn: string | null // ISO date
   sob: string | null // ISO date — Shipped On Board
 }
