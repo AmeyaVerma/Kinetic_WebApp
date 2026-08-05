@@ -500,7 +500,18 @@ const CONTAINER_INFO_FIELD_LABELS = {
   sealNo: 'Seal No.',
   customSealNo: 'Custom Seal No.',
   containerType: 'Container type',
+  commodity: 'Commodity',
+  hsCode: 'HS code',
+  principal: 'Principal',
+  freightTerms: 'Freight terms',
+  packages: 'Packages',
+  grossWeightKg: 'Cargo weight',
 } as const
+
+/** Fields on Booking that are numbers, not strings — updateContainerInfoField
+    and the booking_field_edit approval path both need to parse into these
+    before writing, rather than storing the raw text. */
+const NUMERIC_BOOKING_FIELDS = new Set(['packages', 'grossWeightKg'])
 
 const PLANNED_DATE_FIELD_LABELS = {
   plannedGateOpen: 'Planned gate open',
@@ -578,17 +589,25 @@ interface DataState {
   setBookingWorkflowStatus: (bookingId: string, status: BookingWorkflowStatus, actor: string) => void
   setHazmatStatus: (bookingId: string, status: HazmatStatus, actor: string) => void
   updateHazmatDetail: (bookingId: string, field: keyof HazmatDetails, value: string, actor: string) => void
+  /** Admin-direct path for any single-field booking edit — Container info
+      AND Product info tabs both use this. Handles the two numeric fields
+      (packages, grossWeightKg) by parsing the string input before writing,
+      everything else stays a plain string/text column. Non-admins should
+      call requestBookingFieldChange instead (raises an approval). */
   updateContainerInfoField: (
     bookingId: string,
-    field: 'numberOfContainers' | 'sizeOfContainer' | 'sealNo' | 'customSealNo' | 'containerType',
+    field:
+      | 'numberOfContainers' | 'sizeOfContainer' | 'sealNo' | 'customSealNo' | 'containerType'
+      | 'commodity' | 'hsCode' | 'principal' | 'freightTerms' | 'packages' | 'grossWeightKg',
     value: string,
     actor: string,
   ) => void
-  /** Non-admin path for changing container type on an EXISTING booking —
-      raises an Admin-approval request instead of applying immediately.
+  /** Non-admin path for any single-field booking edit on an EXISTING
+      booking — raises an Admin-approval request instead of applying
+      immediately. `label` is just for a readable approval summary.
       Admins should call updateContainerInfoField directly (no approval
       needed for their own edits). */
-  requestContainerTypeChange: (bookingId: string, value: string, actor: string) => void
+  requestBookingFieldChange: (bookingId: string, field: string, label: string, value: string, actor: string) => void
   /** Replaces the whole containerDetails array — used when the container
       count changes (resizes the array, padding/truncating) or a single
       row's field is edited (same array, one entry changed). Admin-direct,
@@ -1076,22 +1095,26 @@ export const useDataStore = create<DataState>((set, get) => ({
   updateContainerInfoField: (bookingId, field, value, actor) =>
     set((s) => {
       const booking = s.bookings.find((b) => b.id === bookingId)
-      if (!booking || (booking[field] ?? '') === value) return s
+      if (!booking) return s
       const column = field.replace(/([A-Z])/g, '_$1').toLowerCase()
-      persistBookingUpdate(booking.dbId, { [column]: value }, 'updateContainerInfoField')
+      const applied: string | number = NUMERIC_BOOKING_FIELDS.has(field) ? Number(value) || 0 : value
+      if ((booking[field] ?? '') === applied) return s
+      persistBookingUpdate(booking.dbId, { [column]: applied }, 'updateContainerInfoField')
       return {
-        bookings: s.bookings.map((b) => (b.id === bookingId ? { ...b, [field]: value } : b)),
+        bookings: s.bookings.map((b) => (b.id === bookingId ? { ...b, [field]: applied } : b)),
         activities: log(s.activities, bookingId, actor, `${CONTAINER_INFO_FIELD_LABELS[field]} updated`),
       }
     }),
 
-  requestContainerTypeChange: (bookingId, value, actor) =>
+  requestBookingFieldChange: (bookingId, field, label, value, actor) =>
     set((s) => {
       const booking = s.bookings.find((b) => b.id === bookingId)
-      if (!booking || booking.containerType === value) return s
+      if (!booking) return s
+      const current = String((booking as unknown as Record<string, unknown>)[field] ?? '')
+      if (current === value) return s
       // Refuse a duplicate request while one's already pending on this field.
       const alreadyPending = s.approvals.some(
-        (a) => a.bookingId === bookingId && a.status === 'Pending' && a.fieldChange?.field === 'containerType',
+        (a) => a.bookingId === bookingId && a.status === 'Pending' && a.fieldChange?.field === field,
       )
       if (alreadyPending) return s
       return {
@@ -1101,15 +1124,15 @@ export const useDataStore = create<DataState>((set, get) => ({
             entityType: 'booking_field_edit' as const,
             entityId: bookingId,
             bookingId,
-            summary: `Container type change on ${booking.bookingRef}: ${booking.containerType} → ${value}`,
+            summary: `${label} change on ${booking.bookingRef}: ${current || '—'} → ${value}`,
             requestedBy: actor,
             requestedAt: now(),
             status: 'Pending' as const,
-            fieldChange: { field: 'containerType', value },
+            fieldChange: { field, value },
           },
           ...s.approvals,
         ],
-        activities: log(s.activities, bookingId, actor, `Requested container type change → ${value} (Admin approval required)`),
+        activities: log(s.activities, bookingId, actor, `Requested ${label.toLowerCase()} change → ${value} (Admin approval required)`),
       }
     }),
 
@@ -3134,9 +3157,10 @@ export const useDataStore = create<DataState>((set, get) => ({
           const { field, value } = ap.fieldChange
           const target = s.bookings.find((b) => b.id === ap.bookingId)
           const column = field.replace(/([A-Z])/g, '_$1').toLowerCase()
-          persistBookingUpdate(target?.dbId, { [column]: value }, 'decideApproval:booking_field_edit')
+          const applied: string | number = NUMERIC_BOOKING_FIELDS.has(field) ? Number(value) || 0 : value
+          persistBookingUpdate(target?.dbId, { [column]: applied }, 'decideApproval:booking_field_edit')
           patch = {
-            bookings: s.bookings.map((b) => (b.id === ap.bookingId ? { ...b, [field]: value } : b)),
+            bookings: s.bookings.map((b) => (b.id === ap.bookingId ? { ...b, [field]: applied } : b)),
           }
         }
       } else if (ap.entityType === 'bl_edit' && ap.bookingId) {

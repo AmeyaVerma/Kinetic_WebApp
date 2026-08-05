@@ -5,10 +5,15 @@ export function EditableTextPill({
   label,
   value,
   onChange,
+  disabled,
+  hint,
 }: {
   label: string
   value: string
   onChange: (v: string) => void
+  disabled?: boolean
+  /** Small note shown under the field, e.g. a pending-approval notice. */
+  hint?: string
 }) {
   const [draft, setDraft] = useState(value)
   useEffect(() => setDraft(value), [value])
@@ -19,13 +24,15 @@ export function EditableTextPill({
       <input
         type="text"
         value={draft}
+        disabled={disabled}
         onChange={(e) => setDraft(e.target.value)}
         onBlur={() => {
           if (draft !== value) onChange(draft)
         }}
         placeholder="—"
-        className="mt-0.5 w-full bg-transparent text-[13px] text-heading placeholder:text-muted focus:outline-none"
+        className="mt-0.5 w-full bg-transparent text-[13px] text-heading placeholder:text-muted focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
       />
+      {hint && <p className="mt-1 text-[11px] text-accent-orange">{hint}</p>}
     </label>
   )
 }

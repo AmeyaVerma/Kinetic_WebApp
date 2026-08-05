@@ -234,7 +234,19 @@ const cellInputCls =
 /** Weight input: free typing while focused, reformatted to 2 decimals with
     a "kg" suffix on blur — so entering "19076" settles into "19076.00 kg"
     without fighting the user mid-keystroke. */
-function WeightCell({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+function WeightCell({
+  value,
+  onChange,
+  disabled,
+  bare,
+}: {
+  value: string
+  onChange: (v: string) => void
+  disabled?: boolean
+  /** Use transparent/borderless styling for nesting inside an outer pill
+      (Product info) instead of the boxed table-cell look (Container info). */
+  bare?: boolean
+}) {
   const [draft, setDraft] = useState(value)
   useEffect(() => setDraft(value), [value])
 
@@ -255,9 +267,14 @@ function WeightCell({ value, onChange }: { value: string; onChange: (v: string) 
         type="text"
         inputMode="decimal"
         value={draft}
+        disabled={disabled}
         onChange={(e) => setDraft(e.target.value)}
         onBlur={commit}
-        className={`${cellInputCls} pr-8`}
+        className={
+          bare
+            ? 'w-full bg-transparent pr-8 text-[13px] text-heading focus:outline-none disabled:cursor-not-allowed disabled:opacity-60'
+            : `${cellInputCls} pr-8 disabled:cursor-not-allowed disabled:opacity-60`
+        }
       />
       <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted">
         kg
@@ -267,7 +284,7 @@ function WeightCell({ value, onChange }: { value: string; onChange: (v: string) 
 }
 
 function ContainerInfoTab({ booking }: { booking: import('../lib/types').Booking }) {
-  const { updateContainerInfoField, requestContainerTypeChange, updateContainerDetails, approvals, masters } =
+  const { updateContainerInfoField, requestBookingFieldChange, updateContainerDetails, approvals, masters } =
     useDataStore()
   const currentUser = useCurrentUser()
   const viewAsRole = useAuthStore((s) => s.viewAsRole)
@@ -315,7 +332,7 @@ function ContainerInfoTab({ booking }: { booking: import('../lib/types').Booking
           onChange={(v) =>
             isAdmin
               ? updateContainerInfoField(booking.id, 'containerType', v, actor)
-              : requestContainerTypeChange(booking.id, v, actor)
+              : requestBookingFieldChange(booking.id, 'containerType', 'Container type', v, actor)
           }
         />
         <label className="block rounded-btn border border-line bg-surface-2/60 px-3 py-2 focus-within:border-primary">
@@ -491,24 +508,104 @@ function ContainerInfoTab({ booking }: { booking: import('../lib/types').Booking
 /* ── Tab: Product info ───────────────────────────────────────── */
 
 function ProductInfoTab({ booking }: { booking: import('../lib/types').Booking }) {
-  const { setHazmatStatus, updateHazmatDetail } = useDataStore()
+  const { setHazmatStatus, updateHazmatDetail, updateContainerInfoField, requestBookingFieldChange, approvals } =
+    useDataStore()
+  const currentUser = useCurrentUser()
+  const viewAsRole = useAuthStore((s) => s.viewAsRole)
+  const isAdmin = (viewAsRole ?? currentUser?.role) === 'admin'
+  const actor = currentUser?.name ?? 'Ops'
   const hazStatus: HazmatStatus = booking.hazmatStatus ?? 'Non-Haz'
   const details = booking.hazmatDetails ?? {}
+
+  const pendingFor = (field: string) =>
+    approvals.find((a) => a.bookingId === booking.id && a.status === 'Pending' && a.fieldChange?.field === field)
+
+  // Admin edits apply immediately; anyone else's edit raises an Admin-
+  // approval request instead — same pattern as Container type.
+  const editField = (
+    field: 'commodity' | 'hsCode' | 'principal' | 'freightTerms' | 'packages' | 'grossWeightKg',
+    label: string,
+  ) =>
+    (v: string) =>
+      isAdmin
+        ? updateContainerInfoField(booking.id, field, v, actor)
+        : requestBookingFieldChange(booking.id, field, label, v, actor)
+
+  const hintFor = (field: string) => {
+    const p = pendingFor(field)
+    return p ? `Pending Admin approval → ${p.fieldChange!.value}` : undefined
+  }
 
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-        <FieldPill label="Commodity" value={booking.commodity} />
-        <FieldPill label="HS code" value={booking.hsCode} />
-        <FieldPill label="Packages" value={`${booking.packages} ${booking.packageType.toLowerCase()}`} />
-        <FieldPill label="Gross weight" value={`${booking.grossWeightKg.toLocaleString()} kg`} />
-        <FieldPill label="Freight terms" value={booking.freightTerms} />
-        <FieldPill label="Principal" value={booking.principal} />
+        <EditableTextPill
+          label="Commodity"
+          value={booking.commodity}
+          disabled={!!pendingFor('commodity')}
+          hint={hintFor('commodity')}
+          onChange={editField('commodity', 'Commodity')}
+        />
+        <EditableTextPill
+          label="HS code"
+          value={booking.hsCode}
+          disabled={!!pendingFor('hsCode')}
+          hint={hintFor('hsCode')}
+          onChange={editField('hsCode', 'HS code')}
+        />
+        <label className="block rounded-btn border border-line bg-surface-2/60 px-3 py-2 focus-within:border-primary">
+          <p className="font-mono text-[10px] uppercase tracking-wide text-muted">Packages</p>
+          <div className="mt-0.5 flex items-baseline gap-1.5">
+            <input
+              type="text"
+              inputMode="numeric"
+              defaultValue={String(booking.packages)}
+              disabled={!!pendingFor('packages')}
+              key={booking.packages}
+              onBlur={(e) => {
+                if (e.target.value !== String(booking.packages)) editField('packages', 'Packages')(e.target.value)
+              }}
+              className="w-16 bg-transparent text-[13px] text-heading focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+            />
+            <span className="text-[13px] text-muted">{booking.packageType.toLowerCase()}</span>
+          </div>
+          {hintFor('packages') && <p className="mt-1 text-[11px] text-accent-orange">{hintFor('packages')}</p>}
+        </label>
+        <label className="block rounded-btn border border-line bg-surface-2/60 px-3 py-2 focus-within:border-primary">
+          <p className="font-mono text-[10px] uppercase tracking-wide text-muted">Cargo weight</p>
+          <WeightCell
+            value={booking.grossWeightKg ? booking.grossWeightKg.toFixed(2) : ''}
+            onChange={editField('grossWeightKg', 'Cargo weight')}
+            disabled={!!pendingFor('grossWeightKg')}
+            bare
+          />
+          {hintFor('grossWeightKg') && <p className="mt-1 text-[11px] text-accent-orange">{hintFor('grossWeightKg')}</p>}
+        </label>
+        <label className="block rounded-btn border border-line bg-surface-2/60 px-3 py-2 focus-within:border-primary">
+          <p className="font-mono text-[10px] uppercase tracking-wide text-muted">Freight terms</p>
+          <select
+            value={booking.freightTerms}
+            disabled={!!pendingFor('freightTerms')}
+            onChange={(e) => editField('freightTerms', 'Freight terms')(e.target.value)}
+            className="mt-0.5 w-full bg-transparent text-[13px] text-heading focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <option value="Prepaid">Prepaid</option>
+            <option value="Collect">Collected</option>
+          </select>
+          {hintFor('freightTerms') && <p className="mt-1 text-[11px] text-accent-orange">{hintFor('freightTerms')}</p>}
+        </label>
+        <EditableTextPill
+          label="Principal"
+          value={booking.principal}
+          disabled={!!pendingFor('principal')}
+          hint={hintFor('principal')}
+          onChange={editField('principal', 'Principal')}
+        />
         <label className="block rounded-btn border border-line bg-surface-2/60 px-3 py-2 focus-within:border-primary">
           <p className="font-mono text-[10px] uppercase tracking-wide text-muted">Haz / Non-Haz</p>
           <select
             value={hazStatus}
-            onChange={(e) => setHazmatStatus(booking.id, e.target.value as HazmatStatus, 'Ops')}
+            onChange={(e) => setHazmatStatus(booking.id, e.target.value as HazmatStatus, actor)}
             className="mt-0.5 w-full bg-transparent text-[13px] text-heading focus:outline-none"
           >
             <option value="Non-Haz" className="bg-surface text-heading">Non-Haz</option>
