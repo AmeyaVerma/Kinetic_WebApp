@@ -275,11 +275,17 @@ function ContainerInfoTab({ booking }: { booking: import('../lib/types').Booking
               : requestContainerTypeChange(booking.id, v, actor)
           }
         />
-        <EditableTextPill
-          label="Number of containers"
-          value={booking.numberOfContainers ?? ''}
-          onChange={setCount}
-        />
+        <label className="block rounded-btn border border-line bg-surface-2/60 px-3 py-2 focus-within:border-primary">
+          <p className="font-mono text-[10px] uppercase tracking-wide text-muted">Number of containers</p>
+          <input
+            type="text"
+            inputMode="numeric"
+            value={booking.numberOfContainers ?? ''}
+            placeholder="—"
+            onChange={(e) => setCount(e.target.value)}
+            className="mt-0.5 w-full bg-transparent text-[13px] text-heading placeholder:text-muted focus:outline-none"
+          />
+        </label>
         <EditableTextPill
           label="Size of container"
           value={booking.sizeOfContainer ?? ''}
