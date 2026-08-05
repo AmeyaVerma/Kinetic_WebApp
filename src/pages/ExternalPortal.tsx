@@ -99,7 +99,9 @@ export function ExternalPortal({ user }: { user: AppUser }) {
                       <td className="px-5 py-3 font-mono text-xs font-medium text-link">{b.bookingRef}</td>
                       <td className="px-3 py-3 text-xs text-body">{b.pol} → {b.pod}</td>
                       <td className="px-3 py-3 text-xs text-body">{b.vesselName} / {b.voyageNo}</td>
-                      <td className="px-3 py-3 font-mono text-xs text-body">{b.etd}</td>
+                      <td className="px-3 py-3 font-mono text-xs text-body">
+                        {b.etd ? new Date(b.etd).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : '—'}
+                      </td>
                       <td className="w-36 px-3 py-3">
                         <div className="flex items-center gap-2">
                           <ProgressBar pct={pct} color="#10B981" />
