@@ -328,6 +328,7 @@ export interface CroDocument {
   status: CroStatus
   containerNo: string | null
   issuedAt: string | null
+  validUntil: string | null // ISO date — CRO validity/expiry
 }
 
 /* ── BL (doc §4, bl_versions) ────────────────────────────────── */

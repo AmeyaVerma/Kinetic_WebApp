@@ -56,9 +56,9 @@ export const mockDocuments: BookingDocument[] = [
 /* ── CRO ─────────────────────────────────────────────────────── */
 
 export const mockCros: CroDocument[] = [
-  { id: 'cro1', bookingId: 'KLNVO2627000009', status: 'Container picked up', containerNo: 'TRLU3010904', issuedAt: '2026-06-08' },
-  { id: 'cro2', bookingId: 'KLNVO2627000016', status: 'Container picked up', containerNo: 'GLDU3629153', issuedAt: '2026-06-12' },
-  { id: 'cro3', bookingId: 'KLNVO2627000007', status: 'Issued', containerNo: null, issuedAt: '2026-05-25' },
+  { id: 'cro1', bookingId: 'KLNVO2627000009', status: 'Container picked up', containerNo: 'TRLU3010904', issuedAt: '2026-06-08', validUntil: '2026-06-22' },
+  { id: 'cro2', bookingId: 'KLNVO2627000016', status: 'Container picked up', containerNo: 'GLDU3629153', issuedAt: '2026-06-12', validUntil: '2026-06-26' },
+  { id: 'cro3', bookingId: 'KLNVO2627000007', status: 'Issued', containerNo: null, issuedAt: '2026-05-25', validUntil: '2026-06-08' },
 ]
 
 /* ── BL ──────────────────────────────────────────────────────── */

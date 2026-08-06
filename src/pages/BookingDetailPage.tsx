@@ -772,9 +772,10 @@ function AgentDetailsTab({ booking }: { booking: import('../lib/types').Booking 
 /* ── Tab: Container yard — CRO workflow (doc §3) ─────────────── */
 
 function ContainerYardTab({ booking }: { booking: import('../lib/types').Booking }) {
-  const { cros, generateCro, croPickup, updateEmptyYardField } = useDataStore()
+  const { cros, generateCro, updateCroValidity, croPickup, updateEmptyYardField } = useDataStore()
   const cro = cros.find((c) => c.bookingId === booking.id)
   const [containerNo, setContainerNo] = useState('')
+  const [croValidUntil, setCroValidUntil] = useState('')
 
   return (
     <div className="space-y-5">
@@ -803,9 +804,37 @@ function ContainerYardTab({ booking }: { booking: import('../lib/types').Booking
         </p>
 
         {!cro && (
-          <Button size="sm" className="mt-4" onClick={() => generateCro(booking.id)}>
-            Generate CRO from booking
-          </Button>
+          <div className="mt-4 flex flex-wrap items-end gap-2">
+            <Button size="sm" onClick={() => generateCro(booking.id, croValidUntil || undefined)}>
+              Generate CRO from booking
+            </Button>
+            <div className="w-44">
+              <p className="mb-1.5 text-xs font-medium text-body">CRO validity date (optional)</p>
+              <input
+                type="date"
+                value={croValidUntil}
+                onChange={(e) => setCroValidUntil(e.target.value)}
+                className="w-full rounded-input border border-[#E5E7EB] dark:border-line bg-surface px-3.5 py-2.5 text-sm text-heading focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+              />
+            </div>
+          </div>
+        )}
+
+        {cro && (
+          <label className="mt-4 block w-56 rounded-btn border border-line bg-surface-2/60 px-3 py-2 focus-within:border-primary">
+            <p className="font-mono text-[10px] uppercase tracking-wide text-muted">CRO validity date</p>
+            <input
+              type="date"
+              defaultValue={cro.validUntil ?? ''}
+              key={cro.validUntil ?? 'unset'}
+              onBlur={(e) => {
+                if (e.target.value && e.target.value !== cro.validUntil) {
+                  updateCroValidity(booking.id, e.target.value, 'Ops')
+                }
+              }}
+              className="mt-0.5 w-full bg-transparent text-[13px] text-heading focus:outline-none"
+            />
+          </label>
         )}
 
         {cro?.status === 'Issued' && (

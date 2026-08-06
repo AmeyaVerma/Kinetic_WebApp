@@ -302,12 +302,12 @@ function persistBlStatePatch(dbId: string | undefined, patch: Record<string, unk
   })()
 }
 
-function persistCroInsert(dbId: string | undefined) {
+function persistCroInsert(dbId: string | undefined, validUntil: string | null) {
   if (!dbId) return
   ;(async () => {
     const { error } = await supabase
       .from('cro_documents')
-      .insert({ booking_id: dbId, status: 'Issued', container_no: null, issued_at: now() })
+      .insert({ booking_id: dbId, status: 'Issued', container_no: null, issued_at: now(), valid_until: validUntil })
     if (error) console.error('generateCro: failed to persist', error)
     const { error: docErr } = await supabase
       .from('booking_documents')
@@ -324,6 +324,17 @@ function persistCroUpdate(dbId: string | undefined, status: string, containerNo:
       .update({ status, container_no: containerNo })
       .eq('booking_id', dbId)
     if (error) console.error('croPickup: failed to persist', error)
+  })()
+}
+
+function persistCroValidity(dbId: string | undefined, validUntil: string | null) {
+  if (!dbId) return
+  ;(async () => {
+    const { error } = await supabase
+      .from('cro_documents')
+      .update({ valid_until: validUntil })
+      .eq('booking_id', dbId)
+    if (error) console.error('updateCroValidity: failed to persist', error)
   })()
 }
 
@@ -629,7 +640,9 @@ interface DataState {
   updateMilestoneDate: (bookingId: string, key: string, completedAt: string, actor: string) => void
 
   // CRO (doc §3)
-  generateCro: (bookingId: string) => void
+  generateCro: (bookingId: string, validUntil?: string) => void
+  /** Editable after the CRO already exists — e.g. extending validity. */
+  updateCroValidity: (bookingId: string, validUntil: string, actor: string) => void
   croPickup: (bookingId: string, containerNo: string) => void
 
   // BL (doc §4)
@@ -1200,13 +1213,17 @@ export const useDataStore = create<DataState>((set, get) => ({
       }
     }),
 
-  generateCro: (bookingId) =>
+  generateCro: (bookingId, validUntil) =>
     set((s) => {
       if (s.cros.some((c) => c.bookingId === bookingId)) return s
-      persistCroInsert(findDbId(s.bookings, bookingId))
+      const resolvedValidUntil = validUntil || null
+      persistCroInsert(findDbId(s.bookings, bookingId), resolvedValidUntil)
       persistMilestoneUpsert(findDbId(s.bookings, bookingId), 'cro_released', now(), 'MNR')
       return {
-        cros: [{ id: uid('cro'), bookingId, status: 'Issued', containerNo: null, issuedAt: now() }, ...s.cros],
+        cros: [
+          { id: uid('cro'), bookingId, status: 'Issued', containerNo: null, issuedAt: now(), validUntil: resolvedValidUntil },
+          ...s.cros,
+        ],
         documents: [
           { id: uid('doc'), bookingId, docType: 'CRO' as const, status: 'uploaded' as const, uploadedBy: 'MNR', uploadedAt: now() },
           ...s.documents,
@@ -1215,7 +1232,23 @@ export const useDataStore = create<DataState>((set, get) => ({
           ...s.milestones.filter((m) => !(m.bookingId === bookingId && m.key === 'cro_released')),
           { bookingId, key: 'cro_released', completedAt: now(), completedBy: 'MNR' },
         ],
-        activities: log(s.activities, bookingId, 'MNR', 'CRO generated and issued'),
+        activities: log(
+          s.activities,
+          bookingId,
+          'MNR',
+          `CRO generated and issued${resolvedValidUntil ? ` — valid until ${resolvedValidUntil}` : ''}`,
+        ),
+      }
+    }),
+
+  updateCroValidity: (bookingId, validUntil, actor) =>
+    set((s) => {
+      const cro = s.cros.find((c) => c.bookingId === bookingId)
+      if (!cro || cro.validUntil === validUntil) return s
+      persistCroValidity(findDbId(s.bookings, bookingId), validUntil)
+      return {
+        cros: s.cros.map((c) => (c.bookingId === bookingId ? { ...c, validUntil } : c)),
+        activities: log(s.activities, bookingId, actor, `CRO validity updated → ${validUntil}`),
       }
     }),
 
