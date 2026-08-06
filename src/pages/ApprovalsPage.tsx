@@ -1,12 +1,13 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Check, X } from 'lucide-react'
+import { Check, X, Lock } from 'lucide-react'
 import { Card } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { CsvButton } from '../components/ui/CsvButton'
 import { StatusChip } from '../components/ui/StatusChip'
 import { Tabs } from '../components/ui/Tabs'
 import { useDataStore } from '../store/useDataStore'
+import { useAuthStore, useCurrentUser } from '../store/useAuthStore'
 import type { Approval, ApprovalEntityType } from '../lib/types'
 
 const CATEGORY_TABS: { key: ApprovalEntityType | 'all'; label: string }[] = [
@@ -36,6 +37,9 @@ const TYPE_LABEL: Record<ApprovalEntityType, string> = {
 
 export function ApprovalsPage() {
   const { approvals, decideApproval, bookings } = useDataStore()
+  const currentUser = useCurrentUser()
+  const viewAsRole = useAuthStore((s) => s.viewAsRole)
+  const isAdmin = (viewAsRole ?? currentUser?.role) === 'admin'
   const [tab, setTab] = useState<string>('all')
   const [showDecided, setShowDecided] = useState(false)
 
@@ -93,6 +97,7 @@ export function ApprovalsPage() {
             key={a.id}
             approval={a}
             bookingRef={bookings.find((b) => b.id === a.bookingId)?.bookingRef ?? null}
+            isAdmin={isAdmin}
             onDecide={(d) => decideApproval(a.id, d)}
           />
         ))}
@@ -109,12 +114,20 @@ export function ApprovalsPage() {
 function ApprovalRow({
   approval: a,
   bookingRef,
+  isAdmin,
   onDecide,
 }: {
   approval: Approval
   bookingRef: string | null
+  isAdmin: boolean
   onDecide: (d: 'Approved' | 'Rejected') => void
 }) {
+  // Days-of-credit holds are Admin-only to decide — everything else in
+  // this queue stays open to anyone with Approvals access, matching the
+  // existing per-role module access.
+  const adminOnly = a.fieldChange?.field === 'daysOfCredit'
+  const locked = adminOnly && !isAdmin
+
   return (
     <Card className="p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -123,6 +136,11 @@ function ApprovalRow({
             <span className="rounded-badge bg-surface-2 px-2.5 py-0.5 text-[11px] font-semibold text-heading">
               {TYPE_LABEL[a.entityType]}
             </span>
+            {adminOnly && (
+              <span className="flex items-center gap-1 rounded-badge bg-[#FEF3C7] px-2 py-0.5 text-[10px] font-semibold text-[#B45309]">
+                <Lock size={10} /> Admin only
+              </span>
+            )}
             {bookingRef && (
               <Link
                 to={`/nvocc/${a.bookingId}`}
@@ -151,14 +169,20 @@ function ApprovalRow({
           )}
         </div>
         {a.status === 'Pending' && (
-          <div className="flex shrink-0 gap-2">
-            <Button size="sm" onClick={() => onDecide('Approved')}>
-              <Check size={14} /> Approve
-            </Button>
-            <Button size="sm" variant="secondary" onClick={() => onDecide('Rejected')} className="text-accent-coral">
-              <X size={14} /> Reject
-            </Button>
-          </div>
+          locked ? (
+            <span className="flex shrink-0 items-center gap-1.5 text-xs text-muted">
+              <Lock size={13} /> Only an Admin can decide this
+            </span>
+          ) : (
+            <div className="flex shrink-0 gap-2">
+              <Button size="sm" onClick={() => onDecide('Approved')}>
+                <Check size={14} /> Approve
+              </Button>
+              <Button size="sm" variant="secondary" onClick={() => onDecide('Rejected')} className="text-accent-coral">
+                <X size={14} /> Reject
+              </Button>
+            </div>
+          )
         )}
       </div>
     </Card>

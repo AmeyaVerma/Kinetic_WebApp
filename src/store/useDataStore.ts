@@ -2120,6 +2120,11 @@ export const useDataStore = create<DataState>((set, get) => ({
               requestedBy: 'System (credit gate)',
               requestedAt: now(),
               status: 'Pending' as const,
+              // Marks this hold as Admin-only to decide (see ApprovalRow's
+              // adminOnly check) — set whenever days-of-credit is part of
+              // why it's held, even if the sell-limit reason is ALSO
+              // present, since Admin can cover both.
+              ...(hasCreditDays ? { fieldChange: { field: 'daysOfCredit', value: String(s.daysOfCredit) } } : {}),
             },
             ...state.approvals,
           ]
