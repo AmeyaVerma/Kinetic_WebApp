@@ -809,7 +809,8 @@ function ContainerYardTab({ booking }: { booking: import('../lib/types').Booking
               Generate CRO from booking
             </Button>
             <div className="w-44">
-              <p className="mb-1.5 text-xs font-medium text-body">CRO validity date (optional)</p>
+              <p className="mb-1.5 text-xs font-medium text-body">CRO validity date</p>
+              <p className="mb-1.5 text-[11px] text-muted">Leave blank → defaults to 3 days from today</p>
               <input
                 type="date"
                 value={croValidUntil}

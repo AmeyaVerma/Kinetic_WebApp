@@ -1216,7 +1216,9 @@ export const useDataStore = create<DataState>((set, get) => ({
   generateCro: (bookingId, validUntil) =>
     set((s) => {
       if (s.cros.some((c) => c.bookingId === bookingId)) return s
-      const resolvedValidUntil = validUntil || null
+      // No date given → default to 3 days from today, not left blank.
+      const resolvedValidUntil =
+        validUntil || new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
       persistCroInsert(findDbId(s.bookings, bookingId), resolvedValidUntil)
       persistMilestoneUpsert(findDbId(s.bookings, bookingId), 'cro_released', now(), 'MNR')
       return {
