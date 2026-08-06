@@ -731,7 +731,7 @@ export interface FfShipment {
   surveyorName?: string
   // Container yard tab
   emptyContainerYardOrigin?: string
-  emptyContainerYardDestination?: string
+  croValidTill?: string
   /** Real Supabase row id, once persisted — see Booking.dbId for the same pattern. */
   dbId?: string
 }

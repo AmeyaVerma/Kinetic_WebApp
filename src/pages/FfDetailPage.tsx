@@ -6,7 +6,7 @@ import { StatusChip } from '../components/ui/StatusChip'
 import { ProgressBar } from '../components/ui/ProgressBar'
 import { Tabs } from '../components/ui/Tabs'
 import { FieldPill } from '../components/ui/Field'
-import { EditableDatePill } from '../components/ui/EditableDatePill'
+import { EditableDatePill, EditableDateOnlyPill } from '../components/ui/EditableDatePill'
 import { EditableTextPill } from '../components/ui/EditableTextPill'
 import { EditableSelectPill } from '../components/ui/EditableSelectPill'
 import { WeightCell } from '../components/ui/WeightCell'
@@ -319,7 +319,7 @@ function FfShipmentDetailsTab({ shipment: f }: { shipment: FfShipment }) {
 function FfAgentDetailsTab({ shipment: f }: { shipment: FfShipment }) {
   const { updateFfField } = useDataStore()
   const linkedAgent = mockAgents.find((a) => a.id === f.agentId)
-  const setField = (field: 'originAgentName' | 'destinationAgentName' | 'transshipmentAgent' | 'surveyorName' | 'shipper' | 'consignee' | 'notifyParty') =>
+  const setField = (field: 'originAgentName' | 'destinationAgentName' | 'transshipmentAgent' | 'surveyorName') =>
     (v: string) => updateFfField(f.id, field, v, 'Ops')
 
   return (
@@ -329,9 +329,6 @@ function FfAgentDetailsTab({ shipment: f }: { shipment: FfShipment }) {
       <EditableTextPill label="Destination agent" value={f.destinationAgentName ?? ''} onChange={setField('destinationAgentName')} />
       <EditableTextPill label="Transshipment agent" value={f.transshipmentAgent ?? ''} onChange={setField('transshipmentAgent')} />
       <EditableTextPill label="Surveyor" value={f.surveyorName ?? ''} onChange={setField('surveyorName')} />
-      <EditableTextPill label="Shipper" value={f.shipper ?? ''} onChange={setField('shipper')} />
-      <EditableTextPill label="Consignee" value={f.consignee ?? ''} onChange={setField('consignee')} />
-      <EditableTextPill label="Notify party" value={f.notifyParty ?? ''} onChange={setField('notifyParty')} />
     </div>
   )
 }
@@ -348,15 +345,12 @@ function FfContainerYardTab({ shipment: f }: { shipment: FfShipment }) {
           value={f.emptyContainerYardOrigin ?? ''}
           onChange={(v) => updateFfField(f.id, 'emptyContainerYardOrigin', v, 'Ops')}
         />
-        <EditableTextPill
-          label="Empty container yard destination"
-          value={f.emptyContainerYardDestination ?? ''}
-          onChange={(v) => updateFfField(f.id, 'emptyContainerYardDestination', v, 'Ops')}
+        <EditableDateOnlyPill
+          label="CRO Valid till"
+          value={f.croValidTill ?? ''}
+          onChange={(v) => updateFfField(f.id, 'croValidTill', v, 'Ops')}
         />
       </div>
-      <p className="text-xs text-muted">
-        CRO / Container Release Order is an NVOCC + MNR workflow and doesn't apply to Freight Forwarding shipments.
-      </p>
     </div>
   )
 }

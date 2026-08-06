@@ -434,7 +434,7 @@ function rowToFfShipment(row: any): FfShipment {
     transshipmentAgent: row.transshipment_agent ?? undefined,
     surveyorName: row.surveyor_name ?? undefined,
     emptyContainerYardOrigin: row.empty_container_yard_origin ?? undefined,
-    emptyContainerYardDestination: row.empty_container_yard_destination ?? undefined,
+    croValidTill: row.cro_valid_till ?? undefined,
   }
 }
 
