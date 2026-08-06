@@ -621,6 +621,10 @@ interface DataState {
       Admins should call updateContainerInfoField directly (no approval
       needed for their own edits). */
   requestBookingFieldChange: (bookingId: string, field: string, label: string, value: string, actor: string) => void
+  /** Same as requestBookingFieldChange but for an FfShipment — separate
+      because FF has no row in `bookings` to look up. Uses entityType
+      'ff_field_edit' so decideApproval knows to apply it to ffShipments. */
+  requestFfFieldChange: (shipmentId: string, field: string, label: string, value: string, actor: string) => void
   /** Replaces the whole containerDetails array — used when the container
       count changes (resizes the array, padding/truncating) or a single
       row's field is edited (same array, one entry changed). Admin-direct,
@@ -1148,6 +1152,35 @@ export const useDataStore = create<DataState>((set, get) => ({
           ...s.approvals,
         ],
         activities: log(s.activities, bookingId, actor, `Requested ${label.toLowerCase()} change → ${value} (Admin approval required)`),
+      }
+    }),
+
+  requestFfFieldChange: (shipmentId, field, label, value, actor) =>
+    set((s) => {
+      const shipment = s.ffShipments.find((f) => f.id === shipmentId)
+      if (!shipment) return s
+      const current = String((shipment as unknown as Record<string, unknown>)[field] ?? '')
+      if (current === value) return s
+      const alreadyPending = s.approvals.some(
+        (a) => a.entityId === shipmentId && a.status === 'Pending' && a.fieldChange?.field === field,
+      )
+      if (alreadyPending) return s
+      return {
+        approvals: [
+          {
+            id: uid('ap'),
+            entityType: 'ff_field_edit' as const,
+            entityId: shipmentId,
+            bookingId: null,
+            summary: `${label} change on ${shipment.ref}: ${current || '—'} → ${value}`,
+            requestedBy: actor,
+            requestedAt: now(),
+            status: 'Pending' as const,
+            fieldChange: { field, value },
+          },
+          ...s.approvals,
+        ],
+        activities: log(s.activities, shipmentId, actor, `Requested ${label.toLowerCase()} change → ${value} (Admin approval required)`),
       }
     }),
 
@@ -3212,6 +3245,14 @@ export const useDataStore = create<DataState>((set, get) => ({
           patch = {
             bookings: s.bookings.map((b) => (b.id === ap.bookingId ? { ...b, [field]: applied } : b)),
           }
+        } else if (ap.entityType === 'ff_field_edit' && ap.fieldChange) {
+          const { field, value } = ap.fieldChange
+          const target = s.ffShipments.find((f) => f.id === ap.entityId)
+          const column = field.replace(/([A-Z])/g, '_$1').toLowerCase()
+          persistFfUpdate(target?.dbId, { [column]: value }, 'decideApproval:ff_field_edit')
+          patch = {
+            ffShipments: s.ffShipments.map((f) => (f.id === ap.entityId ? { ...f, [field]: value } : f)),
+          }
         }
       } else if (ap.entityType === 'bl_edit' && ap.bookingId) {
         patch = {
@@ -3220,11 +3261,15 @@ export const useDataStore = create<DataState>((set, get) => ({
           ),
         }
       }
+      // credit_hold/ff_field_edit have no bookingId (they're FF-sourced) —
+      // log against entityId (the FF shipment's local id) instead so the
+      // decision still shows up in that shipment's activity log.
+      const activityTarget = ap.bookingId ?? (ap.entityType === 'credit_hold' || ap.entityType === 'ff_field_edit' ? ap.entityId : null)
       return {
         ...patch,
         approvals: s.approvals.map((a) => (a.id === approvalId ? { ...a, status: decision } : a)),
-        activities: ap.bookingId
-          ? log(s.activities, ap.bookingId, 'Ops', `Approval ${decision.toLowerCase()}: ${ap.summary}`)
+        activities: activityTarget
+          ? log(s.activities, activityTarget, 'Ops', `Approval ${decision.toLowerCase()}: ${ap.summary}`)
           : s.activities,
       }
     }),

@@ -19,6 +19,7 @@ const CATEGORY_TABS: { key: ApprovalEntityType | 'all'; label: string }[] = [
   { key: 'credit_hold', label: 'Credit holds' },
   { key: 'booking_request', label: 'Booking requests' },
   { key: 'booking_field_edit', label: 'Booking field edits' },
+  { key: 'ff_field_edit', label: 'FF field edits' },
 ]
 
 const TYPE_LABEL: Record<ApprovalEntityType, string> = {
@@ -33,10 +34,11 @@ const TYPE_LABEL: Record<ApprovalEntityType, string> = {
   agent_gate: 'Agent gate',
   leave_request: 'Leave request',
   booking_field_edit: 'Booking field edit',
+  ff_field_edit: 'FF field edit',
 }
 
 export function ApprovalsPage() {
-  const { approvals, decideApproval, bookings } = useDataStore()
+  const { approvals, decideApproval, bookings, ffShipments } = useDataStore()
   const currentUser = useCurrentUser()
   const viewAsRole = useAuthStore((s) => s.viewAsRole)
   const isAdmin = (viewAsRole ?? currentUser?.role) === 'admin'
@@ -53,9 +55,21 @@ export function ApprovalsPage() {
   const pendingCount = (key: ApprovalEntityType | 'all') =>
     approvals.filter((a) => a.status === 'Pending' && (key === 'all' || a.entityType === key)).length
 
+  // credit_hold/ff_field_edit are FF-sourced (no bookingId) — fall back to
+  // looking the shipment up by entityId so the row can still link out.
+  const entityFor = (a: Approval) => {
+    const booking = a.bookingId ? bookings.find((b) => b.id === a.bookingId) : undefined
+    if (booking) return { ref: booking.bookingRef, path: `/nvocc/${booking.id}` }
+    if (a.entityType === 'credit_hold' || a.entityType === 'ff_field_edit') {
+      const shipment = ffShipments.find((f) => f.id === a.entityId)
+      if (shipment) return { ref: shipment.ref, path: `/freight/${shipment.id}` }
+    }
+    return { ref: null, path: null }
+  }
+
   const approvalRows = filtered.map((a) => ({
     Type: TYPE_LABEL[a.entityType],
-    Booking: bookings.find((b) => b.id === a.bookingId)?.bookingRef ?? '',
+    Booking: entityFor(a).ref ?? '',
     Summary: a.summary,
     'Requested By': a.requestedBy,
     'Requested At': a.requestedAt,
@@ -96,7 +110,8 @@ export function ApprovalsPage() {
           <ApprovalRow
             key={a.id}
             approval={a}
-            bookingRef={bookings.find((b) => b.id === a.bookingId)?.bookingRef ?? null}
+            entityRef={entityFor(a).ref}
+            entityPath={entityFor(a).path}
             isAdmin={isAdmin}
             onDecide={(d) => decideApproval(a.id, d)}
           />
@@ -113,12 +128,14 @@ export function ApprovalsPage() {
 
 function ApprovalRow({
   approval: a,
-  bookingRef,
+  entityRef,
+  entityPath,
   isAdmin,
   onDecide,
 }: {
   approval: Approval
-  bookingRef: string | null
+  entityRef: string | null
+  entityPath: string | null
   isAdmin: boolean
   onDecide: (d: 'Approved' | 'Rejected') => void
 }) {
@@ -141,12 +158,12 @@ function ApprovalRow({
                 <Lock size={10} /> Admin only
               </span>
             )}
-            {bookingRef && (
+            {entityRef && entityPath && (
               <Link
-                to={`/nvocc/${a.bookingId}`}
+                to={entityPath}
                 className="font-mono text-xs font-medium text-link hover:underline"
               >
-                {bookingRef}
+                {entityRef}
               </Link>
             )}
             <StatusChip

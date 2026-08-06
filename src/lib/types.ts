@@ -302,6 +302,8 @@ export type DocType =
   | 'CAN'
   | 'Commercial Invoice + Packing List'
   | 'Certificate of Origin'
+  | 'MSDS'
+  | 'Non-Haz Declaration'
 
 export type DocStatus = 'pending' | 'uploaded' | 'approved'
 
@@ -449,6 +451,7 @@ export type ApprovalEntityType =
   | 'agent_gate'
   | 'leave_request'
   | 'booking_field_edit'
+  | 'ff_field_edit'
 
 export type ApprovalStatus = 'Pending' | 'Approved' | 'Rejected'
 

@@ -20,6 +20,8 @@ export const DOC_SEQUENCE: { type: DocType; trigger: string }[] = [
   { type: 'CAN', trigger: 'Import only — sent to consignee on vessel arrival' },
   { type: 'Commercial Invoice + Packing List', trigger: 'Customer uploads for customs compliance' },
   { type: 'Certificate of Origin', trigger: 'Customer uploads where required' },
+  { type: 'MSDS', trigger: 'Required for hazardous cargo (see Product info)' },
+  { type: 'Non-Haz Declaration', trigger: 'Required to declare cargo as non-hazardous' },
 ]
 
 export type BlFieldWidget = 'text' | 'textarea' | 'select'

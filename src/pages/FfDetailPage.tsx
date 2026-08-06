@@ -8,11 +8,14 @@ import { Tabs } from '../components/ui/Tabs'
 import { FieldPill } from '../components/ui/Field'
 import { EditableDatePill } from '../components/ui/EditableDatePill'
 import { EditableTextPill } from '../components/ui/EditableTextPill'
+import { EditableSelectPill } from '../components/ui/EditableSelectPill'
+import { WeightCell } from '../components/ui/WeightCell'
 import { StageStepper } from '../components/ui/StageStepper'
 import { ContainerActivitiesTab } from '../components/booking/ContainerActivitiesTab'
 import { FfDocumentsTab } from '../components/booking/FfDocumentsTab'
 import { FfDetail } from '../components/ff/FfDetail'
 import { useDataStore } from '../store/useDataStore'
+import { useAuthStore, useCurrentUser } from '../store/useAuthStore'
 import { FF_STAGES } from '../lib/ff'
 import { BOOKING_WORKFLOW_STATUSES, WORKFLOW_STATUS_CHIP } from '../lib/bookingStatus'
 import { HAZMAT_FIELD_LABELS } from '../lib/types'
@@ -162,26 +165,94 @@ function FfContainerInfoTab({ shipment: f }: { shipment: FfShipment }) {
 /* ── Tab: Product info ───────────────────────────────────────── */
 
 function FfProductInfoTab({ shipment: f }: { shipment: FfShipment }) {
-  const { updateFfField, setFfHazmatStatus, updateFfHazmatDetail } = useDataStore()
+  const { updateFfField, requestFfFieldChange, setFfHazmatStatus, updateFfHazmatDetail, approvals } = useDataStore()
+  const currentUser = useCurrentUser()
+  const viewAsRole = useAuthStore((s) => s.viewAsRole)
+  const isAdmin = (viewAsRole ?? currentUser?.role) === 'admin'
+  const actor = currentUser?.name ?? 'Ops'
   const hazStatus: HazmatStatus = f.hazmatStatus ?? 'Non-Haz'
   const details = f.hazmatDetails ?? {}
-  const setField = (field: 'commodity' | 'hsCode' | 'packages' | 'packageType' | 'grossWeightKg' | 'freightTerms') =>
-    (v: string) => updateFfField(f.id, field, v, 'Ops')
+
+  const pendingFor = (field: string) =>
+    approvals.find((a) => a.entityId === f.id && a.status === 'Pending' && a.fieldChange?.field === field)
+  const hintFor = (field: string) => {
+    const p = pendingFor(field)
+    return p ? `Pending Admin approval → ${p.fieldChange!.value}` : undefined
+  }
+
+  // Same split as NVOCC's Product info: Admin edits apply immediately,
+  // anyone else's edit raises an Admin-approval request instead.
+  const editField = (
+    field: 'commodity' | 'hsCode' | 'packages' | 'packageType' | 'grossWeightKg' | 'freightTerms',
+    label: string,
+  ) =>
+    (v: string) =>
+      isAdmin
+        ? updateFfField(f.id, field, v, actor)
+        : requestFfFieldChange(f.id, field, label, v, actor)
 
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-        <EditableTextPill label="Commodity" value={f.commodity ?? ''} onChange={setField('commodity')} />
-        <EditableTextPill label="HS code" value={f.hsCode ?? ''} onChange={setField('hsCode')} />
-        <EditableTextPill label="Packages" value={f.packages ?? ''} onChange={setField('packages')} />
-        <EditableTextPill label="Package type" value={f.packageType ?? ''} onChange={setField('packageType')} />
-        <EditableTextPill label="Gross weight (kg)" value={f.grossWeightKg ?? ''} onChange={setField('grossWeightKg')} />
-        <EditableTextPill label="Freight terms" value={f.freightTerms ?? ''} onChange={setField('freightTerms')} />
+        <EditableTextPill
+          label="Commodity"
+          value={f.commodity ?? ''}
+          disabled={!!pendingFor('commodity')}
+          hint={hintFor('commodity')}
+          onChange={editField('commodity', 'Commodity')}
+        />
+        <EditableTextPill
+          label="HS code"
+          value={f.hsCode ?? ''}
+          disabled={!!pendingFor('hsCode')}
+          hint={hintFor('hsCode')}
+          onChange={editField('hsCode', 'HS code')}
+        />
+        <EditableTextPill
+          label="Packages"
+          value={f.packages ?? ''}
+          disabled={!!pendingFor('packages')}
+          hint={hintFor('packages')}
+          onChange={editField('packages', 'Packages')}
+        />
+        {/* Unlike NVOCC (where package type is set once in the booking
+            wizard and shown read-only here), the FF wizard never captures
+            it — so it stays separately editable rather than a dead field. */}
+        <EditableTextPill
+          label="Package type"
+          value={f.packageType ?? ''}
+          disabled={!!pendingFor('packageType')}
+          hint={hintFor('packageType')}
+          onChange={editField('packageType', 'Package type')}
+        />
+        <label className="block rounded-btn border border-line bg-surface-2/60 px-3 py-2 focus-within:border-primary">
+          <p className="font-mono text-[10px] uppercase tracking-wide text-muted">Cargo weight</p>
+          <WeightCell
+            value={f.grossWeightKg ?? ''}
+            onChange={editField('grossWeightKg', 'Cargo weight')}
+            disabled={!!pendingFor('grossWeightKg')}
+            bare
+          />
+          {hintFor('grossWeightKg') && <p className="mt-1 text-[11px] text-accent-orange">{hintFor('grossWeightKg')}</p>}
+        </label>
+        <label className="block rounded-btn border border-line bg-surface-2/60 px-3 py-2 focus-within:border-primary">
+          <p className="font-mono text-[10px] uppercase tracking-wide text-muted">Freight terms</p>
+          <select
+            value={f.freightTerms || 'Prepaid'}
+            disabled={!!pendingFor('freightTerms')}
+            onChange={(e) => editField('freightTerms', 'Freight terms')(e.target.value)}
+            className="mt-0.5 w-full bg-transparent text-[13px] text-heading focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <option value="Prepaid">Prepaid</option>
+            <option value="Collect">Collected</option>
+          </select>
+          {hintFor('freightTerms') && <p className="mt-1 text-[11px] text-accent-orange">{hintFor('freightTerms')}</p>}
+        </label>
         <label className="block rounded-btn border border-line bg-surface-2/60 px-3 py-2 focus-within:border-primary">
           <p className="font-mono text-[10px] uppercase tracking-wide text-muted">Haz / Non-Haz</p>
           <select
             value={hazStatus}
-            onChange={(e) => setFfHazmatStatus(f.id, e.target.value as HazmatStatus, 'Ops')}
+            onChange={(e) => setFfHazmatStatus(f.id, e.target.value as HazmatStatus, actor)}
             className="mt-0.5 w-full bg-transparent text-[13px] text-heading focus:outline-none"
           >
             <option value="Non-Haz" className="bg-surface text-heading">Non-Haz</option>
@@ -201,7 +272,7 @@ function FfProductInfoTab({ shipment: f }: { shipment: FfShipment }) {
                 key={field}
                 label={HAZMAT_FIELD_LABELS[field]}
                 value={details[field] ?? ''}
-                onChange={(v) => updateFfHazmatDetail(f.id, field, v, 'Ops')}
+                onChange={(v) => updateFfHazmatDetail(f.id, field, v, actor)}
               />
             ))}
           </div>
