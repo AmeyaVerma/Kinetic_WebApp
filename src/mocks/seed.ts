@@ -172,14 +172,14 @@ export const mockBlVersions: BlVersion[] = [
 /* ── Container activities (doc: origin + destination sections) ─ */
 
 export const CONTAINER_ACTIVITY_DEFS: Omit<ContainerActivity, 'completedAt'>[] = [
-  { key: 'gate_out', label: 'Gate-out (empty pickup)', section: 'origin' },
-  { key: 'stuffing', label: 'Stuffing', section: 'origin' },
-  { key: 'seal', label: 'Seal confirmed', section: 'origin' },
+  { key: 'gate_out', label: 'Empty pickup', section: 'origin' },
   { key: 'gate_in', label: 'Gate-in (laden)', section: 'origin' },
-  { key: 'vessel_load', label: 'Vessel load', section: 'origin' },
+  { key: 'vessel_load', label: 'Loaded on Vessel', section: 'origin' },
   { key: 'vessel_sailed', label: 'Vessel Sailed', section: 'origin' },
+  { key: 'vessel_arrived', label: 'Vessel Arrived', section: 'destination' },
+  { key: 'vessel_berth', label: 'Vessel Berth', section: 'destination' },
   { key: 'discharge', label: 'Discharge', section: 'destination' },
-  { key: 'customs', label: 'Customs cleared', section: 'destination' },
+  { key: 'do_released', label: 'DO released', section: 'destination' },
   { key: 'delivery', label: 'Delivery', section: 'destination' },
   { key: 'empty_return', label: 'Empty return', section: 'destination' },
 ]
