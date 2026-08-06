@@ -634,7 +634,7 @@ function ShipmentDetailsTab({
           onChange={(v) => onPlannedDateChange('plannedSiCutoff', v)}
         />
         <EditableDatePill
-          label="VGM cut-off (planned)"
+          label="Dock Cutoff"
           value={booking.plannedVgmCutoff ?? ''}
           onChange={(v) => onPlannedDateChange('plannedVgmCutoff', v)}
         />

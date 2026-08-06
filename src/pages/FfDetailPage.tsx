@@ -303,7 +303,7 @@ function FfShipmentDetailsTab({ shipment: f }: { shipment: FfShipment }) {
         <EditableDatePill label="Gate open (planned)" value={f.plannedGateOpen ?? ''} onChange={setField('plannedGateOpen')} />
         <EditableDatePill label="Gate close (planned)" value={f.plannedGateClose ?? ''} onChange={setField('plannedGateClose')} />
         <EditableDatePill label="SI cut-off (planned)" value={f.plannedSiCutoff ?? ''} onChange={setField('plannedSiCutoff')} />
-        <EditableDatePill label="VGM cut-off (planned)" value={f.plannedVgmCutoff ?? ''} onChange={setField('plannedVgmCutoff')} />
+        <EditableDatePill label="Dock Cutoff" value={f.plannedVgmCutoff ?? ''} onChange={setField('plannedVgmCutoff')} />
         <EditableDatePill label="CY cut-off (planned)" value={f.plannedCyCutoff ?? ''} onChange={setField('plannedCyCutoff')} />
       </div>
       <p className="text-xs text-muted">

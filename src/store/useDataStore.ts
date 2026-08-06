@@ -530,7 +530,7 @@ const PLANNED_DATE_FIELD_LABELS = {
   plannedGateOpen: 'Planned gate open',
   plannedGateClose: 'Planned gate close',
   plannedSiCutoff: 'Planned SI cut-off',
-  plannedVgmCutoff: 'Planned VGM cut-off',
+  plannedVgmCutoff: 'Dock Cutoff',
   plannedCyCutoff: 'Planned CY cut-off',
 } as const
 
