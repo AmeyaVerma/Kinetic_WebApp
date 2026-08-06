@@ -209,6 +209,7 @@ function FfWizard({ open, onClose, onCreated }: { open: boolean; onClose: () => 
   const [sell, setSell] = useState(0)
   const [isConsol, setIsConsol] = useState(false)
   const [special, setSpecial] = useState('')
+  const [daysOfCredit, setDaysOfCredit] = useState(0)
   const [lines, setLines] = useState<DraftVendorLine[]>([
     { role: 'Carrier', vendorId: 'vn1', buyAmount: 0 },
   ])
@@ -220,6 +221,7 @@ function FfWizard({ open, onClose, onCreated }: { open: boolean; onClose: () => 
 
   const reset = () => {
     setCustomerId(''); setOrigin(''); setDestination(''); setSell(0); setIsConsol(false); setSpecial('')
+    setDaysOfCredit(0)
     setLines([{ role: 'Carrier', vendorId: 'vn1', buyAmount: 0 }])
   }
 
@@ -246,6 +248,7 @@ function FfWizard({ open, onClose, onCreated }: { open: boolean; onClose: () => 
                 sellAmount: isConsol ? 0 : sell,
                 isConsolParent: isConsol,
                 specialHandling: special || null,
+                daysOfCredit,
               },
               lines
                 .filter((l) => l.buyAmount > 0)
@@ -345,6 +348,24 @@ function FfWizard({ open, onClose, onCreated }: { open: boolean; onClose: () => 
         <Button size="sm" variant="secondary" className="mt-2" onClick={() => setLines((ls) => [...ls, { role: 'Trucking', vendorId: 'vn5', buyAmount: 0 }])}>
           <Plus size={13} /> Add vendor line
         </Button>
+      </div>
+
+      <div className="mt-4 max-w-[200px]">
+        <Field label="Days of credit">
+          <TextInput
+            type="number"
+            min={0}
+            max={75}
+            value={daysOfCredit || ''}
+            onChange={(e) => setDaysOfCredit(Math.max(0, Math.min(75, +e.target.value || 0)))}
+            placeholder="0"
+          />
+        </Field>
+        {daysOfCredit > 0 && (
+          <p className="mt-1.5 text-[11px] font-medium text-accent-orange">
+            Requires Admin approval — booking will hold until cleared.
+          </p>
+        )}
       </div>
 
       {!isConsol && (

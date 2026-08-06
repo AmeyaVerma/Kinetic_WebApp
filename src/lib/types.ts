@@ -676,6 +676,12 @@ export interface FfShipment {
   podCaptured: boolean
   // Financials
   sellAmount: number
+  /** Payment terms extended to the customer, capped at 75 days in the
+      wizard. Any nonzero value holds the booking for Admin approval —
+      same credit-gate mechanism as the sell-amount check, just a second
+      trigger for it (see creditHold). Optional/missing on legacy/seed
+      records — treat as 0. */
+  daysOfCredit?: number
   vendorLines: FfVendorLine[]
   clientInvoiced: boolean
   paid: boolean

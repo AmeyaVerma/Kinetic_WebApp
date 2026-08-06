@@ -396,6 +396,7 @@ function rowToFfShipment(row: any): FfShipment {
     doIssued: row.do_issued,
     podCaptured: row.pod_captured,
     sellAmount: row.sell_amount,
+    daysOfCredit: row.days_of_credit ?? undefined,
     vendorLines: [], // fetched/merged separately (ff_vendor_lines)
     clientInvoiced: row.client_invoiced,
     paid: row.paid,
@@ -477,6 +478,7 @@ function ffShipmentToInsertRow(s: FfShipment) {
     do_issued: s.doIssued,
     pod_captured: s.podCaptured,
     sell_amount: s.sellAmount,
+    days_of_credit: s.daysOfCredit ?? 0,
     client_invoiced: s.clientInvoiced,
     paid: s.paid,
   }
@@ -726,7 +728,7 @@ interface DataState {
       state — additive, same pattern as fetchBookings. */
   fetchFfShipments: () => Promise<void>
   createFfShipment: (
-    s: Pick<FfShipment, 'mode' | 'customerId' | 'customerName' | 'origin' | 'destination' | 'incoterm' | 'sellAmount' | 'isConsolParent' | 'specialHandling'>,
+    s: Pick<FfShipment, 'mode' | 'customerId' | 'customerName' | 'origin' | 'destination' | 'incoterm' | 'sellAmount' | 'isConsolParent' | 'specialHandling' | 'daysOfCredit'>,
     vendorLines: Omit<FfVendorLine, 'id' | 'billedAmount' | 'varianceFlag'>[],
   ) => string
   addChildHbl: (parentId: string, child: { customerId: string | null; customerName: string; sellAmount: number }) => void
@@ -2057,8 +2059,12 @@ export const useDataStore = create<DataState>((set, get) => ({
     }, 30)
     const ref = `KINFF-${String(maxSeq + 1).padStart(4, '0')}`
     const id = ref
-    // Flow 1 credit gate: over limit → held for Finance sign-off
-    const creditHold = s.sellAmount > CREDIT_LIMIT_USD
+    // Flow 1 credit gate: over the sell-amount limit → held for Finance
+    // sign-off. Any Days of Credit at all is a second, separate trigger for
+    // the same hold — that one needs Admin sign-off specifically.
+    const overSellLimit = s.sellAmount > CREDIT_LIMIT_USD
+    const hasCreditDays = (s.daysOfCredit ?? 0) > 0
+    const creditHold = overSellLimit || hasCreditDays
     const shipment: FfShipment = {
       ...s,
       id,
@@ -2097,6 +2103,10 @@ export const useDataStore = create<DataState>((set, get) => ({
       paid: false,
       createdAt: now(),
     }
+    const holdReasons: string[] = []
+    if (overSellLimit) holdReasons.push(`sell $${s.sellAmount.toLocaleString()} exceeds limit ($${CREDIT_LIMIT_USD.toLocaleString()}) — Finance sign-off`)
+    if (hasCreditDays) holdReasons.push(`${s.daysOfCredit} days of credit requested — Admin sign-off`)
+
     set((state) => ({
       ffShipments: [shipment, ...state.ffShipments],
       approvals: creditHold
@@ -2106,7 +2116,7 @@ export const useDataStore = create<DataState>((set, get) => ({
               entityType: 'credit_hold' as const,
               entityId: id,
               bookingId: null,
-              summary: `Credit clearance ${ref} — ${s.customerName} sell $${s.sellAmount.toLocaleString()} exceeds limit ($${CREDIT_LIMIT_USD.toLocaleString()})`,
+              summary: `Credit clearance ${ref} — ${s.customerName}: ${holdReasons.join('; ')}`,
               requestedBy: 'System (credit gate)',
               requestedAt: now(),
               status: 'Pending' as const,
@@ -2118,7 +2128,7 @@ export const useDataStore = create<DataState>((set, get) => ({
         state.activities,
         id,
         'BD/Ops',
-        `FF booking ${ref} created (${s.mode})${creditHold ? ' — HELD: over credit limit, Finance sign-off required' : ''}${s.isConsolParent ? ' — LCL consolidation parent' : ''}`,
+        `FF booking ${ref} created (${s.mode})${creditHold ? ` — HELD: ${holdReasons.join('; ')}` : ''}${s.isConsolParent ? ' — LCL consolidation parent' : ''}`,
       ),
     }))
 
