@@ -21,7 +21,8 @@ const TABS = [
   { key: 'documents', label: 'Documents' },
 ]
 
-const PARTY_TYPES = ['Company', 'Individual', 'Control'] as const
+const PARTY_TYPES = ['Local', 'Overseas', 'Control'] as const
+const PARTY_ROLES = ['Exporter', 'Importer', 'Forwarder'] as const
 const STATUSES = ['Active', 'Inactive'] as const
 const EXPORTER_IMPORTER_CLASS = ['Exporter', 'Importer', 'Both']
 const TYPE_OF_FIRM = ['Proprietorship', 'Partnership', 'LLP', 'Private Limited', 'Public Limited', 'Trust', 'HUF', 'Other']
@@ -148,6 +149,7 @@ function OverviewTab({ party: p, isAdmin, actor }: { party: Party; isAdmin: bool
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {text('Party Name', 'legalName', p.legalName)}
           {select('Party Type', 'partyType', p.partyType, PARTY_TYPES)}
+          {select('Party Role', 'partyRole', p.partyRole, PARTY_ROLES)}
           {select('Status', 'status', p.status, STATUSES)}
           {text('Roles (comma-separated)', 'roles', p.roles.join(', '))}
           {text('Party Prefix', 'partyPrefix', p.partyPrefix)}

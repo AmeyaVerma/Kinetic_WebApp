@@ -64,8 +64,9 @@ export interface ChargeCodeMaster {
    rather than split into separate Customer/Agent/Shipper tables — see
    supabase/migrations/0015_parties_master.sql. */
 
-export type PartyType = 'Company' | 'Individual' | 'Control'
+export type PartyType = 'Local' | 'Overseas' | 'Control'
 export type PartyStatus = 'Active' | 'Inactive'
+export type PartyRole = 'Exporter' | 'Importer' | 'Forwarder'
 
 export interface Party {
   id: string // Supabase uuid
@@ -107,6 +108,7 @@ export interface Party {
   bin: string | null
   dobOrIncorporationDate: string | null
   remarks: string | null
+  partyRole: PartyRole | null
 }
 
 /** One row of the "HO/Branches" table — a party can have several

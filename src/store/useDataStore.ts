@@ -140,6 +140,7 @@ function rowToParty(row: any): Party {
     bin: row.bin,
     dobOrIncorporationDate: row.dob_or_incorporation_date,
     remarks: row.remarks,
+    partyRole: row.party_role,
   }
 }
 
@@ -1115,7 +1116,7 @@ export const useDataStore = create<DataState>((set, get) => ({
         code,
         legal_name: fields.legalName,
         display_name: fields.displayName || fields.legalName,
-        party_type: fields.partyType ?? 'Company',
+        party_type: fields.partyType ?? 'Local',
         roles: [],
         status: 'Active',
         is_self: false,
@@ -1148,6 +1149,7 @@ export const useDataStore = create<DataState>((set, get) => ({
         bin: fields.bin,
         dob_or_incorporation_date: fields.dobOrIncorporationDate,
         remarks: fields.remarks,
+        party_role: fields.partyRole,
       })
       .select()
       .single()

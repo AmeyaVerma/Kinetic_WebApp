@@ -9,14 +9,18 @@ import { PartyAuthorizedPersonsSection } from '../../components/master/PartyAuth
 import { PartyDocumentsSection } from '../../components/master/PartyDocumentsSection'
 import { useDataStore } from '../../store/useDataStore'
 import { useCurrentUser } from '../../store/useAuthStore'
-import type { Party } from '../../lib/types'
+import type { Party, PartyType, PartyRole } from '../../lib/types'
 
+const PARTY_TYPES: readonly PartyType[] = ['Local', 'Overseas', 'Control']
+const PARTY_ROLES: readonly PartyRole[] = ['Exporter', 'Importer', 'Forwarder']
 const EXPORTER_IMPORTER_CLASS = ['Exporter', 'Importer', 'Both']
 const TYPE_OF_FIRM = ['Proprietorship', 'Partnership', 'LLP', 'Private Limited', 'Public Limited', 'Trust', 'HUF', 'Other']
 const MSME_TYPE = ['Micro', 'Small', 'Medium']
 
 type BasicFields = {
   legalName: string
+  partyType: PartyType
+  partyRole: string
   partyPrefix: string
   accountingCode: string
   legacyUsername: string
@@ -46,6 +50,8 @@ type BasicFields = {
 
 const emptyBasic: BasicFields = {
   legalName: '',
+  partyType: 'Local',
+  partyRole: '',
   partyPrefix: '',
   accountingCode: '',
   legacyUsername: '',
@@ -97,6 +103,8 @@ export function AddPartyPage() {
     const { party: created, error: err } = await createParty({
       legalName: basic.legalName.trim(),
       displayName: basic.legalName.trim(),
+      partyType: basic.partyType,
+      partyRole: (basic.partyRole || null) as PartyRole | null,
       addressLine: null,
       city: basic.city || null,
       state: basic.state || null,
@@ -156,6 +164,17 @@ export function AddPartyPage() {
             <div className="grid grid-cols-1 gap-4 px-5 pb-5 sm:grid-cols-2">
               <Field label="Party Name *">
                 <TextInput value={basic.legalName} onChange={(e) => setField('legalName')(e.target.value)} />
+              </Field>
+              <Field label="Party Type">
+                <Select value={basic.partyType} onChange={(e) => setBasic((b) => ({ ...b, partyType: e.target.value as PartyType }))}>
+                  {PARTY_TYPES.map((o) => <option key={o} value={o}>{o}</option>)}
+                </Select>
+              </Field>
+              <Field label="Party Role">
+                <Select value={basic.partyRole} onChange={(e) => setField('partyRole')(e.target.value)}>
+                  <option value="">—</option>
+                  {PARTY_ROLES.map((o) => <option key={o} value={o}>{o}</option>)}
+                </Select>
               </Field>
               <Field label="Party Prefix / Manual / Common Code">
                 <TextInput value={basic.partyPrefix} onChange={(e) => setField('partyPrefix')(e.target.value)} />
