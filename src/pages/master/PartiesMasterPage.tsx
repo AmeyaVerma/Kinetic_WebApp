@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Database, ShieldCheck, Ban, Plus } from 'lucide-react'
 import { Card } from '../../components/ui/Card'
 import { StatKpi } from '../../components/ui/StatKpi'
@@ -9,14 +9,15 @@ import { TextInput } from '../../components/ui/Field'
 import { useDataStore } from '../../store/useDataStore'
 import type { Party } from '../../lib/types'
 
-/** Master Data → Parties (Pass 1). Read-only browse/search for now; the
-    add/edit form lands once the input format is defined (see
-    kinetic-erp-project memory — Masters are being built one at a time:
-    data in → add-format → where autofill surfaces). */
+/** Master Data → Parties (Pass 1). Read-only browse/search; click a row
+    to open its full detail page (PartyDetailPage). Add/edit form lands
+    once the input format is defined (see kinetic-erp-project memory —
+    Masters are being built one at a time: data in → add-format → where
+    autofill surfaces). */
 export function PartiesMasterPage() {
   const { parties, fetchParties } = useDataStore()
+  const navigate = useNavigate()
   const [query, setQuery] = useState('')
-  const [expandedId, setExpandedId] = useState<string | null>(null)
 
   useEffect(() => {
     fetchParties()
@@ -111,12 +112,7 @@ export function PartiesMasterPage() {
             </thead>
             <tbody>
               {filtered.map((p) => (
-                <PartyRow
-                  key={p.id}
-                  party={p}
-                  expanded={expandedId === p.id}
-                  onToggle={() => setExpandedId(expandedId === p.id ? null : p.id)}
-                />
+                <PartyRow key={p.id} party={p} onClick={() => navigate(`/master/parties/${p.code}`)} />
               ))}
             </tbody>
           </table>
@@ -131,68 +127,32 @@ export function PartiesMasterPage() {
   )
 }
 
-function PartyRow({ party: p, expanded, onToggle }: { party: Party; expanded: boolean; onToggle: () => void }) {
+function PartyRow({ party: p, onClick }: { party: Party; onClick: () => void }) {
   return (
-    <>
-      <tr
-        onClick={onToggle}
-        className={`cursor-pointer border-b border-line last:border-0 hover:bg-surface-2/60 ${expanded ? 'bg-primary/5' : ''}`}
-      >
-        <td className="px-5 py-3 font-mono text-xs font-medium text-link">{p.code}</td>
-        <td className="px-3 py-3">
-          <p className="text-[13px] font-medium text-heading">{p.legalName}</p>
-          <p className="text-[11px] text-muted">
-            {p.partyType}
-            {p.isSelf && ' · Kinetic (self)'}
-            {p.roles.length > 0 && ` · ${p.roles.join(', ')}`}
-          </p>
-        </td>
-        <td className="px-3 py-3 text-xs text-body">
-          {[p.city, p.country].filter(Boolean).join(', ') || <span className="text-muted">—</span>}
-        </td>
-        <td className="px-3 py-3 font-mono text-xs text-body">{p.pan || <span className="text-muted">—</span>}</td>
-        <td className="px-3 py-3 font-mono text-xs text-body">{p.gstin || <span className="text-muted">—</span>}</td>
-        <td className="px-5 py-3">
-          <span
-            className={`rounded-badge px-1.5 py-0.5 text-[10px] font-semibold ${
-              p.status === 'Active' ? 'bg-[#ECFDF5] text-[#059669]' : 'bg-surface-2 text-muted'
-            }`}
-          >
-            {p.status}
-          </span>
-        </td>
-      </tr>
-      {expanded && (
-        <tr className="border-b border-line bg-surface-2/40 last:border-0">
-          <td colSpan={6} className="px-5 py-4">
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              <DetailField label="IEC" value={p.iec} />
-              <DetailField label="Email" value={p.email} />
-              <DetailField label="Phone" value={p.phone} />
-              <DetailField label="Sales person" value={p.salesPerson} />
-              <DetailField label="Accounting code" value={p.accountingCode} />
-              <DetailField label="Legacy party code" value={p.partyCodeLegacy} />
-              <DetailField label="State" value={p.state} />
-              <DetailField label="Roles" value={p.roles.length > 0 ? p.roles.join(', ') : null} />
-            </div>
-            {p.addressRaw && (
-              <div className="mt-3">
-                <p className="font-mono text-[10px] uppercase tracking-wide text-muted">Address (as imported)</p>
-                <p className="mt-1 text-xs text-body">{p.addressRaw}</p>
-              </div>
-            )}
-          </td>
-        </tr>
-      )}
-    </>
-  )
-}
-
-function DetailField({ label, value }: { label: string; value: string | null }) {
-  return (
-    <div>
-      <p className="font-mono text-[10px] uppercase tracking-wide text-muted">{label}</p>
-      <p className="mt-0.5 text-[13px] text-heading">{value || <span className="text-muted">—</span>}</p>
-    </div>
+    <tr onClick={onClick} className="cursor-pointer border-b border-line last:border-0 hover:bg-surface-2/60">
+      <td className="px-5 py-3 font-mono text-xs font-medium text-link">{p.code}</td>
+      <td className="px-3 py-3">
+        <p className="text-[13px] font-medium text-heading">{p.legalName}</p>
+        <p className="text-[11px] text-muted">
+          {p.partyType}
+          {p.isSelf && ' · Kinetic (self)'}
+          {p.roles.length > 0 && ` · ${p.roles.join(', ')}`}
+        </p>
+      </td>
+      <td className="px-3 py-3 text-xs text-body">
+        {[p.city, p.country].filter(Boolean).join(', ') || <span className="text-muted">—</span>}
+      </td>
+      <td className="px-3 py-3 font-mono text-xs text-body">{p.pan || <span className="text-muted">—</span>}</td>
+      <td className="px-3 py-3 font-mono text-xs text-body">{p.gstin || <span className="text-muted">—</span>}</td>
+      <td className="px-5 py-3">
+        <span
+          className={`rounded-badge px-1.5 py-0.5 text-[10px] font-semibold ${
+            p.status === 'Active' ? 'bg-[#ECFDF5] text-[#059669]' : 'bg-surface-2 text-muted'
+          }`}
+        >
+          {p.status}
+        </span>
+      </td>
+    </tr>
   )
 }

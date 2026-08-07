@@ -13,6 +13,7 @@ import { CustomersPage } from './pages/CustomersPage'
 import { MasterDataPage } from './pages/MasterDataPage'
 import { PartiesMasterPage } from './pages/master/PartiesMasterPage'
 import { AddPartyPage } from './pages/master/AddPartyPage'
+import { PartyDetailPage } from './pages/master/PartyDetailPage'
 import { MasterComingSoon } from './pages/master/MasterComingSoon'
 import { Truck, Ship, Container, Wallet } from 'lucide-react'
 import { AgentsPage } from './pages/AgentsPage'
@@ -122,6 +123,7 @@ export default function App() {
           <Route path="/master" element={<Guard module="master"><MasterDataPage /></Guard>} />
           <Route path="/master/parties" element={<Guard module="master"><PartiesMasterPage /></Guard>} />
           <Route path="/master/parties/new" element={<Guard module="master"><AddPartyPage /></Guard>} />
+          <Route path="/master/parties/:code" element={<Guard module="master"><PartyDetailPage /></Guard>} />
           <Route
             path="/master/vendors"
             element={

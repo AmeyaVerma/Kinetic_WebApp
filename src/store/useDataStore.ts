@@ -688,6 +688,11 @@ interface DataState {
     fields: Omit<Party, 'id' | 'code' | 'createdAt' | 'roles' | 'status' | 'isSelf' | 'partyType'> &
       Partial<Pick<Party, 'partyType'>>,
   ) => Promise<{ party: Party | null; error: string | null }>
+  /** Admin-direct edit of any Party field — no approval gate, since only
+      Admin can reach this (UI-gated in PartyDetailPage). `roles` is passed
+      as a comma-separated string and split before writing, same value type
+      as every other field so the caller doesn't need a special case. */
+  updateParty: (partyId: string, field: keyof Party, value: string, actor: string) => void
   /** Pulls branches/authorized persons/documents for one party — call when
       opening a party for edit (the "new party" flow already has them local). */
   fetchPartyChildren: (partyId: string) => Promise<void>
@@ -1151,6 +1156,25 @@ export const useDataStore = create<DataState>((set, get) => ({
     const party = rowToParty(data)
     set((s) => ({ parties: [party, ...s.parties] }))
     return { party, error: null }
+  },
+
+  updateParty: (partyId, field, value, actor) => {
+    const p = get().parties.find((x) => x.id === partyId)
+    if (!p) return
+    const column = String(field).replace(/([A-Z])/g, '_$1').toLowerCase()
+    const isRoles = field === 'roles'
+    const rolesArr = isRoles ? value.split(',').map((r) => r.trim()).filter(Boolean) : null
+    supabase
+      .from('parties')
+      .update({ [column]: isRoles ? rolesArr : value })
+      .eq('id', partyId)
+      .then(({ error }) => {
+        if (error) console.error('updateParty failed', error)
+      })
+    set((s) => ({
+      parties: s.parties.map((x) => (x.id === partyId ? { ...x, [field]: isRoles ? rolesArr : value } : x)),
+      activities: log(s.activities, partyId, actor, `${String(field)} updated`),
+    }))
   },
 
   fetchPartyChildren: async (partyId) => {

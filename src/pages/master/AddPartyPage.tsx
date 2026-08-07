@@ -1,17 +1,19 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { ArrowLeft, Plus, Upload, ExternalLink } from 'lucide-react'
+import { ArrowLeft } from 'lucide-react'
 import { Card, CardHeader } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'
 import { Field, TextInput, Select, Textarea } from '../../components/ui/Field'
+import { PartyBranchesSection } from '../../components/master/PartyBranchesSection'
+import { PartyAuthorizedPersonsSection } from '../../components/master/PartyAuthorizedPersonsSection'
+import { PartyDocumentsSection } from '../../components/master/PartyDocumentsSection'
 import { useDataStore } from '../../store/useDataStore'
 import { useCurrentUser } from '../../store/useAuthStore'
-import type { Party, PartyAuthorizedPerson } from '../../lib/types'
+import type { Party } from '../../lib/types'
 
 const EXPORTER_IMPORTER_CLASS = ['Exporter', 'Importer', 'Both']
 const TYPE_OF_FIRM = ['Proprietorship', 'Partnership', 'LLP', 'Private Limited', 'Public Limited', 'Trust', 'HUF', 'Other']
 const MSME_TYPE = ['Micro', 'Small', 'Medium']
-const ADDRESS_TYPE = ['Head Office', 'Branch'] as const
 
 type BasicFields = {
   legalName: string
@@ -265,9 +267,9 @@ export function AddPartyPage() {
         </>
       ) : (
         <>
-          <BranchesSection party={party} />
-          <AuthorizedPersonsSection party={party} />
-          <DocumentsSection party={party} actor={user?.name ?? 'Ops'} />
+          <PartyBranchesSection party={party} />
+          <PartyAuthorizedPersonsSection party={party} />
+          <PartyDocumentsSection party={party} actor={user?.name ?? 'Ops'} />
 
           <div className="flex justify-end">
             <Button onClick={() => navigate('/master/parties')}>Done</Button>
@@ -275,270 +277,5 @@ export function AddPartyPage() {
         </>
       )}
     </div>
-  )
-}
-
-/* ── HO/Branches ─────────────────────────────────────────────── */
-
-const emptyBranch = {
-  addressType: 'Head Office' as (typeof ADDRESS_TYPE)[number],
-  city: '',
-  address: '',
-  state: '',
-  country: '',
-  postalCode: '',
-  gstNumber: '',
-}
-
-function BranchesSection({ party }: { party: Party }) {
-  const { partyBranches, addPartyBranch } = useDataStore()
-  const [draft, setDraft] = useState(emptyBranch)
-  const [saving, setSaving] = useState(false)
-  const rows = partyBranches.filter((b) => b.partyId === party.id)
-
-  const handleAdd = async () => {
-    setSaving(true)
-    await addPartyBranch(party.id, {
-      addressType: draft.addressType,
-      srNo: rows.length,
-      city: draft.city || null,
-      address: draft.address || null,
-      state: draft.state || null,
-      country: draft.country || null,
-      postalCode: draft.postalCode || null,
-      gstNumber: draft.gstNumber || null,
-      contactPerson: null,
-      email: null,
-      phone: null,
-      fax: null,
-      bankBranch: null,
-      accountType: null,
-      accountNumber: null,
-      ifsc: null,
-    })
-    setSaving(false)
-    setDraft(emptyBranch)
-  }
-
-  return (
-    <Card>
-      <CardHeader title="HO/Branches" />
-      <div className="grid grid-cols-1 gap-3 px-5 pb-3 sm:grid-cols-2 lg:grid-cols-6">
-        <Field label="Address Type">
-          <Select value={draft.addressType} onChange={(e) => setDraft((d) => ({ ...d, addressType: e.target.value as typeof d.addressType }))}>
-            {ADDRESS_TYPE.map((o) => <option key={o} value={o}>{o}</option>)}
-          </Select>
-        </Field>
-        <Field label="City">
-          <TextInput value={draft.city} onChange={(e) => setDraft((d) => ({ ...d, city: e.target.value }))} />
-        </Field>
-        <Field label="Address">
-          <TextInput value={draft.address} onChange={(e) => setDraft((d) => ({ ...d, address: e.target.value }))} />
-        </Field>
-        <Field label="State">
-          <TextInput value={draft.state} onChange={(e) => setDraft((d) => ({ ...d, state: e.target.value }))} />
-        </Field>
-        <Field label="Postal Code">
-          <TextInput value={draft.postalCode} onChange={(e) => setDraft((d) => ({ ...d, postalCode: e.target.value }))} />
-        </Field>
-        <Field label="GST Number">
-          <TextInput value={draft.gstNumber} onChange={(e) => setDraft((d) => ({ ...d, gstNumber: e.target.value }))} />
-        </Field>
-      </div>
-      <div className="px-5 pb-4">
-        <Button size="sm" onClick={handleAdd} disabled={saving}>
-          <Plus size={13} /> Add
-        </Button>
-      </div>
-      <div className="overflow-x-auto border-t border-line">
-        <table className="w-full text-left text-xs">
-          <thead>
-            <tr className="border-b border-line text-[10px] uppercase tracking-wide text-muted">
-              <th className="px-4 py-2 font-medium">Type</th>
-              <th className="px-3 py-2 font-medium">City</th>
-              <th className="px-3 py-2 font-medium">Address</th>
-              <th className="px-3 py-2 font-medium">State</th>
-              <th className="px-3 py-2 font-medium">Postal Code</th>
-              <th className="px-3 py-2 font-medium">GST Number</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((b) => (
-              <tr key={b.id} className="border-b border-line last:border-0">
-                <td className="px-4 py-2 font-medium text-heading">{b.addressType}</td>
-                <td className="px-3 py-2 text-body">{b.city || '—'}</td>
-                <td className="px-3 py-2 text-body">{b.address || '—'}</td>
-                <td className="px-3 py-2 text-body">{b.state || '—'}</td>
-                <td className="px-3 py-2 text-body">{b.postalCode || '—'}</td>
-                <td className="px-3 py-2 font-mono text-body">{b.gstNumber || '—'}</td>
-              </tr>
-            ))}
-            {rows.length === 0 && (
-              <tr><td colSpan={6} className="px-4 py-4 text-center text-muted">No branches added yet.</td></tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-    </Card>
-  )
-}
-
-/* ── Company Authorized Person ───────────────────────────────── */
-
-const emptyPerson = { name: '', designation: '', contactNumber: '', email: '', location: '' }
-
-function AuthorizedPersonsSection({ party }: { party: Party }) {
-  const { partyAuthorizedPersons, addPartyAuthorizedPerson } = useDataStore()
-  const [draft, setDraft] = useState(emptyPerson)
-  const [saving, setSaving] = useState(false)
-  const rows = partyAuthorizedPersons.filter((p) => p.partyId === party.id)
-
-  const handleAdd = async () => {
-    if (!draft.name.trim()) return
-    setSaving(true)
-    await addPartyAuthorizedPerson(party.id, {
-      name: draft.name.trim(),
-      designation: draft.designation || null,
-      contactNumber: draft.contactNumber || null,
-      email: draft.email || null,
-      location: draft.location || null,
-    })
-    setSaving(false)
-    setDraft(emptyPerson)
-  }
-
-  return (
-    <Card>
-      <CardHeader title="Company Authorized Person" />
-      <div className="grid grid-cols-1 gap-3 px-5 pb-3 sm:grid-cols-2 lg:grid-cols-4">
-        <Field label="Name">
-          <TextInput value={draft.name} onChange={(e) => setDraft((d) => ({ ...d, name: e.target.value }))} />
-        </Field>
-        <Field label="Designation">
-          <TextInput value={draft.designation} onChange={(e) => setDraft((d) => ({ ...d, designation: e.target.value }))} />
-        </Field>
-        <Field label="Contact Number">
-          <TextInput value={draft.contactNumber} onChange={(e) => setDraft((d) => ({ ...d, contactNumber: e.target.value }))} />
-        </Field>
-        <Field label="email ID">
-          <TextInput type="email" value={draft.email} onChange={(e) => setDraft((d) => ({ ...d, email: e.target.value }))} />
-        </Field>
-      </div>
-      <div className="px-5 pb-4">
-        <Button size="sm" onClick={handleAdd} disabled={saving || !draft.name.trim()}>
-          <Plus size={13} /> Add
-        </Button>
-      </div>
-      <div className="overflow-x-auto border-t border-line">
-        <table className="w-full text-left text-xs">
-          <thead>
-            <tr className="border-b border-line text-[10px] uppercase tracking-wide text-muted">
-              <th className="px-4 py-2 font-medium">Name</th>
-              <th className="px-3 py-2 font-medium">Designation</th>
-              <th className="px-3 py-2 font-medium">Contact Number</th>
-              <th className="px-3 py-2 font-medium">Email ID</th>
-              <th className="px-3 py-2 font-medium">Location</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((p: PartyAuthorizedPerson) => (
-              <tr key={p.id} className="border-b border-line last:border-0">
-                <td className="px-4 py-2 font-medium text-heading">{p.name}</td>
-                <td className="px-3 py-2 text-body">{p.designation || '—'}</td>
-                <td className="px-3 py-2 text-body">{p.contactNumber || '—'}</td>
-                <td className="px-3 py-2 text-body">{p.email || '—'}</td>
-                <td className="px-3 py-2 text-body">{p.location || '—'}</td>
-              </tr>
-            ))}
-            {rows.length === 0 && (
-              <tr><td colSpan={5} className="px-4 py-4 text-center text-muted">No authorized persons added yet.</td></tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-    </Card>
-  )
-}
-
-/* ── Document Space ──────────────────────────────────────────── */
-
-function DocumentsSection({ party, actor }: { party: Party; actor: string }) {
-  const { partyDocuments, uploadPartyDocument, getPartyDocumentUrl } = useDataStore()
-  const [file, setFile] = useState<File | null>(null)
-  const [docName, setDocName] = useState('')
-  const [uploading, setUploading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const rows = partyDocuments.filter((d) => d.partyId === party.id)
-
-  const handleUpload = async () => {
-    if (!file || !docName.trim()) {
-      setError('Choose a file and enter a document name.')
-      return
-    }
-    setUploading(true)
-    setError(null)
-    const { error: err } = await uploadPartyDocument(party.id, docName.trim(), file, actor)
-    setUploading(false)
-    if (err) {
-      setError(err)
-      return
-    }
-    setFile(null)
-    setDocName('')
-  }
-
-  const handleOpen = async (storagePath: string) => {
-    const url = await getPartyDocumentUrl(storagePath)
-    if (url) window.open(url, '_blank', 'noopener,noreferrer')
-  }
-
-  return (
-    <Card>
-      <CardHeader title="Document Space" />
-      <div className="grid grid-cols-1 gap-3 px-5 pb-3 sm:grid-cols-[auto_1fr_auto] sm:items-end">
-        <Field label="File">
-          <input
-            type="file"
-            onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-            className="block w-full text-xs text-body file:mr-3 file:rounded-btn file:border-0 file:bg-surface-2 file:px-3 file:py-2 file:text-xs file:font-medium file:text-body"
-          />
-        </Field>
-        <Field label="Document Name *">
-          <TextInput value={docName} onChange={(e) => setDocName(e.target.value)} placeholder="e.g. GST Certificate" />
-        </Field>
-        <Button size="sm" onClick={handleUpload} disabled={uploading}>
-          <Upload size={13} /> {uploading ? 'Uploading…' : 'Upload'}
-        </Button>
-      </div>
-      {error && <p className="px-5 pb-3 text-xs text-[#DC2626]">{error}</p>}
-      <div className="overflow-x-auto border-t border-line">
-        <table className="w-full text-left text-xs">
-          <thead>
-            <tr className="border-b border-line text-[10px] uppercase tracking-wide text-muted">
-              <th className="px-4 py-2 font-medium">Document</th>
-              <th className="px-3 py-2 font-medium">Link</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((d) => (
-              <tr key={d.id} className="border-b border-line last:border-0">
-                <td className="px-4 py-2 font-medium text-heading">{d.documentName}</td>
-                <td className="px-3 py-2">
-                  <button
-                    onClick={() => handleOpen(d.storagePath)}
-                    className="inline-flex items-center gap-1 text-link hover:underline"
-                  >
-                    Open <ExternalLink size={11} />
-                  </button>
-                </td>
-              </tr>
-            ))}
-            {rows.length === 0 && (
-              <tr><td colSpan={2} className="px-4 py-4 text-center text-muted">No documents uploaded yet.</td></tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-    </Card>
   )
 }
