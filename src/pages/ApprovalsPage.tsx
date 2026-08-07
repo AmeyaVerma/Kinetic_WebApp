@@ -20,6 +20,7 @@ const CATEGORY_TABS: { key: ApprovalEntityType | 'all'; label: string }[] = [
   { key: 'booking_request', label: 'Booking requests' },
   { key: 'booking_field_edit', label: 'Booking field edits' },
   { key: 'ff_field_edit', label: 'FF field edits' },
+  { key: 'party_document', label: 'Party documents' },
 ]
 
 const TYPE_LABEL: Record<ApprovalEntityType, string> = {
@@ -35,6 +36,7 @@ const TYPE_LABEL: Record<ApprovalEntityType, string> = {
   leave_request: 'Leave request',
   booking_field_edit: 'Booking field edit',
   ff_field_edit: 'FF field edit',
+  party_document: 'Party document',
 }
 
 export function ApprovalsPage() {

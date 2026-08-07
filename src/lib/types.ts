@@ -59,6 +59,98 @@ export interface ChargeCodeMaster {
   name: string
 }
 
+/* ── Parties master (Workflow: Master data, Pass 1) ──────────────
+   One record per company/individual/BL-control-phrase, tagged by role
+   rather than split into separate Customer/Agent/Shipper tables — see
+   supabase/migrations/0015_parties_master.sql. */
+
+export type PartyType = 'Company' | 'Individual' | 'Control'
+export type PartyStatus = 'Active' | 'Inactive'
+
+export interface Party {
+  id: string // Supabase uuid
+  code: string // PTY-00001, immutable
+  legalName: string
+  displayName: string
+  partyType: PartyType
+  roles: string[]
+  addressLine: string | null
+  city: string | null
+  state: string | null
+  postalCode: string | null
+  country: string | null
+  addressRaw: string | null
+  pan: string | null
+  gstin: string | null
+  iec: string | null
+  taxId: string | null
+  email: string | null
+  phone: string | null
+  salesPerson: string | null
+  accountingCode: string | null
+  partyCodeLegacy: string | null
+  status: PartyStatus
+  isSelf: boolean
+  createdAt: string
+  // Pass 2 — KYC + legacy-form fields (0016_party_details.sql)
+  partyPrefix: string | null
+  legacyUsername: string | null
+  legacyPassword: string | null
+  clientCoordinator: string | null
+  exporterImporterClass: string | null
+  exporterImporterType: string | null
+  typeOfFirm: string | null
+  msmeType: string | null
+  msmeNo: string | null
+  cin: string | null
+  tin: string | null
+  bin: string | null
+  dobOrIncorporationDate: string | null
+  remarks: string | null
+}
+
+/** One row of the "HO/Branches" table — a party can have several
+    addresses, each with its own GST registration and bank details. */
+export interface PartyBranch {
+  id: string
+  partyId: string
+  addressType: 'Head Office' | 'Branch'
+  srNo: number
+  city: string | null
+  address: string | null
+  state: string | null
+  country: string | null
+  postalCode: string | null
+  gstNumber: string | null
+  contactPerson: string | null
+  email: string | null
+  phone: string | null
+  fax: string | null
+  bankBranch: string | null
+  accountType: string | null
+  accountNumber: string | null
+  ifsc: string | null
+}
+
+export interface PartyAuthorizedPerson {
+  id: string
+  partyId: string
+  name: string
+  designation: string | null
+  contactNumber: string | null
+  email: string | null
+  location: string | null
+}
+
+export interface PartyDocument {
+  id: string
+  partyId: string
+  documentName: string
+  storagePath: string
+  uploadedBy: string | null
+  uploadedAt: string
+}
+
 /* ── Lead → Quote funnel (doc §0.5) ──────────────────────────── */
 
 export type LeadStatus = 'New' | 'Quoted' | 'Won' | 'Lost'
@@ -452,6 +544,7 @@ export type ApprovalEntityType =
   | 'leave_request'
   | 'booking_field_edit'
   | 'ff_field_edit'
+  | 'party_document'
 
 export type ApprovalStatus = 'Pending' | 'Approved' | 'Rejected'
 

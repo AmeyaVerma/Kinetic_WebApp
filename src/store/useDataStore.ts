@@ -44,6 +44,10 @@ import type {
   MnrEstimate,
   MnrJob,
   MnrOutcome,
+  Party,
+  PartyAuthorizedPerson,
+  PartyBranch,
+  PartyDocument,
   Quote,
   ResponsibleParty,
   Role,
@@ -95,6 +99,99 @@ const now = () => new Date().toISOString()
    ever existed in mock data has dbId === undefined. */
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function rowToParty(row: any): Party {
+  return {
+    id: row.id,
+    code: row.code,
+    legalName: row.legal_name,
+    displayName: row.display_name,
+    partyType: row.party_type,
+    roles: row.roles ?? [],
+    addressLine: row.address_line,
+    city: row.city,
+    state: row.state,
+    postalCode: row.postal_code,
+    country: row.country,
+    addressRaw: row.address_raw,
+    pan: row.pan,
+    gstin: row.gstin,
+    iec: row.iec,
+    taxId: row.tax_id,
+    email: row.email,
+    phone: row.phone,
+    salesPerson: row.sales_person,
+    accountingCode: row.accounting_code,
+    partyCodeLegacy: row.party_code_legacy,
+    status: row.status,
+    isSelf: row.is_self,
+    createdAt: row.created_at,
+    partyPrefix: row.party_prefix,
+    legacyUsername: row.legacy_username,
+    legacyPassword: row.legacy_password,
+    clientCoordinator: row.client_coordinator,
+    exporterImporterClass: row.exporter_importer_class,
+    exporterImporterType: row.exporter_importer_type,
+    typeOfFirm: row.type_of_firm,
+    msmeType: row.msme_type,
+    msmeNo: row.msme_no,
+    cin: row.cin,
+    tin: row.tin,
+    bin: row.bin,
+    dobOrIncorporationDate: row.dob_or_incorporation_date,
+    remarks: row.remarks,
+  }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function rowToPartyBranch(row: any): PartyBranch {
+  return {
+    id: row.id,
+    partyId: row.party_id,
+    addressType: row.address_type,
+    srNo: row.sr_no,
+    city: row.city,
+    address: row.address,
+    state: row.state,
+    country: row.country,
+    postalCode: row.postal_code,
+    gstNumber: row.gst_number,
+    contactPerson: row.contact_person,
+    email: row.email,
+    phone: row.phone,
+    fax: row.fax,
+    bankBranch: row.bank_branch,
+    accountType: row.account_type,
+    accountNumber: row.account_number,
+    ifsc: row.ifsc,
+  }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function rowToPartyAuthorizedPerson(row: any): PartyAuthorizedPerson {
+  return {
+    id: row.id,
+    partyId: row.party_id,
+    name: row.name,
+    designation: row.designation,
+    contactNumber: row.contact_number,
+    email: row.email,
+    location: row.location,
+  }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function rowToPartyDocument(row: any): PartyDocument {
+  return {
+    id: row.id,
+    partyId: row.party_id,
+    documentName: row.document_name,
+    storagePath: row.storage_path,
+    uploadedBy: row.uploaded_by,
+    uploadedAt: row.uploaded_at,
+  }
+}
+
 function rowToBooking(row: any): Booking {
   return {
     id: row.booking_ref,
@@ -572,9 +669,40 @@ interface DataState {
   approvals: Approval[]
   activities: ActivityEntry[]
   masters: Masters
+  parties: Party[]
+  partyBranches: PartyBranch[]
+  partyAuthorizedPersons: PartyAuthorizedPerson[]
+  partyDocuments: PartyDocument[]
 
   // Master data — user-extensible dropdown options (Workflow §11)
   addMasterOption: (kind: MasterKind, name: string) => string
+
+  /** Pulls the Parties master (supabase/migrations/0015) from Supabase.
+      Replaces local state wholesale — unlike fetchBookings/fetchFfShipments
+      there's no local mock array to merge with, this table is real-only. */
+  fetchParties: () => Promise<void>
+  /** Creates the base party row (Pass 2 — 0016_party_details.sql fields).
+      Returns the new party (with real id) so the caller can immediately
+      add branches/authorized persons/documents against it. */
+  createParty: (
+    fields: Omit<Party, 'id' | 'code' | 'createdAt' | 'roles' | 'status' | 'isSelf' | 'partyType'> &
+      Partial<Pick<Party, 'partyType'>>,
+  ) => Promise<{ party: Party | null; error: string | null }>
+  /** Pulls branches/authorized persons/documents for one party — call when
+      opening a party for edit (the "new party" flow already has them local). */
+  fetchPartyChildren: (partyId: string) => Promise<void>
+  addPartyBranch: (partyId: string, branch: Omit<PartyBranch, 'id' | 'partyId'>) => Promise<{ error: string | null }>
+  addPartyAuthorizedPerson: (
+    partyId: string,
+    person: Omit<PartyAuthorizedPerson, 'id' | 'partyId'>,
+  ) => Promise<{ error: string | null }>
+  uploadPartyDocument: (
+    partyId: string,
+    documentName: string,
+    file: File,
+    actor: string,
+  ) => Promise<{ error: string | null }>
+  getPartyDocumentUrl: (storagePath: string) => Promise<string | null>
 
   // Lead → Quote → Convert (doc §0.5)
   createLead: (l: Omit<Lead, 'id' | 'status' | 'createdAt'>) => void
@@ -828,6 +956,10 @@ export const useDataStore = create<DataState>((set, get) => ({
   invoices: mockInvoices,
   approvals: mockApprovals,
   activities: mockActivities,
+  parties: [],
+  partyBranches: [],
+  partyAuthorizedPersons: [],
+  partyDocuments: [],
   masters: {
     customers: mockCustomers,
     agents: mockAgents,
@@ -952,6 +1084,194 @@ export const useDataStore = create<DataState>((set, get) => ({
       })
       return { bookings: [...newOnes, ...patched] }
     })
+  },
+
+  fetchParties: async () => {
+    const { data, error } = await supabase
+      .from('parties')
+      .select('*')
+      .order('legal_name', { ascending: true })
+    if (error || !data) return
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    set({ parties: (data as any[]).map(rowToParty) })
+  },
+
+  createParty: async (fields) => {
+    const existing = get().parties
+    const maxSeq = existing.reduce((max, p) => {
+      const m = p.code.match(/^PTY-(\d{5})$/)
+      return m ? Math.max(max, +m[1]) : max
+    }, 0)
+    const code = `PTY-${String(maxSeq + 1).padStart(5, '0')}`
+
+    const { data, error } = await supabase
+      .from('parties')
+      .insert({
+        code,
+        legal_name: fields.legalName,
+        display_name: fields.displayName || fields.legalName,
+        party_type: fields.partyType ?? 'Company',
+        roles: [],
+        status: 'Active',
+        is_self: false,
+        address_line: fields.addressLine,
+        city: fields.city,
+        state: fields.state,
+        postal_code: fields.postalCode,
+        country: fields.country,
+        address_raw: fields.addressRaw,
+        pan: fields.pan,
+        gstin: fields.gstin,
+        iec: fields.iec,
+        tax_id: fields.taxId,
+        email: fields.email,
+        phone: fields.phone,
+        sales_person: fields.salesPerson,
+        accounting_code: fields.accountingCode,
+        party_code_legacy: fields.partyCodeLegacy,
+        party_prefix: fields.partyPrefix,
+        legacy_username: fields.legacyUsername,
+        legacy_password: fields.legacyPassword,
+        client_coordinator: fields.clientCoordinator,
+        exporter_importer_class: fields.exporterImporterClass,
+        exporter_importer_type: fields.exporterImporterType,
+        type_of_firm: fields.typeOfFirm,
+        msme_type: fields.msmeType,
+        msme_no: fields.msmeNo,
+        cin: fields.cin,
+        tin: fields.tin,
+        bin: fields.bin,
+        dob_or_incorporation_date: fields.dobOrIncorporationDate,
+        remarks: fields.remarks,
+      })
+      .select()
+      .single()
+    if (error || !data) return { party: null, error: error?.message ?? 'Could not create party.' }
+
+    const party = rowToParty(data)
+    set((s) => ({ parties: [party, ...s.parties] }))
+    return { party, error: null }
+  },
+
+  fetchPartyChildren: async (partyId) => {
+    const [branches, persons, docs] = await Promise.all([
+      supabase.from('party_branches').select('*').eq('party_id', partyId).order('sr_no'),
+      supabase.from('party_authorized_persons').select('*').eq('party_id', partyId),
+      supabase.from('party_documents').select('*').eq('party_id', partyId).order('uploaded_at', { ascending: false }),
+    ])
+    set((s) => ({
+      partyBranches: [
+        ...s.partyBranches.filter((b) => b.partyId !== partyId),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        ...((branches.data as any[]) ?? []).map(rowToPartyBranch),
+      ],
+      partyAuthorizedPersons: [
+        ...s.partyAuthorizedPersons.filter((p) => p.partyId !== partyId),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        ...((persons.data as any[]) ?? []).map(rowToPartyAuthorizedPerson),
+      ],
+      partyDocuments: [
+        ...s.partyDocuments.filter((d) => d.partyId !== partyId),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        ...((docs.data as any[]) ?? []).map(rowToPartyDocument),
+      ],
+    }))
+  },
+
+  addPartyBranch: async (partyId, branch) => {
+    const { data, error } = await supabase
+      .from('party_branches')
+      .insert({
+        party_id: partyId,
+        address_type: branch.addressType,
+        sr_no: branch.srNo,
+        city: branch.city,
+        address: branch.address,
+        state: branch.state,
+        country: branch.country,
+        postal_code: branch.postalCode,
+        gst_number: branch.gstNumber,
+        contact_person: branch.contactPerson,
+        email: branch.email,
+        phone: branch.phone,
+        fax: branch.fax,
+        bank_branch: branch.bankBranch,
+        account_type: branch.accountType,
+        account_number: branch.accountNumber,
+        ifsc: branch.ifsc,
+      })
+      .select()
+      .single()
+    if (error || !data) return { error: error?.message ?? 'Could not add branch.' }
+    set((s) => ({ partyBranches: [...s.partyBranches, rowToPartyBranch(data)] }))
+    return { error: null }
+  },
+
+  addPartyAuthorizedPerson: async (partyId, person) => {
+    const { data, error } = await supabase
+      .from('party_authorized_persons')
+      .insert({
+        party_id: partyId,
+        name: person.name,
+        designation: person.designation,
+        contact_number: person.contactNumber,
+        email: person.email,
+        location: person.location,
+      })
+      .select()
+      .single()
+    if (error || !data) return { error: error?.message ?? 'Could not add authorized person.' }
+    set((s) => ({ partyAuthorizedPersons: [...s.partyAuthorizedPersons, rowToPartyAuthorizedPerson(data)] }))
+    return { error: null }
+  },
+
+  uploadPartyDocument: async (partyId, documentName, file, actor) => {
+    const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
+    const path = `${partyId}/${Date.now()}_${safeName}`
+
+    const { error: uploadErr } = await supabase.storage.from('party-documents').upload(path, file)
+    if (uploadErr) return { error: uploadErr.message }
+
+    const { data, error: insertErr } = await supabase
+      .from('party_documents')
+      .insert({
+        party_id: partyId,
+        document_name: documentName,
+        storage_path: path,
+        uploaded_by: actor,
+        uploaded_at: now(),
+      })
+      .select()
+      .single()
+    if (insertErr || !data) return { error: insertErr?.message ?? 'Upload succeeded but saving the record failed.' }
+
+    const party = get().parties.find((p) => p.id === partyId)
+    set((s) => ({
+      partyDocuments: [rowToPartyDocument(data), ...s.partyDocuments],
+      // Notify Admin — same Approvals-queue mechanism every other
+      // notification in this app uses (badge count + list), not a real
+      // approval gate: the document is already saved regardless of decision.
+      approvals: [
+        {
+          id: uid('ap'),
+          entityType: 'party_document' as const,
+          entityId: partyId,
+          bookingId: null,
+          summary: `${documentName} uploaded for ${party?.legalName ?? 'a party'} (${party?.code ?? partyId})`,
+          requestedBy: actor,
+          requestedAt: now(),
+          status: 'Pending' as const,
+        },
+        ...s.approvals,
+      ],
+    }))
+    return { error: null }
+  },
+
+  getPartyDocumentUrl: async (storagePath) => {
+    const { data, error } = await supabase.storage.from('party-documents').createSignedUrl(storagePath, 60)
+    if (error || !data) return null
+    return data.signedUrl
   },
 
   createBooking: (b, chargeLines) => {

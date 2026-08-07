@@ -10,6 +10,11 @@ import { MnrPage } from './pages/MnrPage'
 import { FreightPage } from './pages/FreightPage'
 import { FfDetailPage } from './pages/FfDetailPage'
 import { CustomersPage } from './pages/CustomersPage'
+import { MasterDataPage } from './pages/MasterDataPage'
+import { PartiesMasterPage } from './pages/master/PartiesMasterPage'
+import { AddPartyPage } from './pages/master/AddPartyPage'
+import { MasterComingSoon } from './pages/master/MasterComingSoon'
+import { Truck, Ship, Container, Wallet } from 'lucide-react'
 import { AgentsPage } from './pages/AgentsPage'
 import { HrPage } from './pages/HrPage'
 import { LoginPage } from './pages/LoginPage'
@@ -114,7 +119,57 @@ export default function App() {
           <Route path="/freight/:id" element={<Guard module="freight"><FfDetailPage /></Guard>} />
           <Route path="/mnr" element={<Guard module="mnr"><MnrPage /></Guard>} />
           <Route path="/accounts" element={<Guard module="accounts"><PlaceholderPage title="Accounts" /></Guard>} />
-          <Route path="/master" element={<Guard module="master"><PlaceholderPage title="Master Data" /></Guard>} />
+          <Route path="/master" element={<Guard module="master"><MasterDataPage /></Guard>} />
+          <Route path="/master/parties" element={<Guard module="master"><PartiesMasterPage /></Guard>} />
+          <Route path="/master/parties/new" element={<Guard module="master"><AddPartyPage /></Guard>} />
+          <Route
+            path="/master/vendors"
+            element={
+              <Guard module="master">
+                <MasterComingSoon
+                  title="Vendors"
+                  description="Shipping lines, surveyors, CFS, repair shops, truckers and customs brokers."
+                  icon={Truck}
+                />
+              </Guard>
+            }
+          />
+          <Route
+            path="/master/vessels"
+            element={
+              <Guard module="master">
+                <MasterComingSoon
+                  title="Vessels"
+                  description="Vessel identity and voyage schedules — carrier, IMO, POL/POD, ETD/ETA."
+                  icon={Ship}
+                />
+              </Guard>
+            }
+          />
+          <Route
+            path="/master/containers"
+            element={
+              <Guard module="master">
+                <MasterComingSoon
+                  title="Containers"
+                  description="Container type catalogue and the physical fleet — ISO 6346, ownership, CSC expiry."
+                  icon={Container}
+                />
+              </Guard>
+            }
+          />
+          <Route
+            path="/master/accounts"
+            element={
+              <Guard module="master">
+                <MasterComingSoon
+                  title="Accounts"
+                  description="Chart of accounts / ledger heads used for invoicing and charge posting."
+                  icon={Wallet}
+                />
+              </Guard>
+            }
+          />
           <Route path="/approvals" element={<Guard module="approvals"><ApprovalsPage /></Guard>} />
           <Route path="/portal/customer" element={<Guard module="customers"><CustomersPage /></Guard>} />
           <Route path="/portal/agent" element={<Guard module="agents"><AgentsPage /></Guard>} />
