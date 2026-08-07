@@ -1,8 +1,9 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Contact, Truck, Ship, Container, Wallet, ChevronRight } from 'lucide-react'
 import { Card } from '../components/ui/Card'
 import { useDataStore } from '../store/useDataStore'
+import { supabase } from '../lib/supabaseClient'
 
 interface MasterTile {
   key: string
@@ -18,10 +19,18 @@ interface MasterTile {
     placeholders following the same data-in → add-format → autofill sequence. */
 export function MasterDataPage() {
   const { parties, fetchParties, containers, fetchContainers } = useDataStore()
+  // Vessels (3,794 rows) is never fully loaded client-side — see
+  // VesselsMasterPage — so the tile count here is a lightweight
+  // head-only count query, not a full fetch.
+  const [vesselsCount, setVesselsCount] = useState<number | null>(null)
 
   useEffect(() => {
     fetchParties()
     fetchContainers()
+    supabase
+      .from('vessels')
+      .select('*', { count: 'exact', head: true })
+      .then(({ count }) => setVesselsCount(count ?? 0))
   }, [fetchParties, fetchContainers])
 
   const tiles: MasterTile[] = [
@@ -45,7 +54,8 @@ export function MasterDataPage() {
       label: 'Vessels',
       description: 'Vessel identity and voyage schedules — carrier, IMO, POL/POD, ETD/ETA.',
       icon: Ship,
-      live: false,
+      live: true,
+      count: vesselsCount ?? undefined,
     },
     {
       key: 'containers',

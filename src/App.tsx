@@ -15,10 +15,12 @@ import { PartiesMasterPage } from './pages/master/PartiesMasterPage'
 import { AddPartyPage } from './pages/master/AddPartyPage'
 import { PartyDetailPage } from './pages/master/PartyDetailPage'
 import { MasterComingSoon } from './pages/master/MasterComingSoon'
+import { VesselsMasterPage } from './pages/master/VesselsMasterPage'
+import { VesselDetailPage } from './pages/master/VesselDetailPage'
 import { ContainersHubPage } from './pages/master/ContainersHubPage'
 import { ContainersMasterPage } from './pages/master/ContainersMasterPage'
 import { ContainerDetailPage } from './pages/master/ContainerDetailPage'
-import { Truck, Ship, Wrench, FileWarning, Wallet } from 'lucide-react'
+import { Truck, Wrench, FileWarning, Wallet } from 'lucide-react'
 import { AgentsPage } from './pages/AgentsPage'
 import { HrPage } from './pages/HrPage'
 import { LoginPage } from './pages/LoginPage'
@@ -139,18 +141,8 @@ export default function App() {
               </Guard>
             }
           />
-          <Route
-            path="/master/vessels"
-            element={
-              <Guard module="master">
-                <MasterComingSoon
-                  title="Vessels"
-                  description="Vessel identity and voyage schedules — carrier, IMO, POL/POD, ETD/ETA."
-                  icon={Ship}
-                />
-              </Guard>
-            }
-          />
+          <Route path="/master/vessels" element={<Guard module="master"><VesselsMasterPage /></Guard>} />
+          <Route path="/master/vessels/:id" element={<Guard module="master"><VesselDetailPage /></Guard>} />
           <Route path="/master/containers" element={<Guard module="master"><ContainersHubPage /></Guard>} />
           <Route path="/master/containers/fleet" element={<Guard module="master"><ContainersMasterPage /></Guard>} />
           <Route path="/master/containers/fleet/:containerNo" element={<Guard module="master"><ContainerDetailPage /></Guard>} />

@@ -179,6 +179,41 @@ export interface ContainerRecord {
   createdAt: string
 }
 
+export interface VesselRecord {
+  id: string
+  legacyId: string | null
+  name: string
+  code: string | null
+  vesselType: string | null
+  nationality: string | null
+  buildYear: number | null
+  grt: number | null
+  nrt: number | null
+  deadWeight: number | null
+  lengthOverall: number | null
+  beam: number | null
+  summerDraft: number | null
+  winterDraft: number | null
+  noOfTanks: number | null
+  imoCode: string | null
+  owner: string | null
+  masterName: string | null
+  serviceName: string | null
+  createdAt: string
+}
+
+export interface VesselVoyageRecord {
+  id: string
+  vesselId: string
+  voyage: string | null
+  eta: string | null
+  etd: string | null
+  igmNo: string | null
+  igmDate: string | null
+  terminal: string | null
+  createdAt: string
+}
+
 /* ── Lead → Quote funnel (doc §0.5) ──────────────────────────── */
 
 export type LeadStatus = 'New' | 'Quoted' | 'Won' | 'Lost'
