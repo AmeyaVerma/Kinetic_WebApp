@@ -3261,10 +3261,11 @@ export const useDataStore = create<DataState>((set, get) => ({
           ),
         }
       }
-      // credit_hold/ff_field_edit have no bookingId (they're FF-sourced) —
-      // log against entityId (the FF shipment's local id) instead so the
-      // decision still shows up in that shipment's activity log.
-      const activityTarget = ap.bookingId ?? (ap.entityType === 'credit_hold' || ap.entityType === 'ff_field_edit' ? ap.entityId : null)
+      // ff_field_edit has no bookingId (it's FF-sourced) — log against
+      // entityId (the FF shipment's local id) instead so the decision still
+      // shows up in that shipment's activity log. credit_hold is FF-sourced
+      // too but returns early above, so it never reaches here.
+      const activityTarget = ap.bookingId ?? (ap.entityType === 'ff_field_edit' ? ap.entityId : null)
       return {
         ...patch,
         approvals: s.approvals.map((a) => (a.id === approvalId ? { ...a, status: decision } : a)),
