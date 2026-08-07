@@ -8,16 +8,20 @@ export function MasterComingSoon({
   title,
   description,
   icon: Icon,
+  backTo = '/master',
+  backLabel = 'Master Data',
 }: {
   title: string
   description: string
   icon: LucideIcon
+  backTo?: string
+  backLabel?: string
 }) {
   return (
     <div className="space-y-5">
       <div>
-        <Link to="/master" className="inline-flex items-center gap-1.5 text-xs font-medium text-link hover:underline">
-          <ArrowLeft size={13} /> Master Data
+        <Link to={backTo} className="inline-flex items-center gap-1.5 text-xs font-medium text-link hover:underline">
+          <ArrowLeft size={13} /> {backLabel}
         </Link>
         <h1 className="mt-2 text-2xl font-bold">{title}</h1>
         <p className="mt-1 text-sm text-muted">{description}</p>

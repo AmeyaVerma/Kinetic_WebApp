@@ -17,11 +17,12 @@ interface MasterTile {
     Parties is the only one built so far (Pass 1); the rest are scaffolded
     placeholders following the same data-in → add-format → autofill sequence. */
 export function MasterDataPage() {
-  const { parties, fetchParties } = useDataStore()
+  const { parties, fetchParties, containers, fetchContainers } = useDataStore()
 
   useEffect(() => {
     fetchParties()
-  }, [fetchParties])
+    fetchContainers()
+  }, [fetchParties, fetchContainers])
 
   const tiles: MasterTile[] = [
     {
@@ -49,9 +50,10 @@ export function MasterDataPage() {
     {
       key: 'containers',
       label: 'Containers',
-      description: 'Container type catalogue and the physical fleet — ISO 6346, ownership, CSC expiry.',
+      description: 'The physical container fleet. CMC and Damage Codes subfields not built yet.',
       icon: Container,
-      live: false,
+      live: true,
+      count: containers.length,
     },
     {
       key: 'accounts',

@@ -15,7 +15,10 @@ import { PartiesMasterPage } from './pages/master/PartiesMasterPage'
 import { AddPartyPage } from './pages/master/AddPartyPage'
 import { PartyDetailPage } from './pages/master/PartyDetailPage'
 import { MasterComingSoon } from './pages/master/MasterComingSoon'
-import { Truck, Ship, Container, Wallet } from 'lucide-react'
+import { ContainersHubPage } from './pages/master/ContainersHubPage'
+import { ContainersMasterPage } from './pages/master/ContainersMasterPage'
+import { ContainerDetailPage } from './pages/master/ContainerDetailPage'
+import { Truck, Ship, Wrench, FileWarning, Wallet } from 'lucide-react'
 import { AgentsPage } from './pages/AgentsPage'
 import { HrPage } from './pages/HrPage'
 import { LoginPage } from './pages/LoginPage'
@@ -148,14 +151,33 @@ export default function App() {
               </Guard>
             }
           />
+          <Route path="/master/containers" element={<Guard module="master"><ContainersHubPage /></Guard>} />
+          <Route path="/master/containers/fleet" element={<Guard module="master"><ContainersMasterPage /></Guard>} />
+          <Route path="/master/containers/fleet/:containerNo" element={<Guard module="master"><ContainerDetailPage /></Guard>} />
           <Route
-            path="/master/containers"
+            path="/master/containers/cmc"
             element={
               <Guard module="master">
                 <MasterComingSoon
-                  title="Containers"
-                  description="Container type catalogue and the physical fleet — ISO 6346, ownership, CSC expiry."
-                  icon={Container}
+                  title="CMC"
+                  description="Not built yet."
+                  icon={Wrench}
+                  backTo="/master/containers"
+                  backLabel="Containers"
+                />
+              </Guard>
+            }
+          />
+          <Route
+            path="/master/containers/damage-codes"
+            element={
+              <Guard module="master">
+                <MasterComingSoon
+                  title="Container Items / Damage Codes"
+                  description="Not built yet."
+                  icon={FileWarning}
+                  backTo="/master/containers"
+                  backLabel="Containers"
                 />
               </Guard>
             }

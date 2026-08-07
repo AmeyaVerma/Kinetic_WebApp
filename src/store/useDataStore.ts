@@ -44,6 +44,7 @@ import type {
   MnrEstimate,
   MnrJob,
   MnrOutcome,
+  ContainerRecord,
   Party,
   PartyAuthorizedPerson,
   PartyBranch,
@@ -190,6 +191,30 @@ function rowToPartyDocument(row: any): PartyDocument {
     storagePath: row.storage_path,
     uploadedBy: row.uploaded_by,
     uploadedAt: row.uploaded_at,
+  }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function rowToContainer(row: any): ContainerRecord {
+  return {
+    id: row.id,
+    containerNo: row.container_no,
+    status: row.status,
+    lastActivityDate: row.last_activity_date,
+    port: row.port,
+    depot: row.depot,
+    principal: row.principal,
+    owner: row.owner,
+    size: row.size,
+    containerType: row.container_type,
+    isoType: row.iso_type,
+    maxGrossWt: row.max_gross_wt === null ? null : Number(row.max_gross_wt),
+    tareWeight: row.tare_weight === null ? null : Number(row.tare_weight),
+    capacity: row.capacity === null ? null : Number(row.capacity),
+    hireStatus: row.hire_status,
+    remarks: row.remarks,
+    freeDays: row.free_days,
+    createdAt: row.created_at,
   }
 }
 
@@ -674,9 +699,19 @@ interface DataState {
   partyBranches: PartyBranch[]
   partyAuthorizedPersons: PartyAuthorizedPerson[]
   partyDocuments: PartyDocument[]
+  containers: ContainerRecord[]
 
   // Master data — user-extensible dropdown options (Workflow §11)
   addMasterOption: (kind: MasterKind, name: string) => string
+
+  /** Pulls the Containers master (supabase/migrations/0018, "Container"
+      subfield only — CMC and Damage Codes not built yet) from Supabase. */
+  fetchContainers: () => Promise<void>
+  /** Admin-direct edit of any Container field — same shape as updateParty:
+      no approval gate, since only Admin can reach this (UI-gated in
+      ContainerDetailPage). Numeric fields are passed as strings and
+      coerced by Postgres on write / by rowToContainer on read. */
+  updateContainer: (containerId: string, field: keyof ContainerRecord, value: string, actor: string) => void
 
   /** Pulls the Parties master (supabase/migrations/0015) from Supabase.
       Replaces local state wholesale — unlike fetchBookings/fetchFfShipments
@@ -966,6 +1001,7 @@ export const useDataStore = create<DataState>((set, get) => ({
   partyBranches: [],
   partyAuthorizedPersons: [],
   partyDocuments: [],
+  containers: [],
   masters: {
     customers: mockCustomers,
     agents: mockAgents,
@@ -1102,6 +1138,16 @@ export const useDataStore = create<DataState>((set, get) => ({
     set({ parties: (data as any[]).map(rowToParty) })
   },
 
+  fetchContainers: async () => {
+    const { data, error } = await supabase
+      .from('containers')
+      .select('*')
+      .order('container_no', { ascending: true })
+    if (error || !data) return
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    set({ containers: (data as any[]).map(rowToContainer) })
+  },
+
   createParty: async (fields) => {
     const existing = get().parties
     const maxSeq = existing.reduce((max, p) => {
@@ -1176,6 +1222,27 @@ export const useDataStore = create<DataState>((set, get) => ({
     set((s) => ({
       parties: s.parties.map((x) => (x.id === partyId ? { ...x, [field]: isRoles ? rolesArr : value } : x)),
       activities: log(s.activities, partyId, actor, `${String(field)} updated`),
+    }))
+  },
+
+  updateContainer: (containerId, field, value, actor) => {
+    const c = get().containers.find((x) => x.id === containerId)
+    if (!c) return
+    const column = String(field).replace(/([A-Z])/g, '_$1').toLowerCase()
+    const numericFields = new Set(['maxGrossWt', 'tareWeight', 'capacity', 'freeDays'])
+    const isNumeric = numericFields.has(field)
+    const dbValue = isNumeric ? (value === '' ? null : Number(value)) : value === '' ? null : value
+    const localValue = isNumeric ? (value === '' ? null : Number(value)) : value === '' ? null : value
+    supabase
+      .from('containers')
+      .update({ [column]: dbValue })
+      .eq('id', containerId)
+      .then(({ error }) => {
+        if (error) console.error('updateContainer failed', error)
+      })
+    set((s) => ({
+      containers: s.containers.map((x) => (x.id === containerId ? { ...x, [field]: localValue } : x)),
+      activities: log(s.activities, containerId, actor, `${String(field)} updated`),
     }))
   },
 

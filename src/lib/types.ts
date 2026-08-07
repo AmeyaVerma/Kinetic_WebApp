@@ -153,6 +153,32 @@ export interface PartyDocument {
   uploadedAt: string
 }
 
+/* ── Containers master (Pass 1 — "Container" subfield only) ──────
+   Physical fleet imported from the legacy container register. CMC and
+   Container Items/Damage Codes are planned subfields not yet built —
+   see supabase/migrations/0018_containers_master.sql. */
+
+export interface ContainerRecord {
+  id: string
+  containerNo: string
+  status: string | null
+  lastActivityDate: string | null
+  port: string | null
+  depot: string | null
+  principal: string | null
+  owner: string | null
+  size: string | null
+  containerType: string | null
+  isoType: string | null
+  maxGrossWt: number | null
+  tareWeight: number | null
+  capacity: number | null
+  hireStatus: string | null
+  remarks: string | null
+  freeDays: number
+  createdAt: string
+}
+
 /* ── Lead → Quote funnel (doc §0.5) ──────────────────────────── */
 
 export type LeadStatus = 'New' | 'Quoted' | 'Won' | 'Lost'
