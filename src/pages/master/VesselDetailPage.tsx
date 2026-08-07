@@ -1,12 +1,16 @@
 import { useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, Plus } from 'lucide-react'
 import { Card } from '../../components/ui/Card'
-import { FieldPill } from '../../components/ui/Field'
+import { Button } from '../../components/ui/Button'
+import { Field, FieldPill, TextInput } from '../../components/ui/Field'
 import { EditableTextPill } from '../../components/ui/EditableTextPill'
 import { useAuthStore, useCurrentUser } from '../../store/useAuthStore'
 import { supabase } from '../../lib/supabaseClient'
 import type { VesselRecord, VesselVoyageRecord } from '../../lib/types'
+
+type VoyageDraft = { voyage: string; eta: string; etd: string; igmNo: string; igmDate: string; terminal: string }
+const emptyVoyageDraft: VoyageDraft = { voyage: '', eta: '', etd: '', igmNo: '', igmDate: '', terminal: '' }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function rowToVessel(row: any): VesselRecord {
@@ -66,6 +70,11 @@ export function VesselDetailPage() {
   const [voyages, setVoyages] = useState<VesselVoyageRecord[]>([])
   const [loading, setLoading] = useState(true)
 
+  const [showAddVoyage, setShowAddVoyage] = useState(false)
+  const [voyageDraft, setVoyageDraft] = useState<VoyageDraft>(emptyVoyageDraft)
+  const [savingVoyage, setSavingVoyage] = useState(false)
+  const [voyageError, setVoyageError] = useState<string | null>(null)
+
   useEffect(() => {
     if (!id) return
     setLoading(true)
@@ -94,6 +103,37 @@ export function VesselDetailPage() {
       })
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     setVessel((v) => (v ? ({ ...v, [field]: parsed } as any) : v))
+  }
+
+  async function handleAddVoyage() {
+    if (!vessel) return
+    if (!voyageDraft.voyage.trim()) {
+      setVoyageError('Voyage is required.')
+      return
+    }
+    setSavingVoyage(true)
+    setVoyageError(null)
+    const { data, error } = await supabase
+      .from('vessel_voyages')
+      .insert({
+        vessel_id: vessel.id,
+        voyage: voyageDraft.voyage.trim(),
+        eta: voyageDraft.eta || null,
+        etd: voyageDraft.etd || null,
+        igm_no: voyageDraft.igmNo || null,
+        igm_date: voyageDraft.igmDate || null,
+        terminal: voyageDraft.terminal || null,
+      })
+      .select()
+      .single()
+    setSavingVoyage(false)
+    if (error || !data) {
+      setVoyageError(error?.message ?? 'Could not add voyage.')
+      return
+    }
+    setVoyages((v) => [rowToVoyage(data), ...v])
+    setVoyageDraft(emptyVoyageDraft)
+    setShowAddVoyage(false)
   }
 
   const text = (label: string, field: keyof VesselRecord, value: string | number | null) =>
@@ -168,7 +208,45 @@ export function VesselDetailPage() {
           </section>
 
           <section>
-            <p className="mb-2 font-mono text-[10px] uppercase tracking-wide text-muted">Voyage Schedule</p>
+            <div className="mb-2 flex items-center justify-between">
+              <p className="font-mono text-[10px] uppercase tracking-wide text-muted">Voyage Schedule</p>
+              {isAdmin && (
+                <Button size="sm" variant="secondary" onClick={() => setShowAddVoyage((v) => !v)}>
+                  <Plus size={13} /> Add New Voyage
+                </Button>
+              )}
+            </div>
+
+            {isAdmin && showAddVoyage && (
+              <div className="mb-3 rounded-btn border border-line bg-surface-2/60 p-3">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  <Field label="Voyage">
+                    <TextInput value={voyageDraft.voyage} onChange={(e) => setVoyageDraft((d) => ({ ...d, voyage: e.target.value }))} />
+                  </Field>
+                  <Field label="ETA">
+                    <TextInput type="date" value={voyageDraft.eta} onChange={(e) => setVoyageDraft((d) => ({ ...d, eta: e.target.value }))} />
+                  </Field>
+                  <Field label="ETD">
+                    <TextInput type="date" value={voyageDraft.etd} onChange={(e) => setVoyageDraft((d) => ({ ...d, etd: e.target.value }))} />
+                  </Field>
+                  <Field label="IGM No">
+                    <TextInput value={voyageDraft.igmNo} onChange={(e) => setVoyageDraft((d) => ({ ...d, igmNo: e.target.value }))} />
+                  </Field>
+                  <Field label="IGM Date">
+                    <TextInput type="date" value={voyageDraft.igmDate} onChange={(e) => setVoyageDraft((d) => ({ ...d, igmDate: e.target.value }))} />
+                  </Field>
+                  <Field label="Terminal">
+                    <TextInput value={voyageDraft.terminal} onChange={(e) => setVoyageDraft((d) => ({ ...d, terminal: e.target.value }))} />
+                  </Field>
+                </div>
+                {voyageError && <p className="mt-2 text-xs text-[#DC2626]">{voyageError}</p>}
+                <div className="mt-3 flex justify-end gap-2">
+                  <Button size="sm" variant="secondary" onClick={() => setShowAddVoyage(false)}>Cancel</Button>
+                  <Button size="sm" onClick={handleAddVoyage} disabled={savingVoyage}>{savingVoyage ? 'Saving…' : 'Save Voyage'}</Button>
+                </div>
+              </div>
+            )}
+
             {voyages.length === 0 ? (
               <div className="rounded-btn border border-line bg-surface-2/60 px-3 py-2">
                 <p className="text-[13px] text-muted">No voyages on record for this vessel.</p>

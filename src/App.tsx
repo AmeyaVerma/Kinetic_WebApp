@@ -17,6 +17,7 @@ import { PartyDetailPage } from './pages/master/PartyDetailPage'
 import { MasterComingSoon } from './pages/master/MasterComingSoon'
 import { VesselsMasterPage } from './pages/master/VesselsMasterPage'
 import { VesselDetailPage } from './pages/master/VesselDetailPage'
+import { AddVesselPage } from './pages/master/AddVesselPage'
 import { ContainersHubPage } from './pages/master/ContainersHubPage'
 import { ContainersMasterPage } from './pages/master/ContainersMasterPage'
 import { ContainerDetailPage } from './pages/master/ContainerDetailPage'
@@ -142,6 +143,7 @@ export default function App() {
             }
           />
           <Route path="/master/vessels" element={<Guard module="master"><VesselsMasterPage /></Guard>} />
+          <Route path="/master/vessels/new" element={<Guard module="master"><AddVesselPage /></Guard>} />
           <Route path="/master/vessels/:id" element={<Guard module="master"><VesselDetailPage /></Guard>} />
           <Route path="/master/containers" element={<Guard module="master"><ContainersHubPage /></Guard>} />
           <Route path="/master/containers/fleet" element={<Guard module="master"><ContainersMasterPage /></Guard>} />

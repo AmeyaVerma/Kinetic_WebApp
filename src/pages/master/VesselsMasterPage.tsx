@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { Ship } from 'lucide-react'
+import { Link, useNavigate } from 'react-router-dom'
+import { Plus, Ship } from 'lucide-react'
 import { Card } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'
 import { TextInput } from '../../components/ui/Field'
@@ -98,9 +98,14 @@ export function VesselsMasterPage() {
 
   return (
     <div className="space-y-5">
-      <div>
-        <h1 className="text-2xl font-bold">Vessels</h1>
-        <p className="mt-1 text-sm text-muted">Vessel identity and voyage schedules — carrier, IMO, POL/POD, ETD/ETA.</p>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold">Vessels</h1>
+          <p className="mt-1 text-sm text-muted">Vessel identity and voyage schedules — carrier, IMO, POL/POD, ETD/ETA.</p>
+        </div>
+        <Link to="/master/vessels/new">
+          <Button size="sm"><Plus size={13} /> Add New Vessel</Button>
+        </Link>
       </div>
 
       <Card className="overflow-hidden">
