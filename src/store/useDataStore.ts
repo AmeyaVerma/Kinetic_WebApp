@@ -26,6 +26,7 @@ import type {
   VendorMaster,
   VesselMaster,
   ContainerActivity,
+  ContainerActivityMark,
   ContainerLineItem,
   CroDocument,
   CustomerRecord,
@@ -380,6 +381,23 @@ function persistContainerActivityUpsert(dbId: string | undefined, key: string, c
   })()
 }
 
+function persistContainerActivityMarkUpsert(
+  dbId: string | undefined,
+  key: string,
+  containerNo: string,
+  completedAt: string | null,
+  markedBy?: string,
+) {
+  if (!dbId) return
+  ;(async () => {
+    const { error } = await supabase.from('container_activity_marks').upsert(
+      { booking_id: dbId, key, container_no: containerNo, completed_at: completedAt, marked_by: markedBy ?? null },
+      { onConflict: 'booking_id,key,container_no' },
+    )
+    if (error) console.error('markContainerActivityForContainer: failed to persist', error)
+  })()
+}
+
 function persistBlVersionInsert(dbId: string | undefined, version: BlVersion) {
   if (!dbId) return
   ;(async () => {
@@ -685,6 +703,9 @@ interface DataState {
   blStates: BlState[]
   blVersions: BlVersion[]
   containerActivities: Record<string, ContainerActivity[]>
+  /** Per-container marks behind each containerActivities entry — keyed by
+      bookingId, one array of {key, containerNo, completedAt} per booking. */
+  containerActivityMarks: Record<string, ContainerActivityMark[]>
   invoices: Invoice[]
   approvals: Approval[]
   activities: ActivityEntry[]
@@ -853,6 +874,21 @@ interface DataState {
 
   // Container activities
   markContainerActivity: (bookingId: string, key: string, completedAt?: string, actor?: string) => void
+  /** Marks one container's completion of one activity. Once every container
+      in the booking (per booking.containerDetails) has a mark for that key,
+      the booking-level containerActivities entry is derived as done — the
+      reverse happens if a mark is edited back to incomplete. */
+  markContainerActivityForContainer: (
+    bookingId: string,
+    key: string,
+    containerNo: string,
+    completedAt?: string,
+    actor?: string,
+  ) => void
+  /** Pulls real container_activity_marks rows (keyed by dbId) and merges
+      them into containerActivityMarks, keyed back to the local booking id —
+      same additive-merge shape as fetchContainerActivities. */
+  fetchContainerActivityMarks: () => Promise<void>
 
   // Invoicing (doc §8)
   /** Admin-direct path — applies straight to the charge sheet. Non-admins
@@ -1004,6 +1040,7 @@ export const useDataStore = create<DataState>((set, get) => ({
   blStates: mockBlStates,
   blVersions: mockBlVersions,
   containerActivities: mockContainerActivities,
+  containerActivityMarks: {},
   invoices: mockInvoices,
   approvals: mockApprovals,
   activities: mockActivities,
@@ -1117,6 +1154,30 @@ export const useDataStore = create<DataState>((set, get) => ({
         )
       }
       return { containerActivities: merged }
+    })
+  },
+
+  fetchContainerActivityMarks: async () => {
+    const { data, error } = await supabase.from('container_activity_marks').select('*')
+    if (error || !data) return
+    set((s) => {
+      const byDbId = new Map<string, ContainerActivityMark[]>()
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      for (const row of data as any[]) {
+        const list = byDbId.get(row.booking_id) ?? []
+        list.push({
+          key: row.key,
+          containerNo: row.container_no,
+          completedAt: row.completed_at,
+          markedBy: row.marked_by,
+        })
+        byDbId.set(row.booking_id, list)
+      }
+      const merged = { ...s.containerActivityMarks }
+      for (const b of s.bookings) {
+        if (b.dbId && byDbId.has(b.dbId)) merged[b.id] = byDbId.get(b.dbId)!
+      }
+      return { containerActivityMarks: merged }
     })
   },
 
@@ -2021,6 +2082,59 @@ export const useDataStore = create<DataState>((set, get) => ({
           : `Container activity: ${key.replace(/_/g, ' ')}`,
       ),
     }))
+  },
+
+  markContainerActivityForContainer: (bookingId, key, containerNo, completedAt, actor) => {
+    const resolvedAt = completedAt ?? now()
+    const dbId = findDbId(get().bookings, bookingId)
+    persistContainerActivityMarkUpsert(dbId, key, containerNo, resolvedAt, actor)
+    set((s) => {
+      const existing = s.containerActivityMarks[bookingId] ?? []
+      return {
+        containerActivityMarks: {
+          ...s.containerActivityMarks,
+          [bookingId]: [
+            ...existing.filter((m) => !(m.key === key && m.containerNo === containerNo)),
+            { key, containerNo, completedAt: resolvedAt, markedBy: actor ?? null },
+          ],
+        },
+      }
+    })
+
+    // Recompute the booking-level containerActivities entry for this key —
+    // done once every container in the booking has a mark, undone if a
+    // previously-marked container's date is edited back out.
+    const state = get()
+    const booking = state.bookings.find((b) => b.id === bookingId)
+    const containerNos = (booking?.containerDetails ?? [])
+      .map((c) => c.containerNo.trim())
+      .filter(Boolean)
+    const marks = state.containerActivityMarks[bookingId] ?? []
+    const allDone =
+      containerNos.length > 0 &&
+      containerNos.every((no) => marks.some((m) => m.key === key && m.containerNo === no && m.completedAt))
+
+    if (allDone) {
+      const latest = containerNos
+        .map((no) => marks.find((m) => m.key === key && m.containerNo === no)?.completedAt)
+        .filter((d): d is string => !!d)
+        .sort()
+        .at(-1)!
+      get().markContainerActivity(bookingId, key, latest, actor)
+    } else {
+      const wasComplete = state.containerActivities[bookingId]?.find((a) => a.key === key)?.completedAt
+      if (wasComplete) {
+        persistContainerActivityUpsert(dbId, key, null)
+        set((s) => ({
+          containerActivities: {
+            ...s.containerActivities,
+            [bookingId]: (
+              s.containerActivities[bookingId] ?? CONTAINER_ACTIVITY_DEFS.map((d) => ({ ...d, completedAt: null }))
+            ).map((a) => (a.key === key ? { ...a, completedAt: null } : a)),
+          },
+        }))
+      }
+    }
   },
 
   addCharge: (c) => {

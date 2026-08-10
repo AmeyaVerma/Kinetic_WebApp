@@ -54,11 +54,17 @@ export function BookingDetailPage() {
     updateMilestoneDate,
     setBookingWorkflowStatus,
     fetchBookings,
+    fetchContainerActivities,
+    fetchContainerActivityMarks,
+    fetchBlStates,
   } = useDataStore()
 
   useEffect(() => {
     fetchBookings()
-  }, [fetchBookings])
+    fetchContainerActivities()
+    fetchContainerActivityMarks()
+    fetchBlStates()
+  }, [fetchBookings, fetchContainerActivities, fetchContainerActivityMarks, fetchBlStates])
 
   const booking = bookings.find((b) => b.id === id)
   if (!booking) {
@@ -181,7 +187,12 @@ export function BookingDetailPage() {
         )}
         {tab === 'agents' && <AgentDetailsTab booking={booking} />}
         {tab === 'yard' && <ContainerYardTab booking={booking} />}
-        {tab === 'activities' && <ContainerActivitiesTab recordId={booking.id} />}
+        {tab === 'activities' && (
+          <ContainerActivitiesTab
+            recordId={booking.id}
+            containerNos={(booking.containerDetails ?? []).map((c) => c.containerNo.trim()).filter(Boolean)}
+          />
+        )}
         {tab === 'invoicing' && <InvoicingTab booking={booking} />}
         {tab === 'documents' && <DocumentsTab booking={booking} />}
       </Card>

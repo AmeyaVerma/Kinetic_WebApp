@@ -525,6 +525,16 @@ export interface ContainerActivity {
   completedAt: string | null
 }
 
+/** One container's completion mark for one activity key — an activity's
+    ContainerActivity.completedAt is derived from these (set once every
+    container in the booking has a mark). */
+export interface ContainerActivityMark {
+  key: string
+  containerNo: string
+  completedAt: string | null
+  markedBy?: string | null
+}
+
 /* ── Invoices (doc §8) ───────────────────────────────────────── */
 
 export type InvoiceStatus =
