@@ -315,7 +315,6 @@ function ContainerInfoTab({ booking }: { booking: import('../lib/types').Booking
                   {[
                     'Container No', 'Container Type', 'Empty/Laden', 'No of Pkgs', 'Pkg Unit',
                     'Gross Weight', 'Net Weight', 'Cargo Weight', 'Seal', 'Custom Seal',
-                    'Pickup date', 'Gate in', 'SOB',
                   ].map((h) => (
                     <th
                       key={h}
@@ -401,30 +400,6 @@ function ContainerInfoTab({ booking }: { booking: import('../lib/types').Booking
                           type="text"
                           value={row.customSealNo}
                           onChange={(e) => setRowField(i, 'customSealNo')(e.target.value)}
-                          className={cellInputCls}
-                        />
-                      </td>
-                      <td className="border-b border-line px-2 py-1.5">
-                        <input
-                          type="date"
-                          value={row.pickupDate ?? ''}
-                          onChange={(e) => setRowField(i, 'pickupDate')(e.target.value)}
-                          className={cellInputCls}
-                        />
-                      </td>
-                      <td className="border-b border-line px-2 py-1.5">
-                        <input
-                          type="date"
-                          value={row.gateIn ?? ''}
-                          onChange={(e) => setRowField(i, 'gateIn')(e.target.value)}
-                          className={cellInputCls}
-                        />
-                      </td>
-                      <td className="border-b border-line px-2 py-1.5">
-                        <input
-                          type="date"
-                          value={row.sob ?? ''}
-                          onChange={(e) => setRowField(i, 'sob')(e.target.value)}
                           className={cellInputCls}
                         />
                       </td>
