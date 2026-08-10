@@ -214,6 +214,27 @@ export interface VesselVoyageRecord {
   createdAt: string
 }
 
+/** One leg of a booking's vessel schedule — a booking can have several
+    (transhipment), each with its own dates. vesselId/voyage picked from
+    the Vessels master pre-fill etdOrigin/etaDestination/terminal from
+    that voyage's schedule ("date taken from the master"); etaOrigin has
+    no master equivalent and is always entered by hand. */
+export interface VesselLeg {
+  id: string
+  vesselId: string | null
+  vesselName: string
+  voyageNo: string
+  etaOrigin: string | null
+  etdOrigin: string | null
+  etaDestination: string | null
+  terminal: string | null
+  plannedGateOpen: string | null
+  plannedGateClose: string | null
+  plannedSiCutoff: string | null
+  plannedVgmCutoff: string | null
+  plannedCyCutoff: string | null
+}
+
 /* ── Booking (doc §1–2) ──────────────────────────────────────── */
 
 export type Direction = 'Export' | 'Import'
@@ -346,6 +367,13 @@ export interface Booking {
   plannedSiCutoff?: string
   plannedVgmCutoff?: string
   plannedCyCutoff?: string
+  /** Vessel section (Shipment details O+D) — one entry per vessel leg
+      (transhipment support), each with its own ETA origin/ETD-SOB
+      origin/ETA destination and terminal/planned-dates. Undefined/empty
+      on legacy bookings; the UI falls back to a single leg built from
+      the flat vesselName/voyageNo/etd/eta/terminal/plannedX fields above
+      until the first edit materializes this array. */
+  vesselLegs?: VesselLeg[]
   // Container / product info tabs
   containerType: string // e.g. "40HC"
   containerQty: number

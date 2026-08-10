@@ -45,6 +45,7 @@ import type {
   MnrJob,
   MnrOutcome,
   ContainerRecord,
+  VesselLeg,
   Party,
   PartyAuthorizedPerson,
   PartyBranch,
@@ -257,6 +258,7 @@ function rowToBooking(row: any): Booking {
     plannedSiCutoff: row.planned_si_cutoff ?? undefined,
     plannedVgmCutoff: row.planned_vgm_cutoff ?? undefined,
     plannedCyCutoff: row.planned_cy_cutoff ?? undefined,
+    vesselLegs: row.vessel_legs ?? undefined,
     containerType: row.container_type,
     containerQty: row.container_qty,
     containerNos: row.container_nos ?? [],
@@ -844,6 +846,9 @@ interface DataState {
       no approval gate (unlike container type) since these are
       per-container operational details, not a booking-wide classification. */
   updateContainerDetails: (bookingId: string, details: ContainerLineItem[], actor: string) => void
+  /** Replaces the whole vesselLegs array — same shape as
+      updateContainerDetails (Admin-direct, no approval gate). */
+  updateVesselLegs: (bookingId: string, legs: VesselLeg[], actor: string) => void
   updateTransshipmentAgent: (bookingId: string, value: string, actor: string) => void
   updateEmptyYardField: (
     bookingId: string,
@@ -1734,6 +1739,17 @@ export const useDataStore = create<DataState>((set, get) => ({
       return {
         bookings: s.bookings.map((b) => (b.id === bookingId ? { ...b, containerDetails: details } : b)),
         activities: log(s.activities, bookingId, actor, 'Container details updated'),
+      }
+    }),
+
+  updateVesselLegs: (bookingId, legs, actor) =>
+    set((s) => {
+      const booking = s.bookings.find((b) => b.id === bookingId)
+      if (!booking) return s
+      persistBookingUpdate(booking.dbId, { vessel_legs: legs }, 'updateVesselLegs')
+      return {
+        bookings: s.bookings.map((b) => (b.id === bookingId ? { ...b, vesselLegs: legs } : b)),
+        activities: log(s.activities, bookingId, actor, 'Vessel legs updated'),
       }
     }),
 

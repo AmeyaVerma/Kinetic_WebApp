@@ -10,11 +10,11 @@ import { FieldPill, TextInput } from '../components/ui/Field'
 import { DocumentsTab } from '../components/booking/DocumentsTab'
 import { InvoicingTab } from '../components/booking/InvoicingTab'
 import { ContainerActivitiesTab } from '../components/booking/ContainerActivitiesTab'
+import { VesselLegsSection } from '../components/booking/VesselLegsSection'
 import { useDataStore } from '../store/useDataStore'
 import { useAuthStore, useCurrentUser } from '../store/useAuthStore'
 import { cyclePct, deriveStatus, milestoneDefs, statusSequence } from '../lib/milestones'
 import { StageStepper } from '../components/ui/StageStepper'
-import { EditableDatePill } from '../components/ui/EditableDatePill'
 import { EditableTextPill } from '../components/ui/EditableTextPill'
 import { EditableSelectPill } from '../components/ui/EditableSelectPill'
 import { WeightCell } from '../components/ui/WeightCell'
@@ -49,9 +49,8 @@ export function BookingDetailPage() {
     markMilestone,
     activities,
     cancelBooking,
-    updateShipmentDates,
     updateShipmentPorts,
-    updatePlannedDate,
+    updateVesselLegs,
     updateMilestoneDate,
     setBookingWorkflowStatus,
     fetchBookings,
@@ -182,9 +181,8 @@ export function BookingDetailPage() {
             entries={entries}
             onMark={(key, completedAt) => markMilestone(booking.id, key, 'Ops', completedAt)}
             onEditDate={(key, completedAt) => updateMilestoneDate(booking.id, key, completedAt, currentUser?.name ?? 'Admin')}
-            onDateChange={(dates) => updateShipmentDates(booking.id, dates, 'Ops')}
-            onPlannedDateChange={(field, value) => updatePlannedDate(booking.id, field, value, 'Ops')}
             onPortsChange={(fields) => updateShipmentPorts(booking.id, fields, 'Ops')}
+            onVesselLegsChange={(legs) => updateVesselLegs(booking.id, legs, 'Ops')}
           />
         )}
         {tab === 'agents' && <AgentDetailsTab booking={booking} />}
@@ -593,19 +591,13 @@ function ShipmentDetailsTab({
   entries,
   onMark,
   onEditDate,
-  onDateChange,
-  onPlannedDateChange,
   onPortsChange,
+  onVesselLegsChange,
 }: {
   booking: import('../lib/types').Booking
   entries: import('../lib/types').MilestoneEntry[]
   onMark: (key: string, completedAt: string) => void
   onEditDate: (key: string, completedAt: string) => void
-  onDateChange: (dates: { etd?: string; eta?: string }) => void
-  onPlannedDateChange: (
-    field: 'plannedGateOpen' | 'plannedGateClose' | 'plannedSiCutoff' | 'plannedVgmCutoff' | 'plannedCyCutoff',
-    value: string,
-  ) => void
   onPortsChange: (fields: {
     portOfReceipt?: string
     pol?: string
@@ -613,6 +605,7 @@ function ShipmentDetailsTab({
     finalPlaceOfDischarge?: string
     transhipment?: 'Yes' | 'No'
   }) => void
+  onVesselLegsChange: (legs: import('../lib/types').VesselLeg[]) => void
 }) {
   const defs = milestoneDefs(booking.direction)
   const currentUser = useCurrentUser()
@@ -658,37 +651,10 @@ function ShipmentDetailsTab({
       </div>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-        <FieldPill label="Vessel / voyage" value={`${booking.vesselName} / ${booking.voyageNo}`} />
-        <EditableDatePill label="ETD / SOB" value={booking.etd} onChange={(v) => onDateChange({ etd: v })} />
-        <EditableDatePill label="ETA" value={booking.eta} onChange={(v) => onDateChange({ eta: v })} />
-        <FieldPill label="Terminal" value={booking.terminal ?? ''} />
         <FieldPill label="MBL No." value={booking.mblNo ?? ''} />
-        <EditableDatePill
-          label="Gate open (planned)"
-          value={booking.plannedGateOpen ?? ''}
-          onChange={(v) => onPlannedDateChange('plannedGateOpen', v)}
-        />
-        <EditableDatePill
-          label="Gate close (planned)"
-          value={booking.plannedGateClose ?? ''}
-          onChange={(v) => onPlannedDateChange('plannedGateClose', v)}
-        />
-        <EditableDatePill
-          label="SI cut-off (planned)"
-          value={booking.plannedSiCutoff ?? ''}
-          onChange={(v) => onPlannedDateChange('plannedSiCutoff', v)}
-        />
-        <EditableDatePill
-          label="Dock Cutoff"
-          value={booking.plannedVgmCutoff ?? ''}
-          onChange={(v) => onPlannedDateChange('plannedVgmCutoff', v)}
-        />
-        <EditableDatePill
-          label="CY cut-off (planned)"
-          value={booking.plannedCyCutoff ?? ''}
-          onChange={(v) => onPlannedDateChange('plannedCyCutoff', v)}
-        />
       </div>
+
+      <VesselLegsSection booking={booking} onChange={onVesselLegsChange} />
 
       <div>
         <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted">
