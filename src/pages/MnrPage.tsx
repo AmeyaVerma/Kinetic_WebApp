@@ -102,8 +102,8 @@ export function MnrPage() {
 
       <Tabs
         tabs={[
-          { key: 'jobs', label: 'Repair jobs', badge: mnrJobs.filter((j) => j.stage !== 'Closed').length },
           { key: 'fleet', label: 'Fleet', badge: fleet.length },
+          { key: 'jobs', label: 'Repair jobs', badge: mnrJobs.filter((j) => j.stage !== 'Closed').length },
         ]}
         active={tab}
         onChange={setTab}
