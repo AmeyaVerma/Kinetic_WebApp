@@ -214,42 +214,6 @@ export interface VesselVoyageRecord {
   createdAt: string
 }
 
-/* ── Lead → Quote funnel (doc §0.5) ──────────────────────────── */
-
-export type LeadStatus = 'New' | 'Quoted' | 'Won' | 'Lost'
-export type LeadMode = 'sea' | 'air' | 'road'
-
-export interface Lead {
-  id: string
-  customerId: string | null // nullable — walk-in leads get a stub
-  customerName: string
-  origin: string
-  destination: string
-  mode: LeadMode
-  cargoType: string
-  targetDate: string
-  status: LeadStatus
-  createdAt: string
-}
-
-export type QuoteStatus =
-  | 'Draft'
-  | 'Pending approval'
-  | 'Sent'
-  | 'Accepted'
-  | 'Rejected'
-  | 'Expired'
-
-export interface Quote {
-  id: string
-  leadId: string
-  buyTotal: number
-  sellTotal: number
-  currency: 'USD' | 'INR'
-  validUntil: string
-  status: QuoteStatus
-}
-
 /* ── Booking (doc §1–2) ──────────────────────────────────────── */
 
 export type Direction = 'Export' | 'Import'
@@ -595,7 +559,6 @@ export interface Invoice {
 /* ── Approvals engine (doc §11, approvals) ───────────────────── */
 
 export type ApprovalEntityType =
-  | 'quote'
   | 'bl_edit'
   | 'invoice'
   | 'repair_estimate'
@@ -608,6 +571,7 @@ export type ApprovalEntityType =
   | 'booking_field_edit'
   | 'ff_field_edit'
   | 'party_document'
+  | 'booking_costing'
 
 export type ApprovalStatus = 'Pending' | 'Approved' | 'Rejected'
 
@@ -625,6 +589,10 @@ export interface Approval {
   /** For booking_field_edit: a single non-admin field-level change awaiting
       Admin approval (e.g. changing container type on an existing booking). */
   fieldChange?: { field: string; value: string }
+  /** For booking_costing: one or more charge lines (initial wizard costing,
+      or a single ad-hoc line from the Invoicing tab) awaiting Admin approval
+      before they're applied to the booking's charge sheet. */
+  chargePayload?: Omit<ChargeLine, 'id'>[]
 }
 
 /* ── Activity log (append-only) ──────────────────────────────── */

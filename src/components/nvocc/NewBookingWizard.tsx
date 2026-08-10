@@ -5,6 +5,7 @@ import { Button } from '../ui/Button'
 import { Field, Select, TextInput } from '../ui/Field'
 import { AddableSelect } from '../ui/AddableSelect'
 import { useDataStore } from '../../store/useDataStore'
+import { useAuthStore, useCurrentUser } from '../../store/useAuthStore'
 import {
   mockAgents,
   mockDepots,
@@ -24,22 +25,24 @@ interface Props {
   open: boolean
   onClose: () => void
   onCreated: (bookingId: string) => void
-  /** Pre-fill from an accepted quote (doc §0.5c) */
-  prefill?: { customerId: string | null; customerName: string; origin: string; destination: string }
 }
 
-export function NewBookingWizard({ open, onClose, onCreated, prefill }: Props) {
+export function NewBookingWizard({ open, onClose, onCreated }: Props) {
   const createBooking = useDataStore((s) => s.createBooking)
   const masters = useDataStore((s) => s.masters)
   const addMasterOption = useDataStore((s) => s.addMasterOption)
+  const currentUser = useCurrentUser()
+  const viewAsRole = useAuthStore((s) => s.viewAsRole)
+  const isAdmin = (viewAsRole ?? currentUser?.role) === 'admin'
+  const actor = currentUser?.name ?? 'Ops'
   const [step, setStep] = useState<1 | 2>(1)
 
   // Step 1 — header (doc §1 field grid)
-  const [customerId, setCustomerId] = useState(prefill?.customerId ?? '')
+  const [customerId, setCustomerId] = useState('')
   const [direction, setDirection] = useState<Direction>('Export')
   const [bookingDate, setBookingDate] = useState(new Date().toISOString().slice(0, 10))
   const [principal, setPrincipal] = useState('Kinetic Line')
-  const [shipper, setShipper] = useState(prefill?.customerName ?? '')
+  const [shipper, setShipper] = useState('')
   const [consignee, setConsignee] = useState('')
   const [originAgentId, setOriginAgentId] = useState('')
   const [destAgentId, setDestAgentId] = useState('')
@@ -132,6 +135,7 @@ export function NewBookingWizard({ open, onClose, onCreated, prefill }: Props) {
         sealNo: '',
       },
       charges,
+      { actor, isAdmin },
     )
     reset()
     onCreated(id)
@@ -290,9 +294,14 @@ export function NewBookingWizard({ open, onClose, onCreated, prefill }: Props) {
         </div>
       ) : (
         <div>
-          <p className="mb-4 text-xs text-muted">
+          <p className="mb-1 text-xs text-muted">
             Rate per charge line. Add ad-hoc lines in any currency.
           </p>
+          {!isAdmin && (
+            <p className="mb-3 text-xs text-accent-orange">
+              This costing will go to Admin for approval before it appears on the charge sheet — the booking itself is created immediately.
+            </p>
+          )}
           <div className="space-y-2">
             {chargeLines.map((c, i) => (
               <div key={i} className="flex items-center gap-2">

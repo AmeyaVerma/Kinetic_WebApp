@@ -5,6 +5,7 @@ import { StatusChip } from '../ui/StatusChip'
 import { Select, TextInput } from '../ui/Field'
 import { AddableSelect } from '../ui/AddableSelect'
 import { useDataStore } from '../../store/useDataStore'
+import { useAuthStore, useCurrentUser } from '../../store/useAuthStore'
 import type { Booking, ChipStatus, InvoiceStatus } from '../../lib/types'
 
 const INVOICE_CHIP: Record<InvoiceStatus, ChipStatus> = {
@@ -29,9 +30,16 @@ const NEXT_LABEL: Partial<Record<InvoiceStatus, string>> = {
 }
 
 export function InvoicingTab({ booking }: { booking: Booking }) {
-  const { charges, invoices, addCharge, removeCharge, generateInvoice, advanceInvoice, masters, addMasterOption } = useDataStore()
+  const { charges, invoices, approvals, addCharge, requestChargeApproval, removeCharge, generateInvoice, advanceInvoice, masters, addMasterOption } = useDataStore()
+  const currentUser = useCurrentUser()
+  const viewAsRole = useAuthStore((s) => s.viewAsRole)
+  const isAdmin = (viewAsRole ?? currentUser?.role) === 'admin'
+  const actor = currentUser?.name ?? 'Ops'
   const bookingCharges = charges.filter((c) => c.bookingId === booking.id && c.type === 'sell')
   const bookingInvoices = invoices.filter((i) => i.bookingId === booking.id)
+  const pendingCosting = approvals.filter(
+    (a) => a.bookingId === booking.id && a.entityType === 'booking_costing' && a.status === 'Pending',
+  )
 
   const [selected, setSelected] = useState<string[]>([])
   const [adding, setAdding] = useState(false)
@@ -94,21 +102,39 @@ export function InvoicingTab({ booking }: { booking: Booking }) {
               size="sm"
               onClick={() => {
                 if (!newAmount) return
-                addCharge({
+                const chargeName = masters.chargeCodes.find((cc) => cc.id === newCode)?.name ?? 'Charge'
+                const charge = {
                   bookingId: booking.id,
                   chargeCodeId: newCode,
-                  chargeName: masters.chargeCodes.find((cc) => cc.id === newCode)?.name ?? 'Charge',
-                  type: 'sell',
+                  chargeName,
+                  type: 'sell' as const,
                   amount: newAmount,
                   currency: newCurrency,
                   vendorId: null,
-                })
+                }
+                if (isAdmin) {
+                  addCharge(charge)
+                } else {
+                  requestChargeApproval(
+                    booking.id,
+                    [charge],
+                    `Costing added on ${booking.bookingRef}: ${chargeName} ${newCurrency} ${newAmount.toLocaleString()}`,
+                    actor,
+                  )
+                }
                 setNewAmount(0)
                 setAdding(false)
               }}
             >
-              Add
+              {isAdmin ? 'Add' : 'Submit for approval'}
             </Button>
+          </div>
+        )}
+        {!isAdmin && pendingCosting.length > 0 && (
+          <div className="mb-3 rounded-btn border border-accent-orange/30 bg-accent-orange/5 px-3 py-2">
+            <p className="text-xs text-accent-orange">
+              {pendingCosting.length} costing {pendingCosting.length === 1 ? 'line is' : 'batch is'} pending Admin approval and not yet on the charge sheet below.
+            </p>
           </div>
         )}
 

@@ -14,9 +14,7 @@ import type {
   ContainerActivity,
   CroDocument,
   Invoice,
-  Lead,
   MilestoneEntry,
-  Quote,
 } from '../lib/types'
 
 /* ── Bookings — REAL data from the Business Solution CSV ─────── */
@@ -225,18 +223,6 @@ export const mockInvoices: Invoice[] = [
   },
 ]
 
-/* ── Leads & Quotes (doc §0.5) ───────────────────────────────── */
-
-export const mockLeads: Lead[] = [
-  { id: 'l1', customerId: 'c2', customerName: 'Global Traders', origin: 'INNSA', destination: 'BANDAR ABBAS', mode: 'sea', cargoType: 'Rice, 25t', targetDate: '2025-06-10', status: 'New', createdAt: '2026-06-18' },
-  { id: 'l2', customerId: 'c5', customerName: 'Swift Elite', origin: 'INNSA', destination: 'JEBEL ALI', mode: 'sea', cargoType: 'Textiles, 2 TEU', targetDate: '2025-06-05', status: 'Quoted', createdAt: '2026-06-16' },
-  { id: 'l3', customerId: null, customerName: 'Meridian Overseas (walk-in)', origin: 'MUNDRA', destination: 'MOMBASA', mode: 'sea', cargoType: 'Ceramic tiles, 4 TEU', targetDate: '2025-06-20', status: 'New', createdAt: '2026-06-19' },
-]
-
-export const mockQuotes: Quote[] = [
-  { id: 'q1', leadId: 'l2', buyTotal: 1900, sellTotal: 2450, currency: 'USD', validUntil: '2026-06-31', status: 'Sent' },
-]
-
 /* ── Approvals queue (doc §11) ───────────────────────────────── */
 
 export const mockApprovals: Approval[] = [
@@ -259,16 +245,6 @@ export const mockApprovals: Approval[] = [
     summary: 'AP vendor bill KLB-25-0187 — CMA CGM ocean freight $1,450',
     requestedBy: 'Finance (auto-draft)',
     requestedAt: '2026-06-15T11:00:00Z',
-    status: 'Pending',
-  },
-  {
-    id: 'ap3',
-    entityType: 'quote',
-    entityId: 'q1',
-    bookingId: null,
-    summary: 'Quote for Swift Elite over margin threshold (22.4%)',
-    requestedBy: 'BD — S. Singh',
-    requestedAt: '2026-06-16T14:00:00Z',
     status: 'Pending',
   },
 ]

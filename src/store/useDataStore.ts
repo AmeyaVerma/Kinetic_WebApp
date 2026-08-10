@@ -36,7 +36,6 @@ import type {
   FleetContainer,
   Invoice,
   InvoiceStatus,
-  Lead,
   LeaveRequest,
   LeaveType,
   MilestoneEntry,
@@ -49,7 +48,6 @@ import type {
   PartyAuthorizedPerson,
   PartyBranch,
   PartyDocument,
-  Quote,
   ResponsibleParty,
   Role,
   WarrantyClaimStatus,
@@ -83,9 +81,7 @@ import {
   mockCros,
   mockDocuments,
   mockInvoices,
-  mockLeads,
   mockMilestones,
-  mockQuotes,
   CONTAINER_ACTIVITY_DEFS,
 } from '../mocks/seed'
 
@@ -681,8 +677,6 @@ export interface Masters {
 export type MasterKind = keyof Masters
 
 interface DataState {
-  leads: Lead[]
-  quotes: Quote[]
   bookings: Booking[]
   charges: ChargeLine[]
   milestones: MilestoneEntry[]
@@ -745,20 +739,21 @@ interface DataState {
   ) => Promise<{ error: string | null }>
   getPartyDocumentUrl: (storagePath: string) => Promise<string | null>
 
-  // Lead → Quote → Convert (doc §0.5)
-  createLead: (l: Omit<Lead, 'id' | 'status' | 'createdAt'>) => void
-  createQuote: (leadId: string, buy: number, sell: number, currency: 'USD' | 'INR', validUntil: string) => void
-  quoteAction: (quoteId: string, action: 'send' | 'accept' | 'reject') => void
-  convertToBooking: (quoteId: string) => void
-
   // Booking (doc §1–2)
   /** Pulls real bookings from Supabase (NVOCC pilot table) and merges them
       into local state — additive, never removes the existing demo bookings.
       Safe to call repeatedly (e.g. on every NVOCC page mount). */
   fetchBookings: () => Promise<void>
+  /** Booking always gets created immediately regardless of role — only the
+      initial costing lines are gated: Admin's costing applies straight to
+      the charge sheet, anyone else's goes to a single pending Approval
+      (entityType 'booking_costing') instead, same admin-direct-vs-request
+      split as updateContainerInfoField/requestBookingFieldChange. Defaults
+      to isAdmin: false so an unspecified caller is the safe (gated) path. */
   createBooking: (
     b: Omit<Booking, 'id' | 'bookingRef' | 'hblNo' | 'cancelled' | 'createdAt' | 'module'>,
     charges: Omit<ChargeLine, 'id' | 'bookingId'>[],
+    opts?: { actor?: string; isAdmin?: boolean },
   ) => string
   cancelBooking: (bookingId: string, reason: string) => void
   updateShipmentDates: (bookingId: string, dates: { etd?: string; eta?: string }, actor: string) => void
@@ -851,8 +846,16 @@ interface DataState {
   markContainerActivity: (bookingId: string, key: string, completedAt?: string, actor?: string) => void
 
   // Invoicing (doc §8)
+  /** Admin-direct path — applies straight to the charge sheet. Non-admins
+      should call requestChargeApproval instead. */
   addCharge: (c: Omit<ChargeLine, 'id'>) => void
   removeCharge: (chargeId: string) => void
+  /** Non-admin path for adding costing — raises a single Admin-approval
+      request (entityType 'booking_costing') covering all the given charge
+      lines instead of applying them immediately. Used both for the New
+      Booking wizard's initial costing step (one or more lines) and the
+      Invoicing tab's one-line-at-a-time "Add line" (an array of length 1). */
+  requestChargeApproval: (bookingId: string, chargeLines: Omit<ChargeLine, 'id'>[], summary: string, actor: string) => void
   generateInvoice: (bookingId: string, type: 'AR' | 'AP', chargeIds: string[]) => void
   advanceInvoice: (invoiceId: string) => void
 
@@ -984,8 +987,6 @@ function log(activities: ActivityEntry[], bookingId: string, actor: string, acti
 }
 
 export const useDataStore = create<DataState>((set, get) => ({
-  leads: mockLeads,
-  quotes: mockQuotes,
   bookings: mockBookings,
   charges: mockCharges,
   milestones: mockMilestones,
@@ -1044,67 +1045,6 @@ export const useDataStore = create<DataState>((set, get) => ({
     // id-based masters (agents/vessels/vendors/depots) become addable in Pass 2,
     // once their record resolvers read from the store instead of the static mocks.
     return ''
-  },
-
-  createLead: (l) =>
-    set((s) => ({
-      leads: [{ ...l, id: uid('l'), status: 'New', createdAt: now() }, ...s.leads],
-    })),
-
-  createQuote: (leadId, buy, sell, currency, validUntil) =>
-    set((s) => {
-      const marginPct = sell > 0 ? ((sell - buy) / sell) * 100 : 0
-      const overThreshold = marginPct > 20 // configurable threshold per doc
-      const quote: Quote = {
-        id: uid('q'),
-        leadId,
-        buyTotal: buy,
-        sellTotal: sell,
-        currency,
-        validUntil,
-        status: overThreshold ? 'Pending approval' : 'Sent',
-      }
-      const lead = s.leads.find((x) => x.id === leadId)
-      return {
-        quotes: [quote, ...s.quotes],
-        leads: s.leads.map((x) => (x.id === leadId ? { ...x, status: 'Quoted' } : x)),
-        approvals: overThreshold
-          ? [
-              {
-                id: uid('ap'),
-                entityType: 'quote' as const,
-                entityId: quote.id,
-                bookingId: null,
-                summary: `Quote for ${lead?.customerName ?? 'lead'} over margin threshold (${marginPct.toFixed(1)}%)`,
-                requestedBy: 'BD',
-                requestedAt: now(),
-                status: 'Pending' as const,
-              },
-              ...s.approvals,
-            ]
-          : s.approvals,
-      }
-    }),
-
-  quoteAction: (quoteId, action) =>
-    set((s) => ({
-      quotes: s.quotes.map((q) =>
-        q.id === quoteId
-          ? { ...q, status: action === 'send' ? 'Sent' : action === 'accept' ? 'Accepted' : 'Rejected' }
-          : q,
-      ),
-      leads: s.leads.map((l) => {
-        const q = s.quotes.find((x) => x.id === quoteId)
-        if (!q || l.id !== q.leadId) return l
-        return action === 'accept' ? { ...l, status: 'Won' } : action === 'reject' ? { ...l, status: 'Lost' } : l
-      }),
-    })),
-
-  convertToBooking: (quoteId) => {
-    // Conversion pre-fills the wizard; here we just mark the quote used.
-    set((s) => ({
-      quotes: s.quotes.map((q) => (q.id === quoteId ? { ...q, status: 'Accepted' } : q)),
-    }))
   },
 
   fetchBookings: async () => {
@@ -1367,7 +1307,15 @@ export const useDataStore = create<DataState>((set, get) => ({
     return data.signedUrl
   },
 
-  createBooking: (b, chargeLines) => {
+  createBooking: (b, chargeLines, opts) => {
+    const actor = opts?.actor ?? 'Ops'
+    const isAdmin = opts?.isAdmin ?? false
+    // Booking placement itself is never gated — only the initial costing is.
+    // Admin's costing goes straight onto the charge sheet; anyone else's
+    // goes to a single pending Approval instead (raised below, after the
+    // booking exists, via requestChargeApproval).
+    const applyChargesDirectly = isAdmin || chargeLines.length === 0
+
     // Real numbering scheme from the live tracker: KLNVO2627XXXXXX
     const existing = get().bookings
     const maxSeq = existing.reduce((max, x) => {
@@ -1389,12 +1337,20 @@ export const useDataStore = create<DataState>((set, get) => ({
     }
     set((s) => ({
       bookings: [booking, ...s.bookings],
-      charges: [
-        ...chargeLines.map((c) => ({ ...c, id: uid('ch'), bookingId: id })),
-        ...s.charges,
-      ],
-      activities: log(s.activities, id, 'Ops', `Booking created — ${bookingRef}`),
+      charges: applyChargesDirectly
+        ? [...chargeLines.map((c) => ({ ...c, id: uid('ch'), bookingId: id })), ...s.charges]
+        : s.charges,
+      activities: log(s.activities, id, actor, `Booking created — ${bookingRef}`),
     }))
+
+    if (!applyChargesDirectly) {
+      get().requestChargeApproval(
+        id,
+        chargeLines.map((c) => ({ ...c, bookingId: id })),
+        `Initial costing on ${bookingRef} — ${chargeLines.length} line(s)`,
+        actor,
+      )
+    }
 
     // Persist to Supabase in the background — UI already updated optimistically
     // above, so this doesn't block the wizard. On success, patch the real DB
@@ -1413,7 +1369,7 @@ export const useDataStore = create<DataState>((set, get) => ({
       set((s) => ({
         bookings: s.bookings.map((x) => (x.id === id ? { ...x, dbId } : x)),
       }))
-      if (chargeLines.length) {
+      if (applyChargesDirectly && chargeLines.length) {
         const rows = chargeLines.map((c) => ({
           booking_id: dbId,
           charge_code_id: c.chargeCodeId,
@@ -2049,6 +2005,27 @@ export const useDataStore = create<DataState>((set, get) => ({
         if (error) console.error('removeCharge: failed to persist', error)
       })()
     }
+  },
+
+  requestChargeApproval: (bookingId, chargeLines, summary, actor) => {
+    if (chargeLines.length === 0) return
+    set((s) => ({
+      approvals: [
+        {
+          id: uid('ap'),
+          entityType: 'booking_costing' as const,
+          entityId: bookingId,
+          bookingId,
+          summary,
+          requestedBy: actor,
+          requestedAt: now(),
+          status: 'Pending' as const,
+          chargePayload: chargeLines,
+        },
+        ...s.approvals,
+      ],
+      activities: log(s.activities, bookingId, actor, `Requested costing approval — ${summary} (Admin approval required)`),
+    }))
   },
 
   generateInvoice: (bookingId, type, chargeIds) =>
@@ -3645,10 +3622,26 @@ export const useDataStore = create<DataState>((set, get) => ({
               i.id === ap.entityId && i.status === 'Pending approval' ? { ...i, status: 'Approved' } : i,
             ),
           }
-        } else if (ap.entityType === 'quote') {
-          patch = {
-            quotes: s.quotes.map((q) => (q.id === ap.entityId ? { ...q, status: 'Sent' } : q)),
+        } else if (ap.entityType === 'booking_costing' && ap.bookingId && ap.chargePayload) {
+          const chargePayload = ap.chargePayload
+          const newCharges = chargePayload.map((c) => ({ ...c, id: uid('ch') }))
+          const dbId = findDbId(s.bookings, ap.bookingId)
+          if (dbId) {
+            ;(async () => {
+              const rows = chargePayload.map((c) => ({
+                booking_id: dbId,
+                charge_code_id: c.chargeCodeId,
+                charge_name: c.chargeName,
+                type: c.type,
+                amount: c.amount,
+                currency: c.currency,
+                vendor_id: c.vendorId,
+              }))
+              const { error } = await supabase.from('booking_charges').insert(rows)
+              if (error) console.error('decideApproval:booking_costing failed to persist', error)
+            })()
           }
+          patch = { charges: [...s.charges, ...newCharges] }
         } else if (ap.entityType === 'booking_field_edit' && ap.bookingId && ap.fieldChange) {
           const { field, value } = ap.fieldChange
           const target = s.bookings.find((b) => b.id === ap.bookingId)

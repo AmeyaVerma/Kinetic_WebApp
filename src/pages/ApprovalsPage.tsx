@@ -12,7 +12,7 @@ import type { Approval, ApprovalEntityType } from '../lib/types'
 
 const CATEGORY_TABS: { key: ApprovalEntityType | 'all'; label: string }[] = [
   { key: 'all', label: 'All' },
-  { key: 'quote', label: 'Quotes' },
+  { key: 'booking_costing', label: 'Costing' },
   { key: 'bl_edit', label: 'BL edits' },
   { key: 'invoice', label: 'Invoices' },
   { key: 'repair_estimate', label: 'Repair estimates' },
@@ -24,7 +24,6 @@ const CATEGORY_TABS: { key: ApprovalEntityType | 'all'; label: string }[] = [
 ]
 
 const TYPE_LABEL: Record<ApprovalEntityType, string> = {
-  quote: 'Quote',
   bl_edit: 'BL edit',
   invoice: 'Invoice',
   repair_estimate: 'Repair estimate',
@@ -37,6 +36,7 @@ const TYPE_LABEL: Record<ApprovalEntityType, string> = {
   booking_field_edit: 'Booking field edit',
   ff_field_edit: 'FF field edit',
   party_document: 'Party document',
+  booking_costing: 'Costing',
 }
 
 export function ApprovalsPage() {
@@ -141,10 +141,10 @@ function ApprovalRow({
   isAdmin: boolean
   onDecide: (d: 'Approved' | 'Rejected') => void
 }) {
-  // Days-of-credit holds are Admin-only to decide — everything else in
-  // this queue stays open to anyone with Approvals access, matching the
-  // existing per-role module access.
-  const adminOnly = a.fieldChange?.field === 'daysOfCredit'
+  // Days-of-credit holds and costing/charge approvals are Admin-only to
+  // decide — everything else in this queue stays open to anyone with
+  // Approvals access, matching the existing per-role module access.
+  const adminOnly = a.fieldChange?.field === 'daysOfCredit' || a.entityType === 'booking_costing'
   const locked = adminOnly && !isAdmin
 
   return (
@@ -182,6 +182,16 @@ function ApprovalRow({
               {Object.entries(a.payload).map(([k, v]) => (
                 <p key={k} className="text-xs text-body">
                   <span className="font-medium text-heading">{k}:</span> {v}
+                </p>
+              ))}
+            </div>
+          )}
+          {a.chargePayload && a.chargePayload.length > 0 && (
+            <div className="mt-2 rounded-btn border border-line bg-surface-2/50 p-2.5">
+              <p className="mb-1 font-mono text-[10px] uppercase tracking-wide text-muted">Charge lines</p>
+              {a.chargePayload.map((c, i) => (
+                <p key={i} className="text-xs text-body">
+                  <span className="font-medium text-heading">{c.chargeName}:</span> {c.currency} {c.amount.toLocaleString()}
                 </p>
               ))}
             </div>
