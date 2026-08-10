@@ -6,20 +6,24 @@ import { Button } from '../components/ui/Button'
 import { StatKpi } from '../components/ui/StatKpi'
 import { CsvButton } from '../components/ui/CsvButton'
 import { StatusChip } from '../components/ui/StatusChip'
-import { ProgressBar } from '../components/ui/ProgressBar'
+import { DocStatusChip } from '../components/ui/DocStatusChip'
 import { NewBookingWizard } from '../components/nvocc/NewBookingWizard'
 import { useDataStore } from '../store/useDataStore'
-import { cyclePct, deriveStatus, toChipStatus } from '../lib/milestones'
+import { deriveStatus, latestActivityLabel, toChipStatus } from '../lib/milestones'
+import { docStatusOf } from '../lib/docStatus'
 
 export function NvoccPage() {
   const navigate = useNavigate()
   const [wizardOpen, setWizardOpen] = useState(false)
 
-  const { bookings, milestones, fetchBookings } = useDataStore()
+  const { bookings, milestones, containerActivities, blStates, fetchBookings, fetchContainerActivities, fetchBlStates } =
+    useDataStore()
 
   useEffect(() => {
     fetchBookings()
-  }, [fetchBookings])
+    fetchContainerActivities()
+    fetchBlStates()
+  }, [fetchBookings, fetchContainerActivities, fetchBlStates])
 
   const nvoccBookings = useMemo(
     () => bookings.filter((b) => b.module === 'nvocc'),
@@ -45,6 +49,7 @@ export function NvoccPage() {
     () =>
       nvoccBookings.map((b) => {
         const entries = milestones.filter((m) => m.bookingId === b.id)
+        const bl = blStates.find((x) => x.bookingId === b.id)
         return {
           'Booking Ref': b.bookingRef,
           Direction: b.direction,
@@ -53,11 +58,12 @@ export function NvoccPage() {
           Vessel: b.vesselName,
           Voyage: b.voyageNo,
           Customer: b.bookingPartyName,
-          'Cycle %': cyclePct(b.direction, entries),
+          'Latest Activity': latestActivityLabel(containerActivities[b.id]),
+          'Documentation Status': docStatusOf(bl),
           Status: deriveStatus(b.direction, entries, b.cancelled),
         }
       }),
-    [nvoccBookings, milestones],
+    [nvoccBookings, milestones, containerActivities, blStates],
   )
 
   return (
@@ -97,7 +103,8 @@ export function NvoccPage() {
                 <th className="px-3 py-3 font-medium">POL → POD</th>
                 <th className="px-3 py-3 font-medium">Vessel / Voyage</th>
                 <th className="px-3 py-3 font-medium">Customer</th>
-                <th className="px-3 py-3 font-medium">Cycle</th>
+                <th className="px-3 py-3 font-medium">Latest Activity</th>
+                <th className="px-3 py-3 font-medium">Documentation</th>
                 <th className="px-3 py-3 font-medium">Status</th>
                 <th className="px-5 py-3" />
               </tr>
@@ -106,7 +113,7 @@ export function NvoccPage() {
               {nvoccBookings.map((b) => {
                 const entries = milestones.filter((m) => m.bookingId === b.id)
                 const status = deriveStatus(b.direction, entries, b.cancelled)
-                const pct = cyclePct(b.direction, entries)
+                const bl = blStates.find((x) => x.bookingId === b.id)
                 return (
                   <tr
                     key={b.id}
@@ -118,12 +125,8 @@ export function NvoccPage() {
                     <td className="px-3 py-3 text-xs text-body">{b.pol} → {b.pod}</td>
                     <td className="px-3 py-3 text-xs text-body">{b.vesselName} / {b.voyageNo}</td>
                     <td className="px-3 py-3 text-xs text-body">{b.bookingPartyName}</td>
-                    <td className="w-36 px-3 py-3">
-                      <div className="flex items-center gap-2">
-                        <ProgressBar pct={pct} color="#10B981" />
-                        <span className="w-8 font-mono text-[11px] text-muted">{pct}%</span>
-                      </div>
-                    </td>
+                    <td className="px-3 py-3 text-xs text-body">{latestActivityLabel(containerActivities[b.id])}</td>
+                    <td className="px-3 py-3"><DocStatusChip status={docStatusOf(bl)} /></td>
                     <td className="px-3 py-3"><StatusChip status={toChipStatus(status)} /></td>
                     <td className="px-5 py-3 text-right">
                       <ArrowRight size={15} className="inline text-muted" />

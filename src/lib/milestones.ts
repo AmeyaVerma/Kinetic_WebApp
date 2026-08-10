@@ -1,4 +1,4 @@
-import type { BookingStatus, ChipStatus, Direction, MilestoneDef, MilestoneEntry } from './types'
+import type { BookingStatus, ChipStatus, ContainerActivity, Direction, MilestoneDef, MilestoneEntry } from './types'
 
 /* ── Milestone sequences (Workflow v3 §6) ────────────────────────
    Status and cycle % are COMPUTED from these — never set by hand. */
@@ -92,6 +92,19 @@ export function deriveStatus(
     if (entries.some((e) => e.key === key && e.completedAt)) status = s
   }
   return status
+}
+
+/** Most recent completed container activity, in canonical sequence order
+    (activities arrays are always built from CONTAINER_ACTIVITY_DEFS, so
+    array order already matches the real-world order — no need to sort by
+    completedAt). Falls back to "Not started" when nothing is completed yet. */
+export function latestActivityLabel(acts: ContainerActivity[] | undefined): string {
+  if (!acts || acts.length === 0) return 'Not started'
+  let last: ContainerActivity | null = null
+  for (const a of acts) {
+    if (a.completedAt) last = a
+  }
+  return last ? last.label : 'Not started'
 }
 
 export function toChipStatus(status: BookingStatus): ChipStatus {

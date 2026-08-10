@@ -744,6 +744,15 @@ interface DataState {
       into local state — additive, never removes the existing demo bookings.
       Safe to call repeatedly (e.g. on every NVOCC page mount). */
   fetchBookings: () => Promise<void>
+  /** Pulls real container_activities rows (keyed by dbId) and merges them
+      into containerActivities, keyed back to the local booking id — same
+      additive-merge shape as fetchBookings. Booking rows with no dbId (mock
+      seed bookings) are left on their existing local/mock activities. */
+  fetchContainerActivities: () => Promise<void>
+  /** Pulls real bl_state rows (keyed by dbId) and merges them into blStates,
+      keyed back to the local booking id — same additive-merge shape as
+      fetchBookings. */
+  fetchBlStates: () => Promise<void>
   /** Booking always gets created immediately regardless of role — only the
       initial costing lines are gated: Admin's costing applies straight to
       the charge sheet, anyone else's goes to a single pending Approval
@@ -1086,6 +1095,54 @@ export const useDataStore = create<DataState>((set, get) => ({
     if (error || !data) return
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     set({ containers: (data as any[]).map(rowToContainer) })
+  },
+
+  fetchContainerActivities: async () => {
+    const { data, error } = await supabase.from('container_activities').select('*')
+    if (error || !data) return
+    set((s) => {
+      const byDbId = new Map<string, ContainerActivity[]>()
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      for (const row of data as any[]) {
+        const list = byDbId.get(row.booking_id) ?? []
+        list.push({ key: row.key, label: row.label, section: row.section, completedAt: row.completed_at })
+        byDbId.set(row.booking_id, list)
+      }
+      const merged = { ...s.containerActivities }
+      for (const b of s.bookings) {
+        if (!b.dbId || !byDbId.has(b.dbId)) continue
+        const fetched = byDbId.get(b.dbId)!
+        merged[b.id] = CONTAINER_ACTIVITY_DEFS.map(
+          (d) => fetched.find((f) => f.key === d.key) ?? { ...d, completedAt: null },
+        )
+      }
+      return { containerActivities: merged }
+    })
+  },
+
+  fetchBlStates: async () => {
+    const { data, error } = await supabase.from('bl_state').select('*')
+    if (error || !data) return
+    set((s) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const byDbId = new Map<string, any>((data as any[]).map((row) => [row.booking_id, row]))
+      const merged = [...s.blStates]
+      for (const b of s.bookings) {
+        if (!b.dbId) continue
+        const row = byDbId.get(b.dbId)
+        if (!row) continue
+        const state: BlState = {
+          bookingId: b.id,
+          lifecycle: row.lifecycle,
+          releaseType: row.release_type,
+          currentFields: row.current_fields,
+        }
+        const idx = merged.findIndex((x) => x.bookingId === b.id)
+        if (idx >= 0) merged[idx] = state
+        else merged.push(state)
+      }
+      return { blStates: merged }
+    })
   },
 
   createParty: async (fields) => {
