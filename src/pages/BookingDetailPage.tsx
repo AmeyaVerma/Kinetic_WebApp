@@ -240,9 +240,6 @@ function ContainerInfoTab({ booking }: { booking: import('../lib/types').Booking
   const isAdmin = (viewAsRole ?? currentUser?.role) === 'admin'
   const actor = currentUser?.name ?? 'Ops'
 
-  const setField = (field: 'numberOfContainers' | 'sizeOfContainer' | 'sealNo' | 'customSealNo') =>
-    (v: string) => updateContainerInfoField(booking.id, field, v, actor)
-
   const pendingContainerType = approvals.find(
     (a) => a.bookingId === booking.id && a.status === 'Pending' && a.fieldChange?.field === 'containerType',
   )
@@ -295,17 +292,6 @@ function ContainerInfoTab({ booking }: { booking: import('../lib/types').Booking
             className="mt-0.5 w-full bg-transparent text-[13px] text-heading placeholder:text-muted focus:outline-none"
           />
         </label>
-        <EditableTextPill
-          label="Size of container"
-          value={booking.sizeOfContainer ?? ''}
-          onChange={setField('sizeOfContainer')}
-        />
-        <EditableTextPill label="Seal No." value={booking.sealNo} onChange={setField('sealNo')} />
-        <EditableTextPill
-          label="Custom Seal No."
-          value={booking.customSealNo ?? ''}
-          onChange={setField('customSealNo')}
-        />
         <FieldPill label="Free days (origin)" value={`${booking.freeDaysOrigin} days`} />
         <FieldPill label="Free days (destination)" value={`${booking.freeDaysDest} days`} />
       </div>
