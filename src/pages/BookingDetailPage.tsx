@@ -50,6 +50,7 @@ export function BookingDetailPage() {
     activities,
     cancelBooking,
     updateShipmentDates,
+    updateShipmentPorts,
     updatePlannedDate,
     updateMilestoneDate,
     setBookingWorkflowStatus,
@@ -183,6 +184,7 @@ export function BookingDetailPage() {
             onEditDate={(key, completedAt) => updateMilestoneDate(booking.id, key, completedAt, currentUser?.name ?? 'Admin')}
             onDateChange={(dates) => updateShipmentDates(booking.id, dates, 'Ops')}
             onPlannedDateChange={(field, value) => updatePlannedDate(booking.id, field, value, 'Ops')}
+            onPortsChange={(fields) => updateShipmentPorts(booking.id, fields, 'Ops')}
           />
         )}
         {tab === 'agents' && <AgentDetailsTab booking={booking} />}
@@ -593,6 +595,7 @@ function ShipmentDetailsTab({
   onEditDate,
   onDateChange,
   onPlannedDateChange,
+  onPortsChange,
 }: {
   booking: import('../lib/types').Booking
   entries: import('../lib/types').MilestoneEntry[]
@@ -603,6 +606,13 @@ function ShipmentDetailsTab({
     field: 'plannedGateOpen' | 'plannedGateClose' | 'plannedSiCutoff' | 'plannedVgmCutoff' | 'plannedCyCutoff',
     value: string,
   ) => void
+  onPortsChange: (fields: {
+    portOfReceipt?: string
+    pol?: string
+    pod?: string
+    finalPlaceOfDischarge?: string
+    transhipment?: 'Yes' | 'No'
+  }) => void
 }) {
   const defs = milestoneDefs(booking.direction)
   const currentUser = useCurrentUser()
@@ -610,9 +620,44 @@ function ShipmentDetailsTab({
   const isAdmin = (viewAsRole ?? currentUser?.role) === 'admin'
   return (
     <div className="space-y-6">
+      <div>
+        <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted">Ports</p>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+          <EditableTextPill
+            label="Port of Receipt"
+            value={booking.portOfReceipt ?? ''}
+            onChange={(v) => onPortsChange({ portOfReceipt: v })}
+          />
+          <EditableTextPill
+            label="Port of Loading"
+            value={booking.pol}
+            onChange={(v) => onPortsChange({ pol: v })}
+          />
+          <EditableTextPill
+            label="Port of Destination"
+            value={booking.pod}
+            onChange={(v) => onPortsChange({ pod: v })}
+          />
+          <EditableTextPill
+            label="Final Place of Discharge"
+            value={booking.finalPlaceOfDischarge ?? ''}
+            onChange={(v) => onPortsChange({ finalPlaceOfDischarge: v })}
+          />
+          <label className="block rounded-btn border border-line bg-surface-2/60 px-3 py-2 focus-within:border-primary">
+            <p className="font-mono text-[10px] uppercase tracking-wide text-muted">Transhipment</p>
+            <select
+              value={booking.transhipment ?? 'No'}
+              onChange={(e) => onPortsChange({ transhipment: e.target.value as 'Yes' | 'No' })}
+              className="mt-0.5 w-full bg-transparent text-[13px] text-heading focus:outline-none"
+            >
+              <option value="No" className="bg-surface text-heading">No</option>
+              <option value="Yes" className="bg-surface text-heading">Yes</option>
+            </select>
+          </label>
+        </div>
+      </div>
+
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-        <FieldPill label="POL" value={booking.pol} />
-        <FieldPill label="POD" value={booking.pod} />
         <FieldPill label="Vessel / voyage" value={`${booking.vesselName} / ${booking.voyageNo}`} />
         <EditableDatePill label="ETD / SOB" value={booking.etd} onChange={(v) => onDateChange({ etd: v })} />
         <EditableDatePill label="ETA" value={booking.eta} onChange={(v) => onDateChange({ eta: v })} />

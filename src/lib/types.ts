@@ -322,8 +322,15 @@ export interface Booking {
   vesselId: string | null
   vesselName: string
   voyageNo: string
+  /** Ports section (Shipment details O+D), in journey order:
+      Port of Receipt -> pol ("Port of Loading") -> pod ("Port of
+      Destination") -> Final Place of Discharge. */
+  portOfReceipt?: string
   pol: string
   pod: string
+  finalPlaceOfDischarge?: string
+  /** Yes/No flag — distinct from transshipmentAgent (free-text agent name). */
+  transhipment?: 'Yes' | 'No'
   etd: string
   eta: string
   freightTerms: FreightTerms

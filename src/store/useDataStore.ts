@@ -240,8 +240,11 @@ function rowToBooking(row: any): Booking {
     vesselId: row.vessel_id,
     vesselName: row.vessel_name,
     voyageNo: row.voyage_no,
+    portOfReceipt: row.port_of_receipt ?? undefined,
     pol: row.pol,
     pod: row.pod,
+    finalPlaceOfDischarge: row.final_place_of_discharge ?? undefined,
+    transhipment: row.transhipment ?? undefined,
     etd: row.etd,
     eta: row.eta,
     freightTerms: row.freight_terms,
@@ -788,6 +791,21 @@ interface DataState {
   ) => string
   cancelBooking: (bookingId: string, reason: string) => void
   updateShipmentDates: (bookingId: string, dates: { etd?: string; eta?: string }, actor: string) => void
+  /** Ports section (Shipment details O+D) — Port of Receipt, Port of
+      Loading (pol), Port of Destination (pod), Final Place of Discharge,
+      and the Transhipment Yes/No flag. Admin-direct, no approval gate,
+      same as updateShipmentDates. */
+  updateShipmentPorts: (
+    bookingId: string,
+    fields: {
+      portOfReceipt?: string
+      pol?: string
+      pod?: string
+      finalPlaceOfDischarge?: string
+      transhipment?: 'Yes' | 'No'
+    },
+    actor: string,
+  ) => void
   updatePlannedDate: (
     bookingId: string,
     field: 'plannedGateOpen' | 'plannedGateClose' | 'plannedSiCutoff' | 'plannedVgmCutoff' | 'plannedCyCutoff',
@@ -1538,6 +1556,42 @@ export const useDataStore = create<DataState>((set, get) => ({
       return {
         bookings: s.bookings.map((b) => (b.id === bookingId ? { ...b, ...dates } : b)),
         activities: log(s.activities, bookingId, actor, `Shipment dates updated — ${changed.join(', ')}`),
+      }
+    }),
+
+  updateShipmentPorts: (bookingId, fields, actor) =>
+    set((s) => {
+      const booking = s.bookings.find((b) => b.id === bookingId)
+      if (!booking) return s
+      const changed: string[] = []
+      if (fields.portOfReceipt !== undefined && fields.portOfReceipt !== (booking.portOfReceipt ?? ''))
+        changed.push(`Port of Receipt → ${fields.portOfReceipt}`)
+      if (fields.pol !== undefined && fields.pol !== booking.pol)
+        changed.push(`Port of Loading → ${fields.pol}`)
+      if (fields.pod !== undefined && fields.pod !== booking.pod)
+        changed.push(`Port of Destination → ${fields.pod}`)
+      if (
+        fields.finalPlaceOfDischarge !== undefined &&
+        fields.finalPlaceOfDischarge !== (booking.finalPlaceOfDischarge ?? '')
+      )
+        changed.push(`Final Place of Discharge → ${fields.finalPlaceOfDischarge}`)
+      if (fields.transhipment !== undefined && fields.transhipment !== booking.transhipment)
+        changed.push(`Transhipment → ${fields.transhipment}`)
+      if (changed.length === 0) return s
+      persistBookingUpdate(
+        booking.dbId,
+        {
+          port_of_receipt: fields.portOfReceipt,
+          pol: fields.pol,
+          pod: fields.pod,
+          final_place_of_discharge: fields.finalPlaceOfDischarge,
+          transhipment: fields.transhipment,
+        },
+        'updateShipmentPorts',
+      )
+      return {
+        bookings: s.bookings.map((b) => (b.id === bookingId ? { ...b, ...fields } : b)),
+        activities: log(s.activities, bookingId, actor, `Ports updated — ${changed.join(', ')}`),
       }
     }),
 
