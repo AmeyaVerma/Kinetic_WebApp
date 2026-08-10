@@ -84,4 +84,22 @@ export const CONTAINER_TYPES = [
   '40 ft ER',
   '40 ft ISO',
 ] as const
-export const PACKAGE_TYPES = ['Pallets', 'Cartons', 'Bags', 'Drums', 'Crates'] as const
+export const PACKAGE_TYPES = [
+  'AMP', 'AWB', 'BAG', 'BAL', 'BDL', 'BKL', 'BL', 'BOU', 'BOX', 'BTL', 'BUN',
+  'CAN', 'CBM', 'CCM', 'CMS', 'CNT', 'CON', 'CRT', 'CTN',
+  'DOZ', 'DRM',
+  'FTS',
+  'GGR', 'GMS', 'GRS', 'GYD',
+  'KGA', 'KGB', 'KGS', 'KIT', 'KLR', 'KME',
+  'LBS', 'LTR',
+  'MGS', 'MKU', 'MLT', 'MOU', 'MTR', 'MTS', 'MUS',
+  'NOS',
+  'PAC', 'PCS', 'PKG', 'PLT', 'PRS',
+  'QTL',
+  'RLS', 'ROL',
+  'SET', 'SQF', 'SQM', 'SQY',
+  'TBS', 'TGM', 'THD', 'TON', 'TUB',
+  'UGS', 'UNT',
+  'VLS',
+  'YDS',
+] as const

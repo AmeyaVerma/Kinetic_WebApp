@@ -655,6 +655,7 @@ const CONTAINER_INFO_FIELD_LABELS = {
   principal: 'Principal',
   freightTerms: 'Freight terms',
   packages: 'Packages',
+  packageType: 'Package type',
   grossWeightKg: 'Cargo weight',
 } as const
 
@@ -805,7 +806,7 @@ interface DataState {
     bookingId: string,
     field:
       | 'numberOfContainers' | 'sizeOfContainer' | 'sealNo' | 'customSealNo' | 'containerType'
-      | 'commodity' | 'hsCode' | 'principal' | 'freightTerms' | 'packages' | 'grossWeightKg',
+      | 'commodity' | 'hsCode' | 'principal' | 'freightTerms' | 'packages' | 'packageType' | 'grossWeightKg',
     value: string,
     actor: string,
   ) => void

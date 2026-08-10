@@ -429,8 +429,14 @@ function ContainerInfoTab({ booking }: { booking: import('../lib/types').Booking
 /* ── Tab: Product info ───────────────────────────────────────── */
 
 function ProductInfoTab({ booking }: { booking: import('../lib/types').Booking }) {
-  const { setHazmatStatus, updateHazmatDetail, updateContainerInfoField, requestBookingFieldChange, approvals } =
-    useDataStore()
+  const {
+    setHazmatStatus,
+    updateHazmatDetail,
+    updateContainerInfoField,
+    requestBookingFieldChange,
+    approvals,
+    masters,
+  } = useDataStore()
   const currentUser = useCurrentUser()
   const viewAsRole = useAuthStore((s) => s.viewAsRole)
   const isAdmin = (viewAsRole ?? currentUser?.role) === 'admin'
@@ -444,7 +450,7 @@ function ProductInfoTab({ booking }: { booking: import('../lib/types').Booking }
   // Admin edits apply immediately; anyone else's edit raises an Admin-
   // approval request instead — same pattern as Container type.
   const editField = (
-    field: 'commodity' | 'hsCode' | 'principal' | 'freightTerms' | 'packages' | 'grossWeightKg',
+    field: 'commodity' | 'hsCode' | 'principal' | 'freightTerms' | 'packages' | 'packageType' | 'grossWeightKg',
     label: string,
   ) =>
     (v: string) =>
@@ -475,8 +481,8 @@ function ProductInfoTab({ booking }: { booking: import('../lib/types').Booking }
           onChange={editField('hsCode', 'HS code')}
         />
         <label className="block rounded-btn border border-line bg-surface-2/60 px-3 py-2 focus-within:border-primary">
-          <p className="font-mono text-[10px] uppercase tracking-wide text-muted">Packages</p>
-          <div className="mt-0.5 flex items-baseline gap-1.5">
+          <p className="font-mono text-[10px] uppercase tracking-wide text-muted">No. of packages / Type</p>
+          <div className="mt-0.5 flex items-center gap-1.5">
             <input
               type="text"
               inputMode="numeric"
@@ -486,11 +492,26 @@ function ProductInfoTab({ booking }: { booking: import('../lib/types').Booking }
               onBlur={(e) => {
                 if (e.target.value !== String(booking.packages)) editField('packages', 'Packages')(e.target.value)
               }}
-              className="w-16 bg-transparent text-[13px] text-heading focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+              className="w-12 shrink-0 bg-transparent text-[13px] text-heading focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
             />
-            <span className="text-[13px] text-muted">{booking.packageType.toLowerCase()}</span>
+            <span className="text-muted">/</span>
+            <select
+              value={booking.packageType}
+              disabled={!!pendingFor('packageType')}
+              onChange={(e) => editField('packageType', 'Package type')(e.target.value)}
+              className="min-w-0 flex-1 bg-transparent text-[13px] text-heading focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {!masters.packageTypes.includes(booking.packageType) && booking.packageType && (
+                <option value={booking.packageType} className="bg-white text-[#0F172A]">{booking.packageType}</option>
+              )}
+              {masters.packageTypes.map((t) => (
+                <option key={t} value={t} className="bg-white text-[#0F172A]">{t}</option>
+              ))}
+            </select>
           </div>
-          {hintFor('packages') && <p className="mt-1 text-[11px] text-accent-orange">{hintFor('packages')}</p>}
+          {(hintFor('packages') || hintFor('packageType')) && (
+            <p className="mt-1 text-[11px] text-accent-orange">{hintFor('packages') ?? hintFor('packageType')}</p>
+          )}
         </label>
         <label className="block rounded-btn border border-line bg-surface-2/60 px-3 py-2 focus-within:border-primary">
           <p className="font-mono text-[10px] uppercase tracking-wide text-muted">Cargo weight</p>
