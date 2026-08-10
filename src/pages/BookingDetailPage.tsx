@@ -554,6 +554,11 @@ function ProductInfoTab({ booking }: { booking: import('../lib/types').Booking }
             <option value="Haz" className="bg-surface text-heading">Haz</option>
           </select>
         </label>
+        <EditableTextPill
+          label={HAZMAT_FIELD_LABELS.specialProductText}
+          value={details.specialProductText ?? ''}
+          onChange={(v) => updateHazmatDetail(booking.id, 'specialProductText', v, 'Ops')}
+        />
       </div>
 
       {hazStatus === 'Haz' && (
@@ -562,7 +567,9 @@ function ProductInfoTab({ booking }: { booking: import('../lib/types').Booking }
             IMDG / hazardous cargo details
           </p>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-            {(Object.keys(HAZMAT_FIELD_LABELS) as (keyof HazmatDetails)[]).map((field) => (
+            {(Object.keys(HAZMAT_FIELD_LABELS) as (keyof HazmatDetails)[])
+              .filter((field) => field !== 'specialProductText')
+              .map((field) => (
               <EditableTextPill
                 key={field}
                 label={HAZMAT_FIELD_LABELS[field]}
