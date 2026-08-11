@@ -29,10 +29,10 @@ import { HAZMAT_FIELD_LABELS } from '../lib/types'
 import type { BookingWorkflowStatus, HazmatDetails, HazmatStatus } from '../lib/types'
 
 const TABS = [
-  { key: 'container', label: 'Container info' },
-  { key: 'product', label: 'Product info' },
+  { key: 'agents', label: 'Parties' },
   { key: 'shipment', label: 'Shipment details (O+D)' },
-  { key: 'agents', label: 'Agent details' },
+  { key: 'product', label: 'Product info' },
+  { key: 'container', label: 'Container info' },
   { key: 'yard', label: 'Container yard' },
   { key: 'activities', label: 'Container activities' },
   { key: 'invoicing', label: 'Invoicing' },
