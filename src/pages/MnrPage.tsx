@@ -1,6 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Container as ContainerIcon, Wrench, AlertTriangle, ClipboardCheck, Plus, FileBarChart } from 'lucide-react'
+import {
+  Container as ContainerIcon,
+  Wrench,
+  AlertTriangle,
+  ClipboardCheck,
+  Plus,
+  FileBarChart,
+  DollarSign,
+  TrendingUp,
+  ShieldAlert,
+} from 'lucide-react'
 import { Card } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { StatKpi } from '../components/ui/StatKpi'
@@ -141,6 +151,7 @@ export function MnrPage() {
           { key: 'fleet', label: 'Fleet', badge: fleet.length },
           { key: 'jobs', label: 'Repair jobs', badge: mnrJobs.filter((j) => j.stage !== 'Closed').length },
           { key: 'alerts', label: 'Alerts', badge: alertCount },
+          { key: 'cost', label: 'Repair cost sheet' },
         ]}
         active={tab}
         onChange={setTab}
@@ -148,6 +159,7 @@ export function MnrPage() {
 
       {tab === 'fleet' && <FleetTable />}
       {tab === 'alerts' && <AlertsTable />}
+      {tab === 'cost' && <RepairCostSheet />}
       {tab === 'jobs' && (
         <div className="space-y-5">
           <Card className="overflow-hidden">
@@ -483,6 +495,215 @@ function AlertsTable() {
                 <tr>
                   <td colSpan={5} className="px-5 py-10 text-center text-sm text-muted">
                     No containers have gone 6+ months without activity.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+    </div>
+  )
+}
+
+/* ── Repair cost sheet — per-container spend vs a settable limit ─ */
+
+const COST_LIMIT_KEY = 'mnr-repair-cost-limit'
+const DEFAULT_COST_LIMIT = 2000
+
+function CostBar({ value, max, limit, over }: { value: number; max: number; limit: number; over: boolean }) {
+  const pct = max > 0 ? Math.min(100, (value / max) * 100) : 0
+  const limitPct = max > 0 ? Math.min(100, (limit / max) * 100) : 0
+  return (
+    <div className="relative h-[7px] w-full overflow-hidden rounded-badge bg-surface-2">
+      <div
+        className="h-full rounded-badge transition-all"
+        style={{ width: `${pct}%`, backgroundColor: over ? '#DC2626' : '#10B981' }}
+      />
+      {limitPct > 0 && limitPct < 100 && (
+        <div
+          className="absolute top-0 h-full w-[2px] bg-heading/60"
+          style={{ left: `${limitPct}%` }}
+          title={`Limit: $${limit.toLocaleString()}`}
+        />
+      )}
+    </div>
+  )
+}
+
+function RepairCostSheet() {
+  const { mnrJobs, fleet } = useDataStore()
+  const [limit, setLimit] = useState<number>(() => {
+    const saved = Number(localStorage.getItem(COST_LIMIT_KEY))
+    return saved > 0 ? saved : DEFAULT_COST_LIMIT
+  })
+  const [limitDraft, setLimitDraft] = useState(String(limit))
+  const [sortBy, setSortBy] = useState<'cost' | 'avg' | 'jobs'>('cost')
+
+  useEffect(() => {
+    localStorage.setItem(COST_LIMIT_KEY, String(limit))
+  }, [limit])
+
+  const rows = useMemo(() => {
+    const byContainer = new Map<string, MnrJob[]>()
+    for (const j of mnrJobs) {
+      const list = byContainer.get(j.containerNo) ?? []
+      list.push(j)
+      byContainer.set(j.containerNo, list)
+    }
+    return Array.from(byContainer.entries()).map(([containerNo, jobs]) => {
+      const jobCosts = jobs.map((j) => j.vendorBill ?? latestEstimate(j)?.total ?? 0)
+      const totalCost = jobCosts.reduce((a, b) => a + b, 0)
+      const container = fleet.find((f) => f.containerNo === containerNo)
+      return {
+        containerNo,
+        type: container?.isoType ?? '—',
+        jobCount: jobs.length,
+        totalCost,
+        avgCost: totalCost / jobs.length,
+        overLimit: totalCost > limit,
+        hasActual: jobs.some((j) => j.vendorBill !== null),
+        latestStage: jobs[jobs.length - 1]?.stage,
+      }
+    })
+  }, [mnrJobs, fleet, limit])
+
+  const sorted = useMemo(() => {
+    const list = [...rows]
+    if (sortBy === 'cost') list.sort((a, b) => b.totalCost - a.totalCost)
+    if (sortBy === 'avg') list.sort((a, b) => b.avgCost - a.avgCost)
+    if (sortBy === 'jobs') list.sort((a, b) => b.jobCount - a.jobCount)
+    return list
+  }, [rows, sortBy])
+
+  const summary = useMemo(() => {
+    const totalSpend = rows.reduce((a, r) => a + r.totalCost, 0)
+    const overCount = rows.filter((r) => r.overLimit).length
+    return {
+      totalSpend,
+      overCount,
+      underCount: rows.length - overCount,
+      avgPerContainer: rows.length ? totalSpend / rows.length : 0,
+      maxCost: rows.reduce((m, r) => Math.max(m, r.totalCost), 0),
+      count: rows.length,
+    }
+  }, [rows])
+
+  const money = (n: number) => `$${n.toLocaleString(undefined, { maximumFractionDigits: 0 })}`
+
+  const csvRows = sorted.map((r) => ({
+    'Container No.': r.containerNo,
+    Type: r.type,
+    Jobs: r.jobCount,
+    'Total Cost (USD)': r.totalCost.toFixed(2),
+    'Avg Cost / Job (USD)': r.avgCost.toFixed(2),
+    'Vs Limit': r.overLimit ? 'Over' : 'Under',
+    'Latest Stage': r.latestStage,
+  }))
+
+  return (
+    <div className="space-y-5">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+        <StatKpi label="Total repair spend" value={money(summary.totalSpend)} icon={<DollarSign size={17} />} tint="#FFF7ED" color="#F97316" />
+        <StatKpi label="Containers repaired" value={summary.count} icon={<ContainerIcon size={17} />} tint="#EFF6FF" color="#3B82F6" />
+        <StatKpi label="Avg cost / container" value={money(summary.avgPerContainer)} icon={<TrendingUp size={17} />} tint="#F5F3FF" color="#8B5CF6" />
+        <StatKpi label="Over limit" value={summary.overCount} icon={<ShieldAlert size={17} />} tint="#FEF2F2" color="#DC2626" />
+      </div>
+
+      <Card className="p-4">
+        <div className="flex flex-wrap items-center gap-5">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted">Repair cost limit, per container</p>
+            <p className="mt-0.5 text-[11px] text-muted">Total repair spend above this flags the container as over limit.</p>
+          </div>
+          <div className="flex items-center gap-1.5 rounded-input border border-[#E5E7EB] dark:border-line bg-surface px-3 py-2">
+            <span className="text-sm text-muted">$</span>
+            <input
+              type="number"
+              min={0}
+              value={limitDraft}
+              onChange={(e) => setLimitDraft(e.target.value)}
+              onBlur={() => {
+                const n = Number(limitDraft)
+                if (n > 0) setLimit(n)
+                else setLimitDraft(String(limit))
+              }}
+              className="w-28 bg-transparent text-sm text-heading focus:outline-none"
+            />
+          </div>
+          <div className="ml-auto flex items-center gap-4 text-xs">
+            <span className="flex items-center gap-1.5 text-body">
+              <span className="h-2 w-2 rounded-full bg-[#DC2626]" /> {summary.overCount} over limit
+            </span>
+            <span className="flex items-center gap-1.5 text-body">
+              <span className="h-2 w-2 rounded-full bg-[#10B981]" /> {summary.underCount} under limit
+            </span>
+          </div>
+        </div>
+      </Card>
+
+      <Card className="overflow-hidden">
+        <div className="flex flex-wrap items-center gap-2 border-b border-line px-4 py-3">
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value as 'cost' | 'avg' | 'jobs')}
+            className="rounded-input border border-[#E5E7EB] dark:border-line bg-surface px-3 py-2 text-xs text-body focus:border-primary focus:outline-none"
+          >
+            <option value="cost">Sort: Total cost</option>
+            <option value="avg">Sort: Avg cost / job</option>
+            <option value="jobs">Sort: Job count</option>
+          </select>
+          <span className="ml-auto text-xs text-muted">{sorted.length} containers</span>
+          <CsvButton filename="mnr-repair-cost-sheet" rows={csvRows} />
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm">
+            <thead>
+              <tr className="border-b border-line text-[11px] uppercase tracking-wide text-muted">
+                <th className="px-5 py-3 font-medium">Container No.</th>
+                <th className="px-3 py-3 font-medium">Type</th>
+                <th className="px-3 py-3 font-medium">Jobs</th>
+                <th className="px-3 py-3 font-medium">Total cost</th>
+                <th className="px-3 py-3 font-medium">Avg / job</th>
+                <th className="px-3 py-3 font-medium">Spend vs limit</th>
+                <th className="px-5 py-3 font-medium">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {sorted.map((r) => (
+                <tr key={r.containerNo} className="border-b border-line last:border-0 hover:bg-surface-2/60">
+                  <td className="px-5 py-3 font-mono text-xs font-medium text-heading">{r.containerNo}</td>
+                  <td className="px-3 py-3 text-xs text-body">{r.type}</td>
+                  <td className="px-3 py-3 text-xs text-body">{r.jobCount}</td>
+                  <td className="px-3 py-3 font-mono text-xs font-semibold text-heading">
+                    {money(r.totalCost)}
+                    {!r.hasActual && (
+                      <span className="ml-1.5 rounded-badge bg-[#EFF6FF] px-1.5 py-0.5 text-[10px] font-medium text-[#3B82F6]">
+                        est.
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-3 py-3 font-mono text-xs text-body">{money(r.avgCost)}</td>
+                  <td className="w-40 px-3 py-3">
+                    <CostBar value={r.totalCost} max={summary.maxCost} limit={limit} over={r.overLimit} />
+                  </td>
+                  <td className="px-5 py-3">
+                    {r.overLimit ? (
+                      <span className="inline-flex items-center gap-1 rounded-badge bg-[#FEE2E2] px-2 py-1 text-[11px] font-semibold text-[#DC2626]">
+                        <ShieldAlert size={11} /> Over limit
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 rounded-badge bg-[#DCFCE7] px-2 py-1 text-[11px] font-semibold text-[#15803D]">
+                        Under limit
+                      </span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+              {sorted.length === 0 && (
+                <tr>
+                  <td colSpan={7} className="px-5 py-10 text-center text-sm text-muted">
+                    No repair jobs recorded yet.
                   </td>
                 </tr>
               )}
