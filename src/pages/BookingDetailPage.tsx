@@ -738,10 +738,14 @@ function ContainerYardTab({ booking }: { booking: import('../lib/types').Booking
   const [containerNo, setContainerNo] = useState('')
   const [croValidUntil, setCroValidUntil] = useState('')
 
+  const croStatusValue = cro
+    ? `${cro.status}${cro.validUntil ? ` — valid until ${new Date(cro.validUntil).toLocaleDateString()}` : ''}`
+    : 'Not generated'
+
   return (
     <div className="space-y-5">
       <div className="grid grid-cols-2 gap-3">
-        <FieldPill label="CRO status" value={cro?.status ?? 'Not generated'} />
+        <FieldPill label="CRO status" value={croStatusValue} />
         <EditableTextPill
           label="Empty container yard origin"
           value={booking.emptyContainerYardOrigin ?? ''}
