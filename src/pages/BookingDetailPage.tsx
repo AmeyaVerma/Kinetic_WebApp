@@ -714,6 +714,10 @@ function AgentDetailsTab({ booking }: { booking: import('../lib/types').Booking 
   const surveyor = mockVendors.find((v) => v.id === booking.surveyorId)
   return (
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+      <FieldPill label="Booking party" value={booking.bookingPartyName} />
+      <FieldPill label="Shipper" value={booking.shipper} />
+      <FieldPill label="Consignee" value={booking.consignee} />
+      <FieldPill label="Notify party" value={booking.notifyParty} />
       <FieldPill label="Origin agent" value={origin ? `${origin.name} (${origin.country})` : ''} />
       <FieldPill label="Destination agent" value={dest ? `${dest.name} (${dest.country})` : ''} />
       <EditableTextPill
@@ -722,9 +726,6 @@ function AgentDetailsTab({ booking }: { booking: import('../lib/types').Booking 
         onChange={(v) => updateTransshipmentAgent(booking.id, v, 'Ops')}
       />
       <FieldPill label="Surveyor" value={surveyor?.name ?? ''} />
-      <FieldPill label="Shipper" value={booking.shipper} />
-      <FieldPill label="Consignee" value={booking.consignee} />
-      <FieldPill label="Notify party" value={booking.notifyParty} />
     </div>
   )
 }
