@@ -18,7 +18,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-08-10"
   },
   {
     "id": "tc2",
@@ -33,7 +34,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2024-09-19"
   },
   {
     "id": "tc3",
@@ -48,7 +50,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-07-21"
   },
   {
     "id": "tc4",
@@ -63,7 +66,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-04-22"
   },
   {
     "id": "tc5",
@@ -78,7 +82,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-07-28"
   },
   {
     "id": "tc6",
@@ -93,7 +98,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2024-12-12"
   },
   {
     "id": "tc7",
@@ -108,7 +114,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-07-29"
   },
   {
     "id": "tc8",
@@ -123,7 +130,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-08-08"
   },
   {
     "id": "tc9",
@@ -138,7 +146,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-07-24"
   },
   {
     "id": "tc10",
@@ -153,7 +162,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2025-03-31"
   },
   {
     "id": "tc11",
@@ -168,7 +178,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2025-09-03"
   },
   {
     "id": "tc12",
@@ -183,7 +194,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-03-17"
   },
   {
     "id": "tc13",
@@ -198,7 +210,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2024-08-26"
   },
   {
     "id": "tc14",
@@ -213,7 +226,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-07-31"
   },
   {
     "id": "tc15",
@@ -228,7 +242,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-08-05"
   },
   {
     "id": "tc16",
@@ -243,7 +258,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-03-29"
   },
   {
     "id": "tc17",
@@ -258,7 +274,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-08-09"
   },
   {
     "id": "tc18",
@@ -273,7 +290,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-07-23"
   },
   {
     "id": "tc19",
@@ -288,7 +306,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-07-22"
   },
   {
     "id": "tc20",
@@ -303,7 +322,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-08-01"
   },
   {
     "id": "tc21",
@@ -318,7 +338,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-08-06"
   },
   {
     "id": "tc22",
@@ -333,7 +354,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-01-16"
   },
   {
     "id": "tc23",
@@ -348,7 +370,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-08-06"
   },
   {
     "id": "tc24",
@@ -363,7 +386,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2025-11-28"
   },
   {
     "id": "tc25",
@@ -378,7 +402,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-04-01"
   },
   {
     "id": "tc26",
@@ -393,7 +418,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-08-10"
   },
   {
     "id": "tc27",
@@ -408,7 +434,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-07-31"
   },
   {
     "id": "tc28",
@@ -423,7 +450,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-07-31"
   },
   {
     "id": "tc29",
@@ -438,7 +466,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-01-06"
   },
   {
     "id": "tc30",
@@ -453,7 +482,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2025-04-13"
   },
   {
     "id": "tc31",
@@ -468,7 +498,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-07-18"
   },
   {
     "id": "tc32",
@@ -483,7 +514,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-07-31"
   },
   {
     "id": "tc33",
@@ -498,7 +530,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-08-02"
   },
   {
     "id": "tc34",
@@ -513,7 +546,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-06-12"
   },
   {
     "id": "tc35",
@@ -528,7 +562,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-08-10"
   },
   {
     "id": "tc36",
@@ -543,7 +578,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2025-02-22"
   },
   {
     "id": "tc37",
@@ -558,7 +594,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-07-28"
   },
   {
     "id": "tc38",
@@ -573,7 +610,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-08-03"
   },
   {
     "id": "tc39",
@@ -588,7 +626,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2025-11-27"
   },
   {
     "id": "tc40",
@@ -603,7 +642,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2024-11-08"
   },
   {
     "id": "tc41",
@@ -618,7 +658,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2025-12-21"
   },
   {
     "id": "tc42",
@@ -633,7 +674,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-07-23"
   },
   {
     "id": "tc43",
@@ -648,7 +690,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-07-23"
   },
   {
     "id": "tc44",
@@ -663,7 +706,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2025-08-09"
   },
   {
     "id": "tc45",
@@ -678,7 +722,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-07-27"
   },
   {
     "id": "tc46",
@@ -693,7 +738,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-08-10"
   },
   {
     "id": "tc47",
@@ -708,7 +754,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-07-21"
   },
   {
     "id": "tc48",
@@ -723,7 +770,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-07-24"
   },
   {
     "id": "tc49",
@@ -738,7 +786,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2024-12-26"
   },
   {
     "id": "tc50",
@@ -753,7 +802,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-07-26"
   },
   {
     "id": "tc51",
@@ -768,7 +818,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-08-10"
   },
   {
     "id": "tc52",
@@ -783,7 +834,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-08-04"
   },
   {
     "id": "tc53",
@@ -798,7 +850,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-07-27"
   },
   {
     "id": "tc54",
@@ -813,7 +866,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2025-04-23"
   },
   {
     "id": "tc55",
@@ -828,7 +882,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-07-24"
   },
   {
     "id": "tc56",
@@ -843,7 +898,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2024-09-13"
   },
   {
     "id": "tc57",
@@ -858,7 +914,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-03-21"
   },
   {
     "id": "tc58",
@@ -873,7 +930,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-08-09"
   },
   {
     "id": "tc59",
@@ -888,7 +946,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-07-30"
   },
   {
     "id": "tc60",
@@ -903,7 +962,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-08-10"
   },
   {
     "id": "tc61",
@@ -918,7 +978,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-01-11"
   },
   {
     "id": "tc62",
@@ -933,7 +994,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-08-03"
   },
   {
     "id": "tc63",
@@ -948,7 +1010,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-01-17"
   },
   {
     "id": "tc64",
@@ -963,7 +1026,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2024-11-24"
   },
   {
     "id": "tc65",
@@ -978,7 +1042,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-07-28"
   },
   {
     "id": "tc66",
@@ -993,7 +1058,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-08-04"
   },
   {
     "id": "tc67",
@@ -1008,7 +1074,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2025-07-29"
   },
   {
     "id": "tc68",
@@ -1023,7 +1090,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-08-11"
   },
   {
     "id": "tc69",
@@ -1038,7 +1106,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-07-28"
   },
   {
     "id": "tc70",
@@ -1053,7 +1122,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2025-01-09"
   },
   {
     "id": "tc71",
@@ -1068,7 +1138,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2025-04-05"
   },
   {
     "id": "tc72",
@@ -1083,7 +1154,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-08-03"
   },
   {
     "id": "tc73",
@@ -1098,7 +1170,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-08-04"
   },
   {
     "id": "tc74",
@@ -1113,7 +1186,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-04-13"
   },
   {
     "id": "tc75",
@@ -1128,7 +1202,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-08-02"
   },
   {
     "id": "tc76",
@@ -1143,7 +1218,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-08-05"
   },
   {
     "id": "tc77",
@@ -1158,7 +1234,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-07-25"
   },
   {
     "id": "tc78",
@@ -1173,7 +1250,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-01-23"
   },
   {
     "id": "tc79",
@@ -1188,7 +1266,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-07-24"
   },
   {
     "id": "tc80",
@@ -1203,7 +1282,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2025-07-07"
   },
   {
     "id": "tc81",
@@ -1218,7 +1298,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-07-26"
   },
   {
     "id": "tc82",
@@ -1233,7 +1314,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-08-06"
   },
   {
     "id": "tc83",
@@ -1248,7 +1330,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-08-06"
   },
   {
     "id": "tc84",
@@ -1263,7 +1346,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-08-06"
   },
   {
     "id": "tc85",
@@ -1278,7 +1362,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-08-06"
   },
   {
     "id": "tc86",
@@ -1293,7 +1378,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-08-05"
   },
   {
     "id": "tc87",
@@ -1308,7 +1394,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-02-15"
   },
   {
     "id": "tc88",
@@ -1323,7 +1410,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2025-01-03"
   },
   {
     "id": "tc89",
@@ -1338,7 +1426,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2025-01-09"
   },
   {
     "id": "tc90",
@@ -1353,7 +1442,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-08-10"
   },
   {
     "id": "tc91",
@@ -1368,7 +1458,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-08-05"
   },
   {
     "id": "tc92",
@@ -1383,7 +1474,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-07-31"
   },
   {
     "id": "tc93",
@@ -1398,7 +1490,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2025-05-13"
   },
   {
     "id": "tc94",
@@ -1413,7 +1506,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-03-11"
   },
   {
     "id": "tc95",
@@ -1428,7 +1522,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2025-03-30"
   },
   {
     "id": "tc96",
@@ -1443,7 +1538,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-05-26"
   },
   {
     "id": "tc97",
@@ -1458,7 +1554,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2025-10-18"
   },
   {
     "id": "tc98",
@@ -1473,7 +1570,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-01-01"
   },
   {
     "id": "tc99",
@@ -1488,7 +1586,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-07-28"
   },
   {
     "id": "tc100",
@@ -1503,7 +1602,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2024-12-23"
   },
   {
     "id": "tc101",
@@ -1518,7 +1618,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2024-09-03"
   },
   {
     "id": "tc102",
@@ -1533,7 +1634,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-08-09"
   },
   {
     "id": "tc103",
@@ -1548,7 +1650,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2025-10-10"
   },
   {
     "id": "tc104",
@@ -1563,7 +1666,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-07-27"
   },
   {
     "id": "tc105",
@@ -1578,7 +1682,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-07-25"
   },
   {
     "id": "tc106",
@@ -1593,7 +1698,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-04-14"
   },
   {
     "id": "tc107",
@@ -1608,7 +1714,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2025-01-18"
   },
   {
     "id": "tc108",
@@ -1623,7 +1730,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-07-26"
   },
   {
     "id": "tc109",
@@ -1638,7 +1746,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2025-06-18"
   },
   {
     "id": "tc110",
@@ -1653,7 +1762,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-07-23"
   },
   {
     "id": "tc111",
@@ -1668,7 +1778,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-05-28"
   },
   {
     "id": "tc112",
@@ -1683,7 +1794,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2025-02-23"
   },
   {
     "id": "tc113",
@@ -1698,7 +1810,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-07-28"
   },
   {
     "id": "tc114",
@@ -1713,7 +1826,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-08-04"
   },
   {
     "id": "tc115",
@@ -1728,7 +1842,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-07-24"
   },
   {
     "id": "tc116",
@@ -1743,7 +1858,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-07-26"
   },
   {
     "id": "tc117",
@@ -1758,7 +1874,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-07-30"
   },
   {
     "id": "tc118",
@@ -1773,7 +1890,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2025-06-19"
   },
   {
     "id": "tc119",
@@ -1788,7 +1906,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-07-26"
   },
   {
     "id": "tc120",
@@ -1803,7 +1922,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-08-07"
   },
   {
     "id": "tc121",
@@ -1818,7 +1938,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-08-09"
   },
   {
     "id": "tc122",
@@ -1833,7 +1954,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-07-25"
   },
   {
     "id": "tc123",
@@ -1848,7 +1970,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2024-11-27"
   },
   {
     "id": "tc124",
@@ -1863,7 +1986,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2025-04-01"
   },
   {
     "id": "tc125",
@@ -1878,7 +2002,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-07-28"
   },
   {
     "id": "tc126",
@@ -1893,7 +2018,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-05-29"
   },
   {
     "id": "tc127",
@@ -1908,7 +2034,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2025-11-12"
   },
   {
     "id": "tc128",
@@ -1923,7 +2050,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2024-10-16"
   },
   {
     "id": "tc129",
@@ -1938,7 +2066,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2024-12-31"
   },
   {
     "id": "tc130",
@@ -1953,7 +2082,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-07-28"
   },
   {
     "id": "tc131",
@@ -1968,7 +2098,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-07-30"
   },
   {
     "id": "tc132",
@@ -1983,7 +2114,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-04-17"
   },
   {
     "id": "tc133",
@@ -1998,7 +2130,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-07-08"
   },
   {
     "id": "tc134",
@@ -2013,7 +2146,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-07-27"
   },
   {
     "id": "tc135",
@@ -2028,7 +2162,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2024-08-18"
   },
   {
     "id": "tc136",
@@ -2043,7 +2178,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-07-30"
   },
   {
     "id": "tc137",
@@ -2058,7 +2194,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-05-17"
   },
   {
     "id": "tc138",
@@ -2073,7 +2210,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-03-09"
   },
   {
     "id": "tc139",
@@ -2088,7 +2226,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-08-08"
   },
   {
     "id": "tc140",
@@ -2103,7 +2242,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-08-01"
   },
   {
     "id": "tc141",
@@ -2118,7 +2258,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-03-29"
   },
   {
     "id": "tc142",
@@ -2133,7 +2274,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2025-08-08"
   },
   {
     "id": "tc143",
@@ -2148,7 +2290,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2025-07-24"
   },
   {
     "id": "tc144",
@@ -2163,7 +2306,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-08-01"
   },
   {
     "id": "tc145",
@@ -2178,7 +2322,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2025-05-11"
   },
   {
     "id": "tc146",
@@ -2193,7 +2338,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-07-30"
   },
   {
     "id": "tc147",
@@ -2208,7 +2354,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-08-02"
   },
   {
     "id": "tc148",
@@ -2223,7 +2370,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2024-09-04"
   },
   {
     "id": "tc149",
@@ -2238,7 +2386,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-05-28"
   },
   {
     "id": "tc150",
@@ -2253,7 +2402,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-07-24"
   },
   {
     "id": "tc151",
@@ -2268,7 +2418,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2025-05-16"
   },
   {
     "id": "tc152",
@@ -2283,7 +2434,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-07-21"
   },
   {
     "id": "tc153",
@@ -2298,7 +2450,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-07-28"
   },
   {
     "id": "tc154",
@@ -2313,7 +2466,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2025-04-27"
   },
   {
     "id": "tc155",
@@ -2328,7 +2482,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-07-24"
   },
   {
     "id": "tc156",
@@ -2343,7 +2498,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-07-27"
   },
   {
     "id": "tc157",
@@ -2358,7 +2514,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2025-02-04"
   },
   {
     "id": "tc158",
@@ -2373,7 +2530,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-08-11"
   },
   {
     "id": "tc159",
@@ -2388,7 +2546,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-08-02"
   },
   {
     "id": "tc160",
@@ -2403,7 +2562,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2024-12-03"
   },
   {
     "id": "tc161",
@@ -2418,7 +2578,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2024-11-01"
   },
   {
     "id": "tc162",
@@ -2433,7 +2594,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2025-05-09"
   },
   {
     "id": "tc163",
@@ -2448,7 +2610,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2024-12-04"
   },
   {
     "id": "tc164",
@@ -2463,7 +2626,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-07-30"
   },
   {
     "id": "tc165",
@@ -2478,7 +2642,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2025-09-30"
   },
   {
     "id": "tc166",
@@ -2493,7 +2658,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-08-05"
   },
   {
     "id": "tc167",
@@ -2508,7 +2674,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-08-06"
   },
   {
     "id": "tc168",
@@ -2523,7 +2690,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-07-25"
   },
   {
     "id": "tc169",
@@ -2538,7 +2706,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-07-29"
   },
   {
     "id": "tc170",
@@ -2553,7 +2722,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-08-08"
   },
   {
     "id": "tc171",
@@ -2568,7 +2738,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-07-25"
   },
   {
     "id": "tc172",
@@ -2583,7 +2754,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2025-10-22"
   },
   {
     "id": "tc173",
@@ -2598,7 +2770,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-06-28"
   },
   {
     "id": "tc174",
@@ -2613,7 +2786,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-08-11"
   },
   {
     "id": "tc175",
@@ -2628,7 +2802,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-07-24"
   },
   {
     "id": "tc176",
@@ -2643,7 +2818,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-08-04"
   },
   {
     "id": "tc177",
@@ -2658,7 +2834,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-08-04"
   },
   {
     "id": "tc178",
@@ -2673,7 +2850,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-07-29"
   },
   {
     "id": "tc179",
@@ -2688,7 +2866,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-03-23"
   },
   {
     "id": "tc180",
@@ -2703,7 +2882,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2025-04-09"
   },
   {
     "id": "tc181",
@@ -2718,7 +2898,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2025-10-22"
   },
   {
     "id": "tc182",
@@ -2733,7 +2914,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-08-07"
   },
   {
     "id": "tc183",
@@ -2748,7 +2930,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-08-09"
   },
   {
     "id": "tc184",
@@ -2763,7 +2946,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-07-29"
   },
   {
     "id": "tc185",
@@ -2778,7 +2962,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-07-25"
   },
   {
     "id": "tc186",
@@ -2793,7 +2978,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-07-22"
   },
   {
     "id": "tc187",
@@ -2808,7 +2994,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-08-11"
   },
   {
     "id": "tc188",
@@ -2823,7 +3010,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-08-06"
   },
   {
     "id": "tc189",
@@ -2838,7 +3026,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-07-30"
   },
   {
     "id": "tc190",
@@ -2853,7 +3042,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-08-08"
   },
   {
     "id": "tc191",
@@ -2868,7 +3058,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-07-22"
   },
   {
     "id": "tc192",
@@ -2883,7 +3074,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2025-08-09"
   },
   {
     "id": "tc193",
@@ -2898,7 +3090,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-07-22"
   },
   {
     "id": "tc194",
@@ -2913,7 +3106,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2025-03-21"
   },
   {
     "id": "tc195",
@@ -2928,7 +3122,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2025-02-27"
   },
   {
     "id": "tc196",
@@ -2943,7 +3138,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2024-10-02"
   },
   {
     "id": "tc197",
@@ -2958,7 +3154,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-06-07"
   },
   {
     "id": "tc198",
@@ -2973,7 +3170,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-04-26"
   },
   {
     "id": "tc199",
@@ -2988,7 +3186,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-03-25"
   },
   {
     "id": "tc200",
@@ -3003,7 +3202,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2025-11-09"
   },
   {
     "id": "tc201",
@@ -3018,7 +3218,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2025-12-21"
   },
   {
     "id": "tc202",
@@ -3033,7 +3234,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-08-02"
   },
   {
     "id": "tc203",
@@ -3048,7 +3250,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-04-28"
   },
   {
     "id": "tc204",
@@ -3063,7 +3266,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-07-26"
   },
   {
     "id": "tc205",
@@ -3078,7 +3282,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-07-22"
   },
   {
     "id": "tc206",
@@ -3093,7 +3298,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2025-11-11"
   },
   {
     "id": "tc207",
@@ -3108,7 +3314,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2025-07-10"
   },
   {
     "id": "tc208",
@@ -3123,7 +3330,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2025-02-25"
   },
   {
     "id": "tc209",
@@ -3138,7 +3346,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-08-05"
   },
   {
     "id": "tc210",
@@ -3153,7 +3362,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-07-29"
   },
   {
     "id": "tc211",
@@ -3168,7 +3378,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-08-07"
   },
   {
     "id": "tc212",
@@ -3183,7 +3394,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2024-12-06"
   },
   {
     "id": "tc213",
@@ -3198,7 +3410,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2025-08-16"
   },
   {
     "id": "tc214",
@@ -3213,7 +3426,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-07-28"
   },
   {
     "id": "tc215",
@@ -3228,7 +3442,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-08-01"
   },
   {
     "id": "tc216",
@@ -3243,7 +3458,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-08-02"
   },
   {
     "id": "tc217",
@@ -3258,7 +3474,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-03-05"
   },
   {
     "id": "tc218",
@@ -3273,7 +3490,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2024-10-04"
   },
   {
     "id": "tc219",
@@ -3288,7 +3506,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-07-29"
   },
   {
     "id": "tc220",
@@ -3303,7 +3522,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-08-08"
   },
   {
     "id": "tc221",
@@ -3318,7 +3538,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-03-03"
   },
   {
     "id": "tc222",
@@ -3333,7 +3554,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-02-19"
   },
   {
     "id": "tc223",
@@ -3348,7 +3570,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-07-26"
   },
   {
     "id": "tc224",
@@ -3363,7 +3586,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2025-12-09"
   },
   {
     "id": "tc225",
@@ -3378,7 +3602,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-07-24"
   },
   {
     "id": "tc226",
@@ -3393,7 +3618,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-08-11"
   },
   {
     "id": "tc227",
@@ -3408,7 +3634,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-08-11"
   },
   {
     "id": "tc228",
@@ -3423,7 +3650,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2025-02-07"
   },
   {
     "id": "tc229",
@@ -3438,7 +3666,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2025-11-02"
   },
   {
     "id": "tc230",
@@ -3453,7 +3682,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-08-05"
   },
   {
     "id": "tc231",
@@ -3468,7 +3698,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-08-01"
   },
   {
     "id": "tc232",
@@ -3483,7 +3714,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-07-29"
   },
   {
     "id": "tc233",
@@ -3498,7 +3730,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-08-06"
   },
   {
     "id": "tc234",
@@ -3513,7 +3746,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2025-11-20"
   },
   {
     "id": "tc235",
@@ -3528,7 +3762,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2025-04-13"
   },
   {
     "id": "tc236",
@@ -3543,7 +3778,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-07-22"
   },
   {
     "id": "tc237",
@@ -3558,7 +3794,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-07-26"
   },
   {
     "id": "tc238",
@@ -3573,7 +3810,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-08-08"
   },
   {
     "id": "tc239",
@@ -3588,7 +3826,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-07-21"
   },
   {
     "id": "tc240",
@@ -3603,7 +3842,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-03-26"
   },
   {
     "id": "tc241",
@@ -3618,7 +3858,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-07-22"
   },
   {
     "id": "tc242",
@@ -3633,7 +3874,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-07-29"
   },
   {
     "id": "tc243",
@@ -3648,7 +3890,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-08-09"
   },
   {
     "id": "tc244",
@@ -3663,7 +3906,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-07-29"
   },
   {
     "id": "tc245",
@@ -3678,7 +3922,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2025-03-19"
   },
   {
     "id": "tc246",
@@ -3693,7 +3938,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-02-23"
   },
   {
     "id": "tc247",
@@ -3708,7 +3954,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-08-01"
   },
   {
     "id": "tc248",
@@ -3723,7 +3970,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-07-28"
   },
   {
     "id": "tc249",
@@ -3738,7 +3986,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-07-26"
   },
   {
     "id": "tc250",
@@ -3753,7 +4002,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-08-05"
   },
   {
     "id": "tc251",
@@ -3768,7 +4018,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-06-27"
   },
   {
     "id": "tc252",
@@ -3783,7 +4034,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-01-10"
   },
   {
     "id": "tc253",
@@ -3798,7 +4050,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-08-04"
   },
   {
     "id": "tc254",
@@ -3813,7 +4066,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-08-01"
   },
   {
     "id": "tc255",
@@ -3828,7 +4082,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2025-09-10"
   },
   {
     "id": "tc256",
@@ -3843,7 +4098,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-06-25"
   },
   {
     "id": "tc257",
@@ -3858,7 +4114,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-07-24"
   },
   {
     "id": "tc258",
@@ -3873,7 +4130,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 18500,
     "warrantyRef": null,
-    "isReefer": true
+    "isReefer": true,
+    "lastUsedDate": "2026-08-09"
   },
   {
     "id": "tc259",
@@ -3888,7 +4146,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 18500,
     "warrantyRef": null,
-    "isReefer": true
+    "isReefer": true,
+    "lastUsedDate": "2026-08-04"
   },
   {
     "id": "tc260",
@@ -3903,7 +4162,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 18500,
     "warrantyRef": null,
-    "isReefer": true
+    "isReefer": true,
+    "lastUsedDate": "2026-07-30"
   },
   {
     "id": "tc261",
@@ -3918,7 +4178,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 18500,
     "warrantyRef": null,
-    "isReefer": true
+    "isReefer": true,
+    "lastUsedDate": "2026-08-07"
   },
   {
     "id": "tc262",
@@ -3933,7 +4194,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 18500,
     "warrantyRef": null,
-    "isReefer": true
+    "isReefer": true,
+    "lastUsedDate": "2025-07-21"
   },
   {
     "id": "tc263",
@@ -3948,7 +4210,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 18500,
     "warrantyRef": null,
-    "isReefer": true
+    "isReefer": true,
+    "lastUsedDate": "2026-08-05"
   },
   {
     "id": "tc264",
@@ -3963,7 +4226,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 18500,
     "warrantyRef": null,
-    "isReefer": true
+    "isReefer": true,
+    "lastUsedDate": "2025-02-21"
   },
   {
     "id": "tc265",
@@ -3978,7 +4242,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 18500,
     "warrantyRef": null,
-    "isReefer": true
+    "isReefer": true,
+    "lastUsedDate": "2026-07-27"
   },
   {
     "id": "tc266",
@@ -3993,7 +4258,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 18500,
     "warrantyRef": null,
-    "isReefer": true
+    "isReefer": true,
+    "lastUsedDate": "2026-08-01"
   },
   {
     "id": "tc267",
@@ -4008,7 +4274,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-08-01"
   },
   {
     "id": "tc268",
@@ -4023,7 +4290,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-02-02"
   },
   {
     "id": "tc269",
@@ -4038,7 +4306,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-08-09"
   },
   {
     "id": "tc270",
@@ -4053,7 +4322,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2025-01-10"
   },
   {
     "id": "tc271",
@@ -4068,7 +4338,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-08-04"
   },
   {
     "id": "tc272",
@@ -4083,7 +4354,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-06-23"
   },
   {
     "id": "tc273",
@@ -4098,7 +4370,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-07-26"
   },
   {
     "id": "tc274",
@@ -4113,7 +4386,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-07-29"
   },
   {
     "id": "tc275",
@@ -4128,7 +4402,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2025-06-12"
   },
   {
     "id": "tc276",
@@ -4143,7 +4418,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-08-05"
   },
   {
     "id": "tc277",
@@ -4158,7 +4434,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2025-01-13"
   },
   {
     "id": "tc278",
@@ -4173,7 +4450,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-08-07"
   },
   {
     "id": "tc279",
@@ -4188,7 +4466,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-08-08"
   },
   {
     "id": "tc280",
@@ -4203,7 +4482,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2025-08-28"
   },
   {
     "id": "tc281",
@@ -4218,7 +4498,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2025-04-04"
   },
   {
     "id": "tc282",
@@ -4233,7 +4514,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-07-26"
   },
   {
     "id": "tc283",
@@ -4248,7 +4530,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-07-30"
   },
   {
     "id": "tc284",
@@ -4263,7 +4546,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-08-08"
   },
   {
     "id": "tc285",
@@ -4278,7 +4562,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-08-01"
   },
   {
     "id": "tc286",
@@ -4293,7 +4578,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-07-26"
   },
   {
     "id": "tc287",
@@ -4308,7 +4594,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-08-10"
   },
   {
     "id": "tc288",
@@ -4323,7 +4610,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-01-11"
   },
   {
     "id": "tc289",
@@ -4338,7 +4626,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2025-05-04"
   },
   {
     "id": "tc290",
@@ -4353,7 +4642,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2025-04-26"
   },
   {
     "id": "tc291",
@@ -4368,7 +4658,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2024-10-15"
   },
   {
     "id": "tc292",
@@ -4383,7 +4674,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-08-09"
   },
   {
     "id": "tc293",
@@ -4398,7 +4690,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2024-11-29"
   },
   {
     "id": "tc294",
@@ -4413,7 +4706,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-08-07"
   },
   {
     "id": "tc295",
@@ -4428,7 +4722,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2025-10-25"
   },
   {
     "id": "tc296",
@@ -4443,7 +4738,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2025-08-07"
   },
   {
     "id": "tc297",
@@ -4458,7 +4754,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-07-30"
   },
   {
     "id": "tc298",
@@ -4473,7 +4770,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-05-08"
   },
   {
     "id": "tc299",
@@ -4488,7 +4786,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-06-02"
   },
   {
     "id": "tc300",
@@ -4503,7 +4802,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-08-03"
   },
   {
     "id": "tc301",
@@ -4518,7 +4818,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-08-08"
   },
   {
     "id": "tc302",
@@ -4533,7 +4834,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-08-07"
   },
   {
     "id": "tc303",
@@ -4548,7 +4850,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2025-06-10"
   },
   {
     "id": "tc304",
@@ -4563,7 +4866,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-08-07"
   },
   {
     "id": "tc305",
@@ -4578,7 +4882,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-01-10"
   },
   {
     "id": "tc306",
@@ -4593,7 +4898,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-07-27"
   },
   {
     "id": "tc307",
@@ -4608,7 +4914,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-08-05"
   },
   {
     "id": "tc308",
@@ -4623,7 +4930,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-07-23"
   },
   {
     "id": "tc309",
@@ -4638,7 +4946,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2025-11-20"
   },
   {
     "id": "tc310",
@@ -4653,7 +4962,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-08-07"
   },
   {
     "id": "tc311",
@@ -4668,7 +4978,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-03-23"
   },
   {
     "id": "tc312",
@@ -4683,7 +4994,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-07-21"
   },
   {
     "id": "tc313",
@@ -4698,7 +5010,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-03-23"
   },
   {
     "id": "tc314",
@@ -4713,7 +5026,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2024-12-05"
   },
   {
     "id": "tc315",
@@ -4728,7 +5042,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2025-12-02"
   },
   {
     "id": "tc316",
@@ -4743,7 +5058,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-08-05"
   },
   {
     "id": "tc317",
@@ -4758,7 +5074,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-08-06"
   },
   {
     "id": "tc318",
@@ -4773,7 +5090,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-08-09"
   },
   {
     "id": "tc319",
@@ -4788,7 +5106,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-08-04"
   },
   {
     "id": "tc320",
@@ -4803,7 +5122,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-07-26"
   },
   {
     "id": "tc321",
@@ -4818,7 +5138,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-07-27"
   },
   {
     "id": "tc322",
@@ -4833,7 +5154,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-08-02"
   },
   {
     "id": "tc323",
@@ -4848,7 +5170,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-08-04"
   },
   {
     "id": "tc324",
@@ -4863,7 +5186,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2025-05-12"
   },
   {
     "id": "tc325",
@@ -4878,7 +5202,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2025-10-14"
   },
   {
     "id": "tc326",
@@ -4893,7 +5218,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2024-10-13"
   },
   {
     "id": "tc327",
@@ -4908,7 +5234,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-03-04"
   },
   {
     "id": "tc328",
@@ -4923,7 +5250,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-06-01"
   },
   {
     "id": "tc329",
@@ -4938,7 +5266,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-08-02"
   },
   {
     "id": "tc330",
@@ -4953,7 +5282,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 18500,
     "warrantyRef": null,
-    "isReefer": true
+    "isReefer": true,
+    "lastUsedDate": "2026-08-05"
   },
   {
     "id": "tc331",
@@ -4968,7 +5298,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 18500,
     "warrantyRef": null,
-    "isReefer": true
+    "isReefer": true,
+    "lastUsedDate": "2026-08-03"
   },
   {
     "id": "tc332",
@@ -4983,7 +5314,8 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 3000,
     "warrantyRef": null,
-    "isReefer": false
+    "isReefer": false,
+    "lastUsedDate": "2026-07-31"
   },
   {
     "id": "tc333",
@@ -4998,6 +5330,7 @@ export const fleetFromTracker: FleetContainer[] = [
     "custodianBookingRef": null,
     "insuredValue": 18500,
     "warrantyRef": null,
-    "isReefer": true
+    "isReefer": true,
+    "lastUsedDate": "2026-08-02"
   }
 ] as FleetContainer[]

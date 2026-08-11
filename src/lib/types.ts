@@ -712,6 +712,9 @@ export interface FleetContainer {
   insuredValue: number
   warrantyRef: string | null
   isReefer: boolean
+  /** Last date this container moved (gate-in/out, hire, etc.) — drives the
+      Alerts tab's "idle 6+ months" flag. */
+  lastUsedDate: string
 }
 
 export type MnrStage =

@@ -13,7 +13,11 @@ import { JobDetail } from '../components/mnr/JobDetail'
 import { useDataStore } from '../store/useDataStore'
 import { latestEstimate } from '../lib/mnr'
 import { mockDepots } from '../mocks/masters'
-import type { ChipStatus, ContainerStatus, MnrJob } from '../lib/types'
+import type { ChipStatus, ContainerStatus, FleetContainer, MnrJob } from '../lib/types'
+
+const DAY_MS = 86400000
+const cscExpiringSoon = (f: FleetContainer) => new Date(f.cscExpiry).getTime() - Date.now() < 90 * DAY_MS
+const isIdle6Months = (f: FleetContainer) => Date.now() - new Date(f.lastUsedDate).getTime() > 182 * DAY_MS
 
 const CONTAINER_CHIP: Record<ContainerStatus, ChipStatus> = {
   Available: 'Delivered',
@@ -51,6 +55,11 @@ export function MnrPage() {
       openJobs: openJobs.length,
     }
   }, [fleet, mnrJobs, approvals])
+
+  const alertCount = useMemo(
+    () => fleet.filter((f) => cscExpiringSoon(f) || isIdle6Months(f)).length,
+    [fleet],
+  )
 
   const selectedJob = mnrJobs.find((j) => j.id === selectedJobId) ?? null
   const jobDetailRef = useRef<HTMLDivElement>(null)
@@ -110,14 +119,15 @@ export function MnrPage() {
         tabs={[
           { key: 'fleet', label: 'Fleet', badge: fleet.length },
           { key: 'jobs', label: 'Repair jobs', badge: mnrJobs.filter((j) => j.stage !== 'Closed').length },
+          { key: 'alerts', label: 'Alerts', badge: alertCount },
         ]}
         active={tab}
         onChange={setTab}
       />
 
-      {tab === 'fleet' ? (
-        <FleetTable />
-      ) : (
+      {tab === 'fleet' && <FleetTable />}
+      {tab === 'alerts' && <AlertsTable />}
+      {tab === 'jobs' && (
         <div className="space-y-5">
           <Card className="overflow-hidden">
             <div className="flex items-center justify-end border-b border-line px-4 py-2.5">
@@ -198,7 +208,6 @@ function FleetTable() {
   const { fleet } = useDataStore()
   const [query, setQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<'All' | ContainerStatus>('All')
-  const soon = (d: string) => new Date(d).getTime() - Date.now() < 90 * 86400000
 
   const q = query.trim().toLowerCase()
   const filtered = fleet.filter((f) => {
@@ -216,9 +225,7 @@ function FleetTable() {
     'Container No.': f.containerNo,
     Type: f.isoType,
     Ownership: f.ownership,
-    'CSC Expiry': f.cscExpiry,
-    'Location / Custodian': f.custodianBookingRef ?? mockDepots.find((d) => d.id === f.depotId)?.name ?? '',
-    'Insured (USD)': f.insuredValue,
+    'Location': f.custodianBookingRef ?? mockDepots.find((d) => d.id === f.depotId)?.name ?? '',
     Status: f.status,
   }))
 
@@ -253,9 +260,7 @@ function FleetTable() {
               <th className="px-5 py-3 font-medium">Container No.</th>
               <th className="px-3 py-3 font-medium">Type</th>
               <th className="px-3 py-3 font-medium">Ownership</th>
-              <th className="px-3 py-3 font-medium">CSC expiry</th>
-              <th className="px-3 py-3 font-medium">Location / custodian</th>
-              <th className="px-3 py-3 font-medium">Insured</th>
+              <th className="px-3 py-3 font-medium">Location</th>
               <th className="px-5 py-3 font-medium">Status</th>
             </tr>
           </thead>
@@ -268,16 +273,6 @@ function FleetTable() {
                   {f.ownership}
                   {f.lessor && <span className="block text-[10px] text-muted">{f.lessor}</span>}
                 </td>
-                <td className="px-3 py-3 font-mono text-xs">
-                  <span className={soon(f.cscExpiry) ? 'font-semibold text-accent-coral' : 'text-body'}>
-                    {f.cscExpiry}
-                  </span>
-                  {soon(f.cscExpiry) && (
-                    <span className="ml-1.5 rounded-badge bg-[#FECACA] px-1.5 py-0.5 text-[10px] font-semibold text-[#B91C1C]">
-                      &lt;90d
-                    </span>
-                  )}
-                </td>
                 <td className="px-3 py-3 text-xs text-body">
                   {f.custodianBookingRef ? (
                     <span className="font-mono">{f.custodianBookingRef}</span>
@@ -285,19 +280,152 @@ function FleetTable() {
                     mockDepots.find((d) => d.id === f.depotId)?.name ?? '—'
                   )}
                 </td>
-                <td className="px-3 py-3 font-mono text-xs text-body">${f.insuredValue.toLocaleString()}</td>
                 <td className="px-5 py-3"><StatusChip status={CONTAINER_CHIP[f.status]} /><span className="ml-2 text-[11px] text-muted">{f.status}</span></td>
               </tr>
             ))}
             {shown.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-5 py-10 text-center text-sm text-muted">No containers match your filter</td>
+                <td colSpan={5} className="px-5 py-10 text-center text-sm text-muted">No containers match your filter</td>
               </tr>
             )}
           </tbody>
         </table>
       </div>
     </Card>
+  )
+}
+
+/* ── Alerts — CSC expiry within 90 days, and containers idle 6+ months ── */
+
+function AlertsTable() {
+  const { fleet } = useDataStore()
+  const cscAlerts = useMemo(
+    () => fleet.filter(cscExpiringSoon).sort((a, b) => a.cscExpiry.localeCompare(b.cscExpiry)),
+    [fleet],
+  )
+  const idleAlerts = useMemo(
+    () => fleet.filter(isIdle6Months).sort((a, b) => a.lastUsedDate.localeCompare(b.lastUsedDate)),
+    [fleet],
+  )
+  const daysUntil = (d: string) => Math.round((new Date(d).getTime() - Date.now()) / DAY_MS)
+  const daysAgo = (d: string) => Math.round((Date.now() - new Date(d).getTime()) / DAY_MS)
+  const locationOf = (f: FleetContainer) =>
+    f.custodianBookingRef ?? mockDepots.find((d) => d.id === f.depotId)?.name ?? '—'
+
+  const cscRows = cscAlerts.map((f) => ({
+    'Container No.': f.containerNo,
+    Type: f.isoType,
+    'CSC Expiry': f.cscExpiry,
+    'Days left': daysUntil(f.cscExpiry),
+    'Location': locationOf(f),
+  }))
+  const idleRows = idleAlerts.map((f) => ({
+    'Container No.': f.containerNo,
+    Type: f.isoType,
+    Status: f.status,
+    'Last Used': f.lastUsedDate,
+    'Days Idle': daysAgo(f.lastUsedDate),
+    'Location': locationOf(f),
+  }))
+
+  return (
+    <div className="space-y-5">
+      <Card className="overflow-hidden">
+        <div className="flex items-center justify-between border-b border-line px-4 py-3">
+          <div className="flex items-center gap-2">
+            <AlertTriangle size={15} className="text-accent-coral" />
+            <h3 className="text-sm font-semibold text-heading">CSC expiry within 90 days</h3>
+            <span className="rounded-badge bg-[#FEE2E2] px-1.5 py-0.5 text-[11px] font-semibold text-[#DC2626]">
+              {cscAlerts.length}
+            </span>
+          </div>
+          <CsvButton filename="mnr-alerts-csc-expiry" rows={cscRows} />
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm">
+            <thead>
+              <tr className="border-b border-line text-[11px] uppercase tracking-wide text-muted">
+                <th className="px-5 py-3 font-medium">Container No.</th>
+                <th className="px-3 py-3 font-medium">Type</th>
+                <th className="px-3 py-3 font-medium">CSC expiry</th>
+                <th className="px-3 py-3 font-medium">Location</th>
+              </tr>
+            </thead>
+            <tbody>
+              {cscAlerts.map((f) => (
+                <tr key={f.id} className="border-b border-line last:border-0 hover:bg-surface-2/60">
+                  <td className="px-5 py-3 font-mono text-xs font-medium text-heading">{f.containerNo}</td>
+                  <td className="px-3 py-3 text-xs text-body">{f.isoType}</td>
+                  <td className="px-3 py-3 font-mono text-xs">
+                    <span className="font-semibold text-accent-coral">{f.cscExpiry}</span>
+                    <span className="ml-1.5 rounded-badge bg-[#FECACA] px-1.5 py-0.5 text-[10px] font-semibold text-[#B91C1C]">
+                      {daysUntil(f.cscExpiry) < 0 ? 'expired' : `${daysUntil(f.cscExpiry)}d left`}
+                    </span>
+                  </td>
+                  <td className="px-3 py-3 text-xs text-body">{locationOf(f)}</td>
+                </tr>
+              ))}
+              {cscAlerts.length === 0 && (
+                <tr>
+                  <td colSpan={4} className="px-5 py-10 text-center text-sm text-muted">
+                    No containers have a CSC expiry coming up in the next 90 days.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+
+      <Card className="overflow-hidden">
+        <div className="flex items-center justify-between border-b border-line px-4 py-3">
+          <div className="flex items-center gap-2">
+            <AlertTriangle size={15} className="text-accent-orange" />
+            <h3 className="text-sm font-semibold text-heading">Idle 6+ months</h3>
+            <span className="rounded-badge bg-[#FFF7ED] px-1.5 py-0.5 text-[11px] font-semibold text-[#EA580C]">
+              {idleAlerts.length}
+            </span>
+          </div>
+          <CsvButton filename="mnr-alerts-idle" rows={idleRows} />
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm">
+            <thead>
+              <tr className="border-b border-line text-[11px] uppercase tracking-wide text-muted">
+                <th className="px-5 py-3 font-medium">Container No.</th>
+                <th className="px-3 py-3 font-medium">Type</th>
+                <th className="px-3 py-3 font-medium">Status</th>
+                <th className="px-3 py-3 font-medium">Last used</th>
+                <th className="px-3 py-3 font-medium">Location</th>
+              </tr>
+            </thead>
+            <tbody>
+              {idleAlerts.map((f) => (
+                <tr key={f.id} className="border-b border-line last:border-0 hover:bg-surface-2/60">
+                  <td className="px-5 py-3 font-mono text-xs font-medium text-heading">{f.containerNo}</td>
+                  <td className="px-3 py-3 text-xs text-body">{f.isoType}</td>
+                  <td className="px-3 py-3"><StatusChip status={CONTAINER_CHIP[f.status]} /></td>
+                  <td className="px-3 py-3 font-mono text-xs">
+                    <span className="text-body">{f.lastUsedDate}</span>
+                    <span className="ml-1.5 rounded-badge bg-[#FFF7ED] px-1.5 py-0.5 text-[10px] font-semibold text-[#EA580C]">
+                      {daysAgo(f.lastUsedDate)}d ago
+                    </span>
+                  </td>
+                  <td className="px-3 py-3 text-xs text-body">{locationOf(f)}</td>
+                </tr>
+              ))}
+              {idleAlerts.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="px-5 py-10 text-center text-sm text-muted">
+                    No containers have gone 6+ months without activity.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+    </div>
   )
 }
 

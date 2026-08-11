@@ -2383,7 +2383,9 @@ export const useDataStore = create<DataState>((set, get) => ({
       mnrJobs: [job, ...st.mnrJobs],
       fleet: container
         ? st.fleet.map((f) =>
-            f.id === container.id ? { ...f, status: 'Hold', depotId: input.depotId, custodianBookingRef: null } : f,
+            f.id === container.id
+              ? { ...f, status: 'Hold', depotId: input.depotId, custodianBookingRef: null, lastUsedDate: now().slice(0, 10) }
+              : f,
           )
         : st.fleet,
       activities: log(
