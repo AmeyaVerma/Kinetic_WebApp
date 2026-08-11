@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import { Plus, Ship, Trash2 } from 'lucide-react'
 import { supabase } from '../../lib/supabaseClient'
 import { EditableDatePill } from '../ui/EditableDatePill'
-import { EditableTextPill } from '../ui/EditableTextPill'
 import type { Booking, VesselLeg, VesselVoyageRecord } from '../../lib/types'
 
 const EMPTY_LEG: Omit<VesselLeg, 'id'> = {
@@ -12,6 +11,7 @@ const EMPTY_LEG: Omit<VesselLeg, 'id'> = {
   etaOrigin: null,
   etdOrigin: null,
   etaDestination: null,
+  portId: null,
   terminal: null,
   plannedGateOpen: null,
   plannedGateClose: null,
@@ -35,6 +35,7 @@ function legsFromBooking(booking: Booking): VesselLeg[] {
       etaOrigin: null,
       etdOrigin: booking.etd || null,
       etaDestination: booking.eta || null,
+      portId: null,
       terminal: booking.terminal ?? null,
       plannedGateOpen: booking.plannedGateOpen ?? null,
       plannedGateClose: booking.plannedGateClose ?? null,
@@ -186,8 +187,69 @@ function VesselLegCard({
       voyageNo,
       etdOrigin: v?.etd ?? leg.etdOrigin,
       etaDestination: v?.eta ?? leg.etaDestination,
-      terminal: v?.terminal ?? leg.terminal,
     })
+  }
+
+  // Port/Terminal — sourced only from the Ports/ICDs/Terminals master
+  // (sea_ports / sea_port_terminals), never free text.
+  const [portQuery, setPortQuery] = useState('')
+  const [portResults, setPortResults] = useState<{ id: string; name: string; code: string | null }[]>([])
+  const [portOpen, setPortOpen] = useState(false)
+  const [portName, setPortName] = useState('')
+  const [terminals, setTerminals] = useState<{ id: string; name: string }[]>([])
+
+  useEffect(() => {
+    if (!leg.portId) {
+      setPortName('')
+      setTerminals([])
+      return
+    }
+    let cancelled = false
+    supabase
+      .from('sea_ports')
+      .select('id,name')
+      .eq('id', leg.portId)
+      .single()
+      .then(({ data }) => {
+        if (!cancelled && data) setPortName(data.name as string)
+      })
+    supabase
+      .from('sea_port_terminals')
+      .select('id,name')
+      .eq('port_id', leg.portId)
+      .order('name', { ascending: true })
+      .then(({ data }) => {
+        if (!cancelled && data) setTerminals(data as { id: string; name: string }[])
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [leg.portId])
+
+  useEffect(() => {
+    const q = portQuery.trim()
+    if (!q || q === portName) {
+      setPortResults([])
+      return
+    }
+    const t = setTimeout(() => {
+      const safe = q.replace(/[,%]/g, ' ')
+      supabase
+        .from('sea_ports')
+        .select('id,name,code')
+        .ilike('name', `%${safe}%`)
+        .order('name', { ascending: true })
+        .limit(8)
+        .then(({ data }) => setPortResults((data as { id: string; name: string; code: string | null }[]) ?? []))
+    }, 250)
+    return () => clearTimeout(t)
+  }, [portQuery, portName])
+
+  const pickPort = (p: { id: string; name: string }) => {
+    onChange({ portId: p.id, terminal: null })
+    setPortName(p.name)
+    setPortQuery('')
+    setPortOpen(false)
   }
 
   return (
@@ -276,7 +338,59 @@ function VesselLegCard({
           value={leg.etaDestination ?? ''}
           onChange={(v) => onChange({ etaDestination: v })}
         />
-        <EditableTextPill label="Terminal" value={leg.terminal ?? ''} onChange={(v) => onChange({ terminal: v })} />
+        <div className="relative">
+          <label className="block rounded-btn border border-line bg-surface px-3 py-2 focus-within:border-primary">
+            <p className="font-mono text-[10px] uppercase tracking-wide text-muted">Port</p>
+            <input
+              type="text"
+              value={portOpen ? portQuery : portName}
+              placeholder="Search sea port…"
+              onChange={(e) => {
+                setPortQuery(e.target.value)
+                setPortOpen(true)
+              }}
+              onFocus={() => {
+                setPortQuery('')
+                setPortOpen(true)
+              }}
+              onBlur={() => setTimeout(() => setPortOpen(false), 150)}
+              className="mt-0.5 w-full bg-transparent text-[13px] text-heading focus:outline-none"
+            />
+          </label>
+          {portOpen && portResults.length > 0 && (
+            <div className="absolute z-10 mt-1 w-full overflow-hidden rounded-btn border border-line bg-surface shadow-lg">
+              {portResults.map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  onMouseDown={() => pickPort(p)}
+                  className="block w-full px-3 py-2 text-left text-[12px] text-body hover:bg-surface-2"
+                >
+                  {p.name}
+                  {p.code ? ` (${p.code})` : ''}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+        <label className="block rounded-btn border border-line bg-surface px-3 py-2 focus-within:border-primary">
+          <p className="font-mono text-[10px] uppercase tracking-wide text-muted">Terminal</p>
+          <select
+            value={leg.terminal ?? ''}
+            disabled={!leg.portId}
+            onChange={(e) => onChange({ terminal: e.target.value || null })}
+            className="mt-0.5 w-full bg-transparent text-[13px] text-heading focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <option value="" className="bg-white text-[#0F172A]">
+              {leg.portId ? '—' : 'Pick a port first'}
+            </option>
+            {terminals.map((t) => (
+              <option key={t.id} value={t.name} className="bg-white text-[#0F172A]">
+                {t.name}
+              </option>
+            ))}
+          </select>
+        </label>
         <EditableDatePill
           label="Gate open (planned)"
           value={leg.plannedGateOpen ?? ''}

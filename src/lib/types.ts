@@ -249,6 +249,42 @@ export interface VesselVoyageRecord {
   createdAt: string
 }
 
+/* ── Ports / ICDs / Terminals master — the only place these can be
+   added or edited; booking flows read from here, never free text. ── */
+
+export interface SeaPortRecord {
+  id: string
+  name: string
+  code: string | null
+  country: string | null
+  createdAt: string
+}
+
+export interface SeaPortTerminalRecord {
+  id: string
+  portId: string
+  name: string
+  createdAt: string
+}
+
+export interface IcdRecord {
+  id: string
+  name: string
+  code: string | null
+  city: string | null
+  country: string | null
+  createdAt: string
+}
+
+export interface AirPortRecord {
+  id: string
+  name: string
+  code: string | null
+  city: string | null
+  country: string | null
+  createdAt: string
+}
+
 /** One leg of a booking's vessel schedule — a booking can have several
     (transhipment), each with its own dates. vesselId/voyage picked from
     the Vessels master pre-fill etdOrigin/etaDestination/terminal from
@@ -262,6 +298,10 @@ export interface VesselLeg {
   etaOrigin: string | null
   etdOrigin: string | null
   etaDestination: string | null
+  /** Sea port this leg's terminal belongs to — from the Ports/ICDs/
+      Terminals master (sea_ports). Scopes the Terminal dropdown; both are
+      master-managed, never free text. */
+  portId: string | null
   terminal: string | null
   plannedGateOpen: string | null
   plannedGateClose: string | null

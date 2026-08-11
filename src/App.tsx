@@ -22,7 +22,18 @@ import { AddVesselPage } from './pages/master/AddVesselPage'
 import { ContainersHubPage } from './pages/master/ContainersHubPage'
 import { ContainersMasterPage } from './pages/master/ContainersMasterPage'
 import { ContainerDetailPage } from './pages/master/ContainerDetailPage'
-import { Truck, Wrench, FileWarning, Wallet } from 'lucide-react'
+import { PortsHubPage } from './pages/master/PortsHubPage'
+import { MiscellaneousHubPage } from './pages/master/MiscellaneousHubPage'
+import { SeaPortsMasterPage } from './pages/master/SeaPortsMasterPage'
+import { AddSeaPortPage } from './pages/master/AddSeaPortPage'
+import { SeaPortDetailPage } from './pages/master/SeaPortDetailPage'
+import { IcdsMasterPage } from './pages/master/IcdsMasterPage'
+import { AddIcdPage } from './pages/master/AddIcdPage'
+import { IcdDetailPage } from './pages/master/IcdDetailPage'
+import { AirPortsMasterPage } from './pages/master/AirPortsMasterPage'
+import { AddAirPortPage } from './pages/master/AddAirPortPage'
+import { AirPortDetailPage } from './pages/master/AirPortDetailPage'
+import { Truck, Wrench, FileWarning, Wallet, Ruler, Package, Coins } from 'lucide-react'
 import { AgentsPage } from './pages/AgentsPage'
 import { HrPage } from './pages/HrPage'
 import { LoginPage } from './pages/LoginPage'
@@ -193,6 +204,59 @@ export default function App() {
                   title="Accounts"
                   description="Chart of accounts / ledger heads used for invoicing and charge posting."
                   icon={Wallet}
+                />
+              </Guard>
+            }
+          />
+          <Route path="/master/ports" element={<Guard module="master"><PortsHubPage /></Guard>} />
+          <Route path="/master/ports/sea-ports" element={<Guard module="master"><SeaPortsMasterPage /></Guard>} />
+          <Route path="/master/ports/sea-ports/new" element={<Guard module="master"><AddSeaPortPage /></Guard>} />
+          <Route path="/master/ports/sea-ports/:id" element={<Guard module="master"><SeaPortDetailPage /></Guard>} />
+          <Route path="/master/ports/icds" element={<Guard module="master"><IcdsMasterPage /></Guard>} />
+          <Route path="/master/ports/icds/new" element={<Guard module="master"><AddIcdPage /></Guard>} />
+          <Route path="/master/ports/icds/:id" element={<Guard module="master"><IcdDetailPage /></Guard>} />
+          <Route path="/master/ports/air-ports" element={<Guard module="master"><AirPortsMasterPage /></Guard>} />
+          <Route path="/master/ports/air-ports/new" element={<Guard module="master"><AddAirPortPage /></Guard>} />
+          <Route path="/master/ports/air-ports/:id" element={<Guard module="master"><AirPortDetailPage /></Guard>} />
+          <Route path="/master/misc" element={<Guard module="master"><MiscellaneousHubPage /></Guard>} />
+          <Route
+            path="/master/misc/uom"
+            element={
+              <Guard module="master">
+                <MasterComingSoon
+                  title="Units of Measurement"
+                  description="Not built yet."
+                  icon={Ruler}
+                  backTo="/master/misc"
+                  backLabel="Miscellaneous"
+                />
+              </Guard>
+            }
+          />
+          <Route
+            path="/master/misc/package-types"
+            element={
+              <Guard module="master">
+                <MasterComingSoon
+                  title="Package types"
+                  description="Not built yet."
+                  icon={Package}
+                  backTo="/master/misc"
+                  backLabel="Miscellaneous"
+                />
+              </Guard>
+            }
+          />
+          <Route
+            path="/master/misc/currencies"
+            element={
+              <Guard module="master">
+                <MasterComingSoon
+                  title="Currencies"
+                  description="Not built yet."
+                  icon={Coins}
+                  backTo="/master/misc"
+                  backLabel="Miscellaneous"
                 />
               </Guard>
             }

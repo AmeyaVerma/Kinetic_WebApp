@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Contact, Truck, Ship, Container, Wallet, ChevronRight } from 'lucide-react'
+import { Contact, Truck, Ship, Container, Wallet, Anchor, LayoutGrid, ChevronRight } from 'lucide-react'
 import { Card } from '../components/ui/Card'
 import { useDataStore } from '../store/useDataStore'
 import { supabase } from '../lib/supabaseClient'
@@ -70,6 +70,20 @@ export function MasterDataPage() {
       label: 'Accounts',
       description: 'Chart of accounts / ledger heads used for invoicing and charge posting.',
       icon: Wallet,
+      live: false,
+    },
+    {
+      key: 'ports',
+      label: 'Ports / ICDs / Terminals',
+      description: 'Sea ports with terminals, ICDs, and air ports.',
+      icon: Anchor,
+      live: false,
+    },
+    {
+      key: 'misc',
+      label: 'Miscellaneous',
+      description: 'Units of measurement, package types, and currencies.',
+      icon: LayoutGrid,
       live: false,
     },
   ]
