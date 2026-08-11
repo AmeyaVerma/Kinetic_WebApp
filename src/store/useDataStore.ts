@@ -42,6 +42,7 @@ import type {
   MilestoneEntry,
   PayrollRun,
   MnrEstimate,
+  MnrPhoto,
   MnrJob,
   MnrOutcome,
   ContainerRecord,
@@ -936,6 +937,10 @@ interface DataState {
   // ── MNR (Requirements v2 + flowchart) ──
   fleet: FleetContainer[]
   mnrJobs: MnrJob[]
+  /** Real uploaded gate-in inspection photos, keyed by MnrJob id. */
+  mnrGateInPhotos: Record<string, MnrPhoto[]>
+  /** Real uploaded damage survey photos, keyed by DamagePoint id. */
+  mnrDamagePhotos: Record<string, MnrPhoto[]>
   registerGateIn: (input: {
     containerNo: string
     bookingRef: string | null
@@ -945,12 +950,33 @@ interface DataState {
     eirSigned: boolean
     overrideReason: string | null
   }) => string | null
+  /** Uploads one gate-in inspection photo to the mnr-photos bucket and
+      records it against the given MnrJob id (jobs aren't a real Supabase
+      table yet, so job_id is stored as plain text, not a foreign key). */
+  uploadGateInPhoto: (
+    jobId: string,
+    containerNo: string,
+    file: File,
+    actor: string,
+  ) => Promise<{ error: string | null }>
+  /** Signed, time-limited URL to view an uploaded gate-in or damage photo. */
+  getMnrPhotoUrl: (storagePath: string) => Promise<string | null>
+  /** Uploads one damage survey photo to the mnr-photos bucket and records
+      it against the given DamagePoint id. */
+  uploadDamagePhoto: (
+    damagePointId: string,
+    jobId: string,
+    file: File,
+    actor: string,
+  ) => Promise<{ error: string | null }>
   setChecklistItem: (jobId: string, key: string, pass: boolean) => void
   completeInspection: (
     jobId: string,
     extra: { cleanliness: MnrJob['cleanliness']; ptiPass: boolean | null; contamination: boolean },
   ) => void
-  addDamagePoint: (jobId: string, dp: Omit<DamagePoint, 'id' | 'qcPass'>) => void
+  /** Returns the new damage point's id (null if the min-2-photos gate
+      wasn't met) so callers can attach uploaded photos to it. */
+  addDamagePoint: (jobId: string, dp: Omit<DamagePoint, 'id' | 'qcPass'>) => string | null
   completeSurvey: (jobId: string) => void
   submitMnrEstimate: (
     jobId: string,
@@ -2334,6 +2360,8 @@ export const useDataStore = create<DataState>((set, get) => ({
 
   fleet: mockFleet,
   mnrJobs: mockMnrJobs,
+  mnrGateInPhotos: {},
+  mnrDamagePhotos: {},
 
   registerGateIn: (input) => {
     // Flow 1 gates: min 6 photos + signed EIR before gate-in can finalize
@@ -2400,6 +2428,68 @@ export const useDataStore = create<DataState>((set, get) => ({
     return id
   },
 
+  uploadGateInPhoto: async (jobId, containerNo, file, actor) => {
+    const { data: tenantId, error: tenantErr } = await supabase.rpc('auth_tenant_id')
+    if (tenantErr || !tenantId) return { error: 'Could not resolve tenant for upload.' }
+    const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
+    const path = `${tenantId}/${jobId}/${Date.now()}_${safeName}`
+
+    const { error: uploadErr } = await supabase.storage.from('mnr-photos').upload(path, file)
+    if (uploadErr) return { error: uploadErr.message }
+
+    const { data, error: insertErr } = await supabase
+      .from('mnr_gate_in_photos')
+      .insert({ job_id: jobId, container_no: containerNo, storage_path: path, uploaded_by: actor })
+      .select()
+      .single()
+    if (insertErr || !data) return { error: insertErr?.message ?? 'Upload succeeded but saving the record failed.' }
+
+    set((s) => ({
+      mnrGateInPhotos: {
+        ...s.mnrGateInPhotos,
+        [jobId]: [
+          ...(s.mnrGateInPhotos[jobId] ?? []),
+          { id: data.id as string, storagePath: path, uploadedBy: actor, uploadedAt: data.uploaded_at as string },
+        ],
+      },
+    }))
+    return { error: null }
+  },
+
+  getMnrPhotoUrl: async (storagePath) => {
+    const { data, error } = await supabase.storage.from('mnr-photos').createSignedUrl(storagePath, 3600)
+    if (error || !data) return null
+    return data.signedUrl
+  },
+
+  uploadDamagePhoto: async (damagePointId, jobId, file, actor) => {
+    const { data: tenantId, error: tenantErr } = await supabase.rpc('auth_tenant_id')
+    if (tenantErr || !tenantId) return { error: 'Could not resolve tenant for upload.' }
+    const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
+    const path = `${tenantId}/${jobId}/damage/${damagePointId}/${Date.now()}_${safeName}`
+
+    const { error: uploadErr } = await supabase.storage.from('mnr-photos').upload(path, file)
+    if (uploadErr) return { error: uploadErr.message }
+
+    const { data, error: insertErr } = await supabase
+      .from('mnr_damage_photos')
+      .insert({ job_id: jobId, damage_point_id: damagePointId, storage_path: path, uploaded_by: actor })
+      .select()
+      .single()
+    if (insertErr || !data) return { error: insertErr?.message ?? 'Upload succeeded but saving the record failed.' }
+
+    set((s) => ({
+      mnrDamagePhotos: {
+        ...s.mnrDamagePhotos,
+        [damagePointId]: [
+          ...(s.mnrDamagePhotos[damagePointId] ?? []),
+          { id: data.id as string, storagePath: path, uploadedBy: actor, uploadedAt: data.uploaded_at as string },
+        ],
+      },
+    }))
+    return { error: null }
+  },
+
   setChecklistItem: (jobId, key, pass) =>
     set((s) => ({
       mnrJobs: s.mnrJobs.map((j) =>
@@ -2445,22 +2535,23 @@ export const useDataStore = create<DataState>((set, get) => ({
       }
     }),
 
-  addDamagePoint: (jobId, dp) =>
-    set((s) => {
-      if (dp.photos < 2) return s // min 2 photos per damage point (flow 2)
-      return {
-        mnrJobs: s.mnrJobs.map((j) =>
-          j.id === jobId
-            ? {
-                ...j,
-                damagePoints: [...j.damagePoints, { ...dp, id: uid('dp'), qcPass: null }],
-                engineeringRequired: j.engineeringRequired || dp.severity === 'Structural',
-              }
-            : j,
-        ),
-        activities: log(s.activities, jobId, 'Surveyor', `Damage point: ${dp.panel} · ${dp.damageCode} · ${dp.severity}${dp.preExisting ? ' (pre-existing, already logged)' : ' (new damage)'}`),
-      }
-    }),
+  addDamagePoint: (jobId, dp) => {
+    if (dp.photos < 2) return null // min 2 photos per damage point (flow 2)
+    const dpId = uid('dp')
+    set((s) => ({
+      mnrJobs: s.mnrJobs.map((j) =>
+        j.id === jobId
+          ? {
+              ...j,
+              damagePoints: [...j.damagePoints, { ...dp, id: dpId, qcPass: null }],
+              engineeringRequired: j.engineeringRequired || dp.severity === 'Structural',
+            }
+          : j,
+      ),
+      activities: log(s.activities, jobId, 'Surveyor', `Damage point: ${dp.panel} · ${dp.damageCode} · ${dp.severity}${dp.preExisting ? ' (pre-existing, already logged)' : ' (new damage)'}`),
+    }))
+    return dpId
+  },
 
   completeSurvey: (jobId) =>
     set((s) => {

@@ -809,6 +809,18 @@ export interface MnrJob {
   outcome: MnrOutcome | null
 }
 
+/** A real uploaded MNR photo — replaces the old gateInPhotos/
+    DamagePoint.photos plain counts. Used for both gate-in inspection
+    photos (keyed by MnrJob id) and damage survey photos (keyed by
+    DamagePoint id). Stored in the mnr-photos bucket; the keys are local
+    mock ids (MNR jobs/damage points aren't real Supabase tables yet). */
+export interface MnrPhoto {
+  id: string
+  storagePath: string
+  uploadedBy: string | null
+  uploadedAt: string
+}
+
 /* ── Freight Forwarding module (FF flowchart, 6 flows) ───────── */
 
 export type FfMode = 'Sea FCL' | 'Sea LCL' | 'Air' | 'Road' | 'Multimodal'

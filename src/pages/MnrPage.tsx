@@ -10,6 +10,7 @@ import {
   DollarSign,
   TrendingUp,
   ShieldAlert,
+  X,
 } from 'lucide-react'
 import { Card } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
@@ -21,6 +22,7 @@ import { Modal } from '../components/ui/Modal'
 import { Field, Select, TextInput } from '../components/ui/Field'
 import { JobDetail } from '../components/mnr/JobDetail'
 import { useDataStore } from '../store/useDataStore'
+import { useCurrentUser } from '../store/useAuthStore'
 import { latestEstimate } from '../lib/mnr'
 import { deriveBookingLocation } from '../lib/fleetLocation'
 import { mockDepots } from '../mocks/masters'
@@ -718,23 +720,43 @@ function RepairCostSheet() {
 /* ── Gate-in modal (flow 1: photo + EIR gates, seal check, OCR) ─ */
 
 function GateInModal({ open, onClose, onCreated }: { open: boolean; onClose: () => void; onCreated: (id: string) => void }) {
-  const { fleet, bookings, registerGateIn } = useDataStore()
+  const { fleet, bookings, registerGateIn, uploadGateInPhoto } = useDataStore()
+  const currentUser = useCurrentUser()
   const [containerNo, setContainerNo] = useState('')
   const [bookingRef, setBookingRef] = useState('')
   const [depotId, setDepotId] = useState('d4')
   const [importFull, setImportFull] = useState(false)
   const [sealIntact, setSealIntact] = useState(true)
-  const [photos, setPhotos] = useState(0)
+  const [photos, setPhotos] = useState<File[]>([])
+  const [photoPreviews, setPhotoPreviews] = useState<string[]>([])
   const [eirSigned, setEirSigned] = useState(false)
   const [overrideReason, setOverrideReason] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const knownContainer = fleet.some((f) => f.containerNo === containerNo)
   const matchedBooking = bookings.find((b) => b.bookingRef === bookingRef)
   const needsOverride = containerNo.length >= 11 && !matchedBooking && !bookingRef
-  const canSubmit = containerNo.length >= 11 && photos >= 6 && eirSigned && (matchedBooking || overrideReason || bookingRef === 'FREE-IN')
+  const canSubmit =
+    containerNo.length >= 11 && photos.length >= 6 && eirSigned && (matchedBooking || overrideReason || bookingRef === 'FREE-IN')
 
   const reset = () => {
-    setContainerNo(''); setBookingRef(''); setPhotos(0); setEirSigned(false); setOverrideReason(''); setImportFull(false); setSealIntact(true)
+    setContainerNo(''); setBookingRef(''); setEirSigned(false); setOverrideReason(''); setImportFull(false); setSealIntact(true)
+    photoPreviews.forEach((url) => URL.revokeObjectURL(url))
+    setPhotos([]); setPhotoPreviews([])
+  }
+
+  const addPhotos = (files: FileList | null) => {
+    if (!files) return
+    const list = Array.from(files)
+    setPhotos((p) => [...p, ...list])
+    setPhotoPreviews((p) => [...p, ...list.map((f) => URL.createObjectURL(f))])
+  }
+
+  const removePhoto = (i: number) => {
+    URL.revokeObjectURL(photoPreviews[i])
+    setPhotos((p) => p.filter((_, idx) => idx !== i))
+    setPhotoPreviews((p) => p.filter((_, idx) => idx !== i))
   }
 
   return (
@@ -746,23 +768,33 @@ function GateInModal({ open, onClose, onCreated }: { open: boolean; onClose: () 
       wide
       footer={
         <Button
-          disabled={!canSubmit}
+          disabled={!canSubmit || submitting}
           className="disabled:opacity-50"
-          onClick={() => {
+          onClick={async () => {
             const id = registerGateIn({
               containerNo,
               bookingRef: matchedBooking ? matchedBooking.bookingRef : bookingRef === 'FREE-IN' ? null : bookingRef || null,
               depotId,
               sealIntact: importFull ? sealIntact : null,
-              gateInPhotos: photos,
+              gateInPhotos: photos.length,
               eirSigned,
               overrideReason: overrideReason || null,
             })
+            if (!id) return
+            setSubmitting(true)
+            const results = await Promise.all(
+              photos.map((file) => uploadGateInPhoto(id, containerNo, file, currentUser?.name ?? 'Depot clerk')),
+            )
+            setSubmitting(false)
+            const failed = results.filter((r) => r.error).length
+            if (failed > 0) {
+              window.alert(`${failed} of ${photos.length} photos failed to upload — the gate-in itself still went through.`)
+            }
             reset()
-            if (id) onCreated(id)
+            onCreated(id)
           }}
         >
-          Finalize gate-in
+          {submitting ? 'Uploading photos…' : 'Finalize gate-in'}
         </Button>
       }
     >
@@ -809,14 +841,41 @@ function GateInModal({ open, onClose, onCreated }: { open: boolean; onClose: () 
 
       <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="rounded-btn border border-line bg-surface-2/50 p-4">
-          <p className="text-xs font-medium text-body">Gate-in photos (min 6: four sides + top + doors)</p>
-          <div className="mt-2 flex items-center gap-3">
-            <Button size="sm" variant="secondary" onClick={() => setPhotos((p) => p + 1)}>+ Capture photo</Button>
-            <span className={`font-mono text-sm font-semibold ${photos >= 6 ? 'text-primary' : 'text-accent-coral'}`}>
-              {photos}/6
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-medium text-body">Gate-in photos (min 6: four sides + top + doors)</p>
+            <span className={`font-mono text-sm font-semibold ${photos.length >= 6 ? 'text-primary' : 'text-accent-coral'}`}>
+              {photos.length}/6
             </span>
           </div>
-          {photos < 6 && <p className="mt-2 text-[11px] text-muted">↻ gate-in cannot be finalized until minimum met</p>}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            className="hidden"
+            onChange={(e) => { addPhotos(e.target.files); e.target.value = '' }}
+          />
+          {photoPreviews.length > 0 && (
+            <div className="mt-3 grid grid-cols-4 gap-2">
+              {photoPreviews.map((url, i) => (
+                <div key={url} className="group relative aspect-square overflow-hidden rounded-btn border border-line">
+                  <img src={url} alt={`Gate-in photo ${i + 1}`} className="h-full w-full object-cover" />
+                  <button
+                    type="button"
+                    onClick={() => removePhoto(i)}
+                    title="Remove photo"
+                    className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-black/60 text-white opacity-0 transition group-hover:opacity-100"
+                  >
+                    <X size={12} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+          <Button size="sm" variant="secondary" className="mt-3" onClick={() => fileInputRef.current?.click()}>
+            <Plus size={13} /> Add photo{photoPreviews.length > 0 ? 's' : ''}
+          </Button>
+          {photos.length < 6 && <p className="mt-2 text-[11px] text-muted">↻ gate-in cannot be finalized until minimum met</p>}
         </div>
         <div className="rounded-btn border border-line bg-surface-2/50 p-4">
           <p className="text-xs font-medium text-body">EIR — Equipment Interchange Receipt</p>

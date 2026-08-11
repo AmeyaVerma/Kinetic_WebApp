@@ -1,10 +1,11 @@
-import { useState } from 'react'
-import { Check, X, AlertTriangle } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { Check, X, AlertTriangle, Plus } from 'lucide-react'
 import { Card } from '../ui/Card'
 import { Button } from '../ui/Button'
 import { ProgressBar } from '../ui/ProgressBar'
 import { Field, Select, TextInput } from '../ui/Field'
 import { useDataStore } from '../../store/useDataStore'
+import { useCurrentUser } from '../../store/useAuthStore'
 import {
   approvalRequirements,
   CONTAINER_PANELS,
@@ -36,6 +37,8 @@ export function JobDetail({ job }: { job: MnrJob }) {
           )}
         </div>
       </div>
+
+      <GateInPhotoGallery jobId={job.id} />
 
       {/* Stage stepper */}
       <div className="mt-4 flex flex-wrap items-center gap-1">
@@ -82,7 +85,10 @@ export function JobDetail({ job }: { job: MnrJob }) {
                 <span className="text-muted">{DAMAGE_CODES.find((c) => c.code === d.damageCode)?.label ?? d.damageCode} · {d.component} · {d.dims}</span>
                 <SeverityBadge severity={d.severity} />
                 {d.preExisting && <span className="rounded-badge bg-surface-2 px-1.5 py-0.5 text-[10px] text-muted">pre-existing</span>}
-                <span className="ml-auto text-muted">{d.photos} photos · {d.responsibleParty}</span>
+                <div className="ml-auto flex items-center gap-2">
+                  <span className="text-muted">{d.responsibleParty}</span>
+                  <DamagePhotoThumbs damagePointId={d.id} />
+                </div>
               </div>
             ))}
           </div>
@@ -216,15 +222,35 @@ function InspectionPanel({ job }: { job: MnrJob }) {
 /* ── Damage Survey (flow 2, §4.C) ────────────────────────────── */
 
 function SurveyPanel({ job }: { job: MnrJob }) {
-  const { addDamagePoint, completeSurvey } = useDataStore()
+  const { addDamagePoint, completeSurvey, uploadDamagePhoto } = useDataStore()
+  const currentUser = useCurrentUser()
   const [panel, setPanel] = useState<string>(CONTAINER_PANELS[0])
   const [code, setCode] = useState<string>(DAMAGE_CODES[0].code)
   const [component, setComponent] = useState('')
   const [dims, setDims] = useState('')
   const [severity, setSeverity] = useState<DamageSeverity>('Minor')
-  const [photos, setPhotos] = useState(0)
+  const [photos, setPhotos] = useState<File[]>([])
+  const [photoPreviews, setPhotoPreviews] = useState<string[]>([])
   const [preExisting, setPreExisting] = useState(false)
   const [party, setParty] = useState<ResponsibleParty>('Unknown')
+  const [submitting, setSubmitting] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const addPhotos = (files: FileList | null) => {
+    if (!files) return
+    const list = Array.from(files)
+    setPhotos((p) => [...p, ...list])
+    setPhotoPreviews((p) => [...p, ...list.map((f) => URL.createObjectURL(f))])
+  }
+  const removePhoto = (i: number) => {
+    URL.revokeObjectURL(photoPreviews[i])
+    setPhotos((p) => p.filter((_, idx) => idx !== i))
+    setPhotoPreviews((p) => p.filter((_, idx) => idx !== i))
+  }
+  const resetForm = () => {
+    photoPreviews.forEach((url) => URL.revokeObjectURL(url))
+    setComponent(''); setDims(''); setPhotos([]); setPhotoPreviews([])
+  }
 
   return (
     <div className="space-y-4">
@@ -270,10 +296,37 @@ function SurveyPanel({ job }: { job: MnrJob }) {
             <option>Unknown</option>
           </Select>
         </Field>
-        <Field label={`Photos (min 2) — ${photos} captured`}>
-          <Button size="sm" variant="secondary" onClick={() => setPhotos((p) => p + 1)}>+ Capture</Button>
+        <Field label={`Photos (min 2, wide + close-up) — ${photos.length} captured`}>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            className="hidden"
+            onChange={(e) => { addPhotos(e.target.files); e.target.value = '' }}
+          />
+          <Button size="sm" variant="secondary" onClick={() => fileInputRef.current?.click()}>
+            <Plus size={13} /> Add photo{photoPreviews.length > 0 ? 's' : ''}
+          </Button>
         </Field>
       </div>
+      {photoPreviews.length > 0 && (
+        <div className="grid grid-cols-4 gap-2 sm:grid-cols-6">
+          {photoPreviews.map((url, i) => (
+            <div key={url} className="group relative aspect-square overflow-hidden rounded-btn border border-line">
+              <img src={url} alt={`Damage photo ${i + 1}`} className="h-full w-full object-cover" />
+              <button
+                type="button"
+                onClick={() => removePhoto(i)}
+                title="Remove photo"
+                className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-black/60 text-white opacity-0 transition group-hover:opacity-100"
+              >
+                <X size={12} />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
       {severity === 'Structural' && (
         <p className="flex items-center gap-1.5 text-xs text-accent-coral">
           <AlertTriangle size={13} /> Structural — mandatory Engineering sign-off will be added at Approval (cannot be bypassed).
@@ -282,14 +335,27 @@ function SurveyPanel({ job }: { job: MnrJob }) {
       <div className="flex gap-2">
         <Button
           variant="secondary"
-          disabled={photos < 2 || !component}
+          disabled={photos.length < 2 || !component || submitting}
           className="disabled:opacity-50"
-          onClick={() => {
-            addDamagePoint(job.id, { panel, damageCode: code, component, dims, severity, photos, preExisting, responsibleParty: party })
-            setComponent(''); setDims(''); setPhotos(0)
+          onClick={async () => {
+            const dpId = addDamagePoint(job.id, {
+              panel,
+              damageCode: code,
+              component,
+              dims,
+              severity,
+              photos: photos.length,
+              preExisting,
+              responsibleParty: party,
+            })
+            if (!dpId) return
+            setSubmitting(true)
+            await Promise.all(photos.map((file) => uploadDamagePhoto(dpId, job.id, file, currentUser?.name ?? 'Surveyor')))
+            setSubmitting(false)
+            resetForm()
           }}
         >
-          Add damage point
+          {submitting ? 'Uploading photos…' : 'Add damage point'}
         </Button>
         <Button
           disabled={job.damagePoints.length === 0}
@@ -635,6 +701,91 @@ function FinancePanel({ job, container }: { job: MnrJob; container: ReturnType<t
           </Button>
         </div>
       </div>
+    </div>
+  )
+}
+
+/* ── Real MNR photo galleries — gate-in (shown regardless of the job's
+   current stage, so they stay visible as historical record) and damage
+   survey (compact thumbnail strip per damage point) ── */
+
+function useSignedPhotoUrls(photos: { id: string; storagePath: string }[]) {
+  const { getMnrPhotoUrl } = useDataStore()
+  const [urls, setUrls] = useState<Record<string, string>>({})
+
+  useEffect(() => {
+    let cancelled = false
+    photos.forEach((p) => {
+      if (urls[p.id]) return
+      getMnrPhotoUrl(p.storagePath).then((url) => {
+        if (url && !cancelled) setUrls((prev) => ({ ...prev, [p.id]: url }))
+      })
+    })
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [photos.map((p) => p.id).join(',')])
+
+  return urls
+}
+
+function GateInPhotoGallery({ jobId }: { jobId: string }) {
+  const { mnrGateInPhotos } = useDataStore()
+  const photos = mnrGateInPhotos[jobId] ?? []
+  const urls = useSignedPhotoUrls(photos)
+
+  if (photos.length === 0) return null
+
+  return (
+    <div className="mt-4">
+      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">Gate-in photos ({photos.length})</p>
+      <div className="grid grid-cols-4 gap-2 sm:grid-cols-6 lg:grid-cols-8">
+        {photos.map((p) => (
+          <a
+            key={p.id}
+            href={urls[p.id] ?? undefined}
+            target="_blank"
+            rel="noreferrer"
+            className="group relative block aspect-square overflow-hidden rounded-btn border border-line bg-surface-2"
+          >
+            {urls[p.id] ? (
+              <img
+                src={urls[p.id]}
+                alt="Gate-in inspection"
+                className="h-full w-full object-cover transition group-hover:opacity-80"
+              />
+            ) : (
+              <div className="flex h-full items-center justify-center text-[10px] text-muted">…</div>
+            )}
+          </a>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function DamagePhotoThumbs({ damagePointId }: { damagePointId: string }) {
+  const { mnrDamagePhotos } = useDataStore()
+  const photos = mnrDamagePhotos[damagePointId] ?? []
+  const urls = useSignedPhotoUrls(photos)
+
+  if (photos.length === 0) return <span className="text-muted">no photos on file</span>
+
+  return (
+    <div className="flex items-center gap-1">
+      {photos.map((p) => (
+        <a
+          key={p.id}
+          href={urls[p.id] ?? undefined}
+          target="_blank"
+          rel="noreferrer"
+          className="block h-6 w-6 overflow-hidden rounded border border-line bg-surface-2"
+        >
+          {urls[p.id] && <img src={urls[p.id]} alt="Damage photo" className="h-full w-full object-cover" />}
+        </a>
+      ))}
+      <span className="text-muted">{photos.length} photos</span>
     </div>
   )
 }
