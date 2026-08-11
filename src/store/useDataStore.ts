@@ -213,6 +213,8 @@ function rowToContainer(row: any): ContainerRecord {
     remarks: row.remarks,
     freeDays: row.free_days,
     createdAt: row.created_at,
+    reportLocation: row.report_location,
+    opStatus: row.op_status,
   }
 }
 

@@ -7,6 +7,7 @@ import { EditableTextPill } from '../../components/ui/EditableTextPill'
 import { EditableDateOnlyPill } from '../../components/ui/EditableDatePill'
 import { useDataStore } from '../../store/useDataStore'
 import { useAuthStore, useCurrentUser } from '../../store/useAuthStore'
+import { CONTAINER_OP_STATUSES, CONTAINER_REPORT_LOCATIONS } from '../../lib/types'
 import type { ContainerRecord } from '../../lib/types'
 
 export function ContainerDetailPage() {
@@ -84,6 +85,34 @@ function OverviewTab({ container: c, isAdmin, actor }: { container: ContainerRec
       <FieldPill label={label} value={value ?? ''} />
     )
 
+  const select = (
+    label: string,
+    field: keyof ContainerRecord,
+    value: string | null,
+    options: { value: string; label: string }[],
+  ) => {
+    const currentLabel = options.find((o) => o.value === value)?.label ?? ''
+    return isAdmin ? (
+      <label className="block rounded-btn border border-line bg-surface-2/60 px-3 py-2 focus-within:border-primary">
+        <p className="font-mono text-[10px] uppercase tracking-wide text-muted">{label}</p>
+        <select
+          value={value ?? ''}
+          onChange={(e) => set(field)(e.target.value)}
+          className="mt-0.5 w-full bg-transparent text-[13px] text-heading focus:outline-none"
+        >
+          <option value="" className="bg-white text-[#0F172A]">—</option>
+          {options.map((o) => (
+            <option key={o.value} value={o.value} className="bg-white text-[#0F172A]">
+              {o.label}
+            </option>
+          ))}
+        </select>
+      </label>
+    ) : (
+      <FieldPill label={label} value={currentLabel} />
+    )
+  }
+
   return (
     <div className="space-y-5">
       <section>
@@ -97,6 +126,8 @@ function OverviewTab({ container: c, isAdmin, actor }: { container: ContainerRec
           {text('Owner', 'owner', c.owner)}
           {text('Hire Status', 'hireStatus', c.hireStatus)}
           {text('Free Days', 'freeDays', c.freeDays)}
+          {select('Report Location', 'reportLocation', c.reportLocation, CONTAINER_REPORT_LOCATIONS)}
+          {select('Op Status', 'opStatus', c.opStatus, CONTAINER_OP_STATUSES)}
         </div>
       </section>
 

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Container as ContainerIcon, Wrench, DollarSign, AlertTriangle, ClipboardCheck, Plus } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { Container as ContainerIcon, Wrench, AlertTriangle, ClipboardCheck, Plus, FileBarChart } from 'lucide-react'
 import { Card } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { StatKpi } from '../components/ui/StatKpi'
@@ -46,7 +47,6 @@ export function MnrPage() {
     return {
       available: fleet.filter((f) => f.status === 'Available').length,
       underRepair: fleet.filter((f) => f.status === 'Under Repair').length,
-      costMonth: mnrJobs.reduce((a, j) => a + (j.vendorBill ?? 0), 0),
       approvalQueue: approvals.filter((a) => a.entityType === 'repair_estimate' && a.status === 'Pending').length,
       openJobs: openJobs.length,
     }
@@ -86,16 +86,22 @@ export function MnrPage() {
             Maintenance & Repair — gate-in → inspection → survey → estimate → approval → repair → QC → finance → close.
           </p>
         </div>
-        <Button onClick={() => setGateInOpen(true)}>
-          <Plus size={15} /> Gate-in container
-        </Button>
+        <div className="flex items-center gap-2">
+          <Link to="/mnr/container-report">
+            <Button variant="secondary">
+              <FileBarChart size={15} /> Container report
+            </Button>
+          </Link>
+          <Button onClick={() => setGateInOpen(true)}>
+            <Plus size={15} /> Gate-in container
+          </Button>
+        </div>
       </div>
 
       {/* KPI row (Requirements §7) */}
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         <StatKpi label="Containers Available" value={kpis.available} icon={<ContainerIcon size={17} />} tint="#ECFDF5" color="#10B981" />
         <StatKpi label="Under Repair" value={kpis.underRepair} icon={<Wrench size={17} />} tint="#FEF3C7" color="#B45309" />
-        <StatKpi label="Repair Cost (posted)" value={`$${kpis.costMonth.toLocaleString()}`} icon={<DollarSign size={17} />} tint="#FFF7ED" color="#F97316" />
         <StatKpi label="Approval Queue" value={kpis.approvalQueue} icon={<ClipboardCheck size={17} />} tint="#EFF6FF" color="#3B82F6" />
         <StatKpi label="Open MNR Jobs" value={kpis.openJobs} icon={<AlertTriangle size={17} />} tint="#F5F3FF" color="#8B5CF6" />
       </div>

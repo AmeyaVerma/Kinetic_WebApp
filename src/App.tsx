@@ -7,6 +7,7 @@ import { NvoccPage } from './pages/NvoccPage'
 import { BookingDetailPage } from './pages/BookingDetailPage'
 import { ApprovalsPage } from './pages/ApprovalsPage'
 import { MnrPage } from './pages/MnrPage'
+import { ContainerPositionReportPage } from './pages/mnr/ContainerPositionReportPage'
 import { FreightPage } from './pages/FreightPage'
 import { FfDetailPage } from './pages/FfDetailPage'
 import { CustomersPage } from './pages/CustomersPage'
@@ -125,6 +126,14 @@ export default function App() {
           <Route path="/freight" element={<Guard module="freight"><FreightPage /></Guard>} />
           <Route path="/freight/:id" element={<Guard module="freight"><FfDetailPage /></Guard>} />
           <Route path="/mnr" element={<Guard module="mnr"><MnrPage /></Guard>} />
+          <Route
+            path="/mnr/container-report"
+            element={
+              <Guard module="mnr">
+                <ContainerPositionReportPage />
+              </Guard>
+            }
+          />
           <Route path="/accounts" element={<Guard module="accounts"><PlaceholderPage title="Accounts" /></Guard>} />
           <Route path="/master" element={<Guard module="master"><MasterDataPage /></Guard>} />
           <Route path="/master/parties" element={<Guard module="master"><PartiesMasterPage /></Guard>} />

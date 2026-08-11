@@ -177,7 +177,42 @@ export interface ContainerRecord {
   remarks: string | null
   freeDays: number
   createdAt: string
+  /** Container Position Report fields — new concepts with no legacy-import
+      equivalent, assigned by Ops going forward (MNR → Container report). */
+  reportLocation: ContainerReportLocation | null
+  opStatus: ContainerOpStatus | null
 }
+
+export type ContainerReportLocation = 'NSA' | 'MUN' | 'BND' | 'SOHAR' | 'JEA' | 'BND_STAR_MARINE' | 'AL_MARSA'
+
+export const CONTAINER_REPORT_LOCATIONS: { value: ContainerReportLocation; label: string }[] = [
+  { value: 'NSA', label: 'NSA' },
+  { value: 'MUN', label: 'MUN' },
+  { value: 'BND', label: 'BND' },
+  { value: 'SOHAR', label: 'SOHAR' },
+  { value: 'JEA', label: 'JEA' },
+  { value: 'BND_STAR_MARINE', label: 'BND Star Marine' },
+  { value: 'AL_MARSA', label: 'Al Marsa' },
+]
+
+export type ContainerOpStatus =
+  | 'MT'
+  | 'IMP_LOADED'
+  | 'DO_ISSUE'
+  | 'EXP_PICKUP'
+  | 'INTRANSIT'
+  | 'LOADED_IN_CFS'
+  | 'LOADED_IN_PORT'
+
+export const CONTAINER_OP_STATUSES: { value: ContainerOpStatus; label: string }[] = [
+  { value: 'MT', label: 'MT' },
+  { value: 'IMP_LOADED', label: 'Imp Loaded' },
+  { value: 'DO_ISSUE', label: 'DO Issue' },
+  { value: 'EXP_PICKUP', label: 'Exp Pick Up' },
+  { value: 'INTRANSIT', label: 'Intransit' },
+  { value: 'LOADED_IN_CFS', label: 'Loaded in CFS' },
+  { value: 'LOADED_IN_PORT', label: 'Loaded in Port' },
+]
 
 export interface VesselRecord {
   id: string
