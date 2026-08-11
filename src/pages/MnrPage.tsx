@@ -12,12 +12,33 @@ import { Field, Select, TextInput } from '../components/ui/Field'
 import { JobDetail } from '../components/mnr/JobDetail'
 import { useDataStore } from '../store/useDataStore'
 import { latestEstimate } from '../lib/mnr'
+import { deriveBookingLocation } from '../lib/fleetLocation'
 import { mockDepots } from '../mocks/masters'
-import type { ChipStatus, ContainerStatus, FleetContainer, MnrJob } from '../lib/types'
+import { CONTAINER_REPORT_LOCATIONS } from '../lib/types'
+import type { Booking, ChipStatus, ContainerActivity, ContainerStatus, FleetContainer, MnrJob } from '../lib/types'
 
 const DAY_MS = 86400000
 const cscExpiringSoon = (f: FleetContainer) => new Date(f.cscExpiry).getTime() - Date.now() < 90 * DAY_MS
 const isIdle6Months = (f: FleetContainer) => Date.now() - new Date(f.lastUsedDate).getTime() > 182 * DAY_MS
+
+/** A Fleet container's location for display — when it's out on a booking,
+    derived from that booking's furthest-completed activity (see
+    lib/fleetLocation); otherwise its depot. `code` is the matched report
+    location (or null if out on a booking whose port text didn't match any
+    of the 7), used to group the Fleet-by-location summary. */
+function fleetLocation(
+  f: FleetContainer,
+  bookings: Booking[],
+  containerActivities: Record<string, ContainerActivity[]>,
+) {
+  if (!f.custodianBookingRef) {
+    return { code: null as string | null, label: mockDepots.find((d) => d.id === f.depotId)?.name ?? '—' }
+  }
+  const booking = bookings.find((b) => b.bookingRef === f.custodianBookingRef)
+  const code = deriveBookingLocation(booking, booking ? containerActivities[booking.id] : undefined)
+  const codeLabel = code ? CONTAINER_REPORT_LOCATIONS.find((l) => l.value === code)?.label : null
+  return { code, label: codeLabel ? `${codeLabel} · ${f.custodianBookingRef}` : f.custodianBookingRef }
+}
 
 const CONTAINER_CHIP: Record<ContainerStatus, ChipStatus> = {
   Available: 'Delivered',
@@ -205,9 +226,14 @@ export function MnrPage() {
 }
 
 function FleetTable() {
-  const { fleet } = useDataStore()
+  const { fleet, bookings, containerActivities, fetchBookings, fetchContainerActivities } = useDataStore()
   const [query, setQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<'All' | ContainerStatus>('All')
+
+  useEffect(() => {
+    fetchBookings()
+    fetchContainerActivities()
+  }, [fetchBookings, fetchContainerActivities])
 
   const q = query.trim().toLowerCase()
   const filtered = fleet.filter((f) => {
@@ -225,12 +251,45 @@ function FleetTable() {
     'Container No.': f.containerNo,
     Type: f.isoType,
     Ownership: f.ownership,
-    'Location': f.custodianBookingRef ?? mockDepots.find((d) => d.id === f.depotId)?.name ?? '',
+    Location: fleetLocation(f, bookings, containerActivities).label,
     Status: f.status,
   }))
 
+  const locationSummary = useMemo(() => {
+    const onBooking = fleet.filter((f) => f.custodianBookingRef)
+    const counts = CONTAINER_REPORT_LOCATIONS.map((loc) => ({
+      label: loc.label,
+      count: onBooking.filter((f) => fleetLocation(f, bookings, containerActivities).code === loc.value).length,
+    }))
+    const unassigned = onBooking.filter((f) => !fleetLocation(f, bookings, containerActivities).code).length
+    return { counts, unassigned, total: onBooking.length }
+  }, [fleet, bookings, containerActivities])
+
   return (
-    <Card className="overflow-hidden">
+    <div className="space-y-4">
+      {locationSummary.total > 0 && (
+        <Card className="p-4">
+          <p className="mb-2.5 text-xs font-semibold uppercase tracking-wide text-muted">
+            Fleet by location — {locationSummary.total} containers currently out on a booking
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {locationSummary.counts.map((c) => (
+              <span
+                key={c.label}
+                className="rounded-badge border border-line bg-surface-2/60 px-2.5 py-1 text-xs text-body"
+              >
+                {c.label} <span className="font-mono font-semibold text-heading">{c.count}</span>
+              </span>
+            ))}
+            {locationSummary.unassigned > 0 && (
+              <span className="rounded-badge border border-accent-orange/30 bg-accent-orange/10 px-2.5 py-1 text-xs text-accent-orange">
+                Unmatched port text <span className="font-mono font-semibold">{locationSummary.unassigned}</span>
+              </span>
+            )}
+          </div>
+        </Card>
+      )}
+      <Card className="overflow-hidden">
       <div className="flex flex-wrap items-center gap-2 border-b border-line px-4 py-3">
         <input
           value={query}
@@ -275,7 +334,7 @@ function FleetTable() {
                 </td>
                 <td className="px-3 py-3 text-xs text-body">
                   {f.custodianBookingRef ? (
-                    <span className="font-mono">{f.custodianBookingRef}</span>
+                    <span className="font-mono">{fleetLocation(f, bookings, containerActivities).label}</span>
                   ) : (
                     mockDepots.find((d) => d.id === f.depotId)?.name ?? '—'
                   )}
@@ -292,13 +351,20 @@ function FleetTable() {
         </table>
       </div>
     </Card>
+    </div>
   )
 }
 
 /* ── Alerts — CSC expiry within 90 days, and containers idle 6+ months ── */
 
 function AlertsTable() {
-  const { fleet } = useDataStore()
+  const { fleet, bookings, containerActivities, fetchBookings, fetchContainerActivities } = useDataStore()
+
+  useEffect(() => {
+    fetchBookings()
+    fetchContainerActivities()
+  }, [fetchBookings, fetchContainerActivities])
+
   const cscAlerts = useMemo(
     () => fleet.filter(cscExpiringSoon).sort((a, b) => a.cscExpiry.localeCompare(b.cscExpiry)),
     [fleet],
@@ -309,8 +375,7 @@ function AlertsTable() {
   )
   const daysUntil = (d: string) => Math.round((new Date(d).getTime() - Date.now()) / DAY_MS)
   const daysAgo = (d: string) => Math.round((Date.now() - new Date(d).getTime()) / DAY_MS)
-  const locationOf = (f: FleetContainer) =>
-    f.custodianBookingRef ?? mockDepots.find((d) => d.id === f.depotId)?.name ?? '—'
+  const locationOf = (f: FleetContainer) => fleetLocation(f, bookings, containerActivities).label
 
   const cscRows = cscAlerts.map((f) => ({
     'Container No.': f.containerNo,
