@@ -10,7 +10,7 @@ import type { IcdRecord } from '../../lib/types'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function rowToIcd(row: any): IcdRecord {
-  return { id: row.id, name: row.name, code: row.code, city: row.city, country: row.country, createdAt: row.created_at }
+  return { id: row.id, name: row.name, code: row.code, locode: row.locode, city: row.city, country: row.country, createdAt: row.created_at }
 }
 
 export function IcdDetailPage() {
@@ -85,6 +85,7 @@ export function IcdDetailPage() {
       <Card className="p-5">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {text('Code', 'code', icd.code)}
+          {text('LOCODE', 'locode', icd.locode)}
           {text('City', 'city', icd.city)}
           {text('Country', 'country', icd.country)}
         </div>

@@ -13,7 +13,14 @@ function rowToSeaPort(row: any): SeaPortRecord {
 }
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function rowToTerminal(row: any): SeaPortTerminalRecord {
-  return { id: row.id, portId: row.port_id, name: row.name, createdAt: row.created_at }
+  return {
+    id: row.id,
+    portId: row.port_id,
+    name: row.name,
+    code: row.code,
+    operatorName: row.operator_name,
+    createdAt: row.created_at,
+  }
 }
 
 /** Add Sea Port — port identity saves first, then terminals attach to the
@@ -28,6 +35,7 @@ export function AddSeaPortPage() {
   const [port, setPort] = useState<SeaPortRecord | null>(null)
 
   const [terminalName, setTerminalName] = useState('')
+  const [terminalCode, setTerminalCode] = useState('')
   const [terminals, setTerminals] = useState<SeaPortTerminalRecord[]>([])
   const [savingTerminal, setSavingTerminal] = useState(false)
   const [terminalError, setTerminalError] = useState<string | null>(null)
@@ -62,7 +70,7 @@ export function AddSeaPortPage() {
     setTerminalError(null)
     const { data, error: err } = await supabase
       .from('sea_port_terminals')
-      .insert({ port_id: port.id, name: terminalName.trim() })
+      .insert({ port_id: port.id, name: terminalName.trim(), code: terminalCode.trim() || null })
       .select()
       .single()
     setSavingTerminal(false)
@@ -72,6 +80,7 @@ export function AddSeaPortPage() {
     }
     setTerminals((t) => [...t, rowToTerminal(data)])
     setTerminalName('')
+    setTerminalCode('')
   }
 
   return (
@@ -122,6 +131,11 @@ export function AddSeaPortPage() {
                   <TextInput value={terminalName} onChange={(e) => setTerminalName(e.target.value)} />
                 </Field>
               </div>
+              <div className="w-40">
+                <Field label="Terminal code">
+                  <TextInput value={terminalCode} onChange={(e) => setTerminalCode(e.target.value)} placeholder="e.g. NSICT" />
+                </Field>
+              </div>
               <Button size="sm" onClick={handleAddTerminal} disabled={savingTerminal}>
                 <Plus size={13} /> {savingTerminal ? 'Adding…' : 'Add Terminal'}
               </Button>
@@ -133,12 +147,14 @@ export function AddSeaPortPage() {
                 <thead>
                   <tr className="border-b border-line text-[11px] uppercase tracking-wide text-muted">
                     <th className="px-5 py-3 font-medium">Terminal</th>
+                    <th className="px-5 py-3 font-medium">Code</th>
                   </tr>
                 </thead>
                 <tbody>
                   {terminals.map((t) => (
                     <tr key={t.id} className="border-b border-line text-xs text-body last:border-0">
                       <td className="px-5 py-3">{t.name}</td>
+                      <td className="px-5 py-3 font-mono">{t.code ?? '—'}</td>
                     </tr>
                   ))}
                 </tbody>

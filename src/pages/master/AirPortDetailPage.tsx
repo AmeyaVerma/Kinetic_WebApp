@@ -10,7 +10,7 @@ import type { AirPortRecord } from '../../lib/types'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function rowToAirPort(row: any): AirPortRecord {
-  return { id: row.id, name: row.name, code: row.code, city: row.city, country: row.country, createdAt: row.created_at }
+  return { id: row.id, name: row.name, code: row.code, locode: row.locode, city: row.city, country: row.country, createdAt: row.created_at }
 }
 
 export function AirPortDetailPage() {
@@ -85,6 +85,7 @@ export function AirPortDetailPage() {
       <Card className="p-5">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {text('Code', 'code', airPort.code)}
+          {text('LOCODE', 'locode', airPort.locode)}
           {text('City', 'city', airPort.city)}
           {text('Country', 'country', airPort.country)}
         </div>

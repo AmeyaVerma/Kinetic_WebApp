@@ -13,26 +13,25 @@ const TILES: Tile[] = [
   {
     key: 'sea-ports',
     label: 'Sea Ports with Terminals',
-    description: 'Sea ports and the terminals within each — not built yet.',
+    description: 'Sea ports and the terminals within each.',
     icon: Anchor,
   },
   {
     key: 'icds',
     label: 'ICDs',
-    description: 'Inland Container Depots — not built yet.',
+    description: 'Inland Container Depots.',
     icon: Warehouse,
   },
   {
     key: 'air-ports',
     label: 'Air Ports',
-    description: 'Not built yet.',
+    description: 'Air ports used by Freight Forwarding air bookings.',
     icon: Plane,
   },
 ]
 
 /** Ports/ICDs/Terminals master — its own 3-tile sub-hub, mirroring the
-    Containers hub pattern. All three subfields not built yet — waiting
-    on data to import. */
+    Containers hub pattern. */
 export function PortsHubPage() {
   return (
     <div className="space-y-5">
@@ -61,9 +60,6 @@ function PortTile({ tile }: { tile: Tile }) {
         <div className="flex items-start justify-between">
           <span className="flex h-10 w-10 items-center justify-center rounded-btn bg-primary/10 text-primary">
             <Icon size={18} />
-          </span>
-          <span className="rounded-badge bg-surface-2 px-1.5 py-0.5 text-[10px] font-semibold text-muted">
-            Coming soon
           </span>
         </div>
         <div>

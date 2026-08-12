@@ -264,6 +264,8 @@ export interface SeaPortTerminalRecord {
   id: string
   portId: string
   name: string
+  code: string | null
+  operatorName: string | null
   createdAt: string
 }
 
@@ -271,6 +273,7 @@ export interface IcdRecord {
   id: string
   name: string
   code: string | null
+  locode: string | null
   city: string | null
   country: string | null
   createdAt: string
@@ -280,6 +283,7 @@ export interface AirPortRecord {
   id: string
   name: string
   code: string | null
+  locode: string | null
   city: string | null
   country: string | null
   createdAt: string

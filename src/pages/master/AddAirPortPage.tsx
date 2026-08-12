@@ -10,6 +10,7 @@ export function AddAirPortPage() {
   const navigate = useNavigate()
   const [name, setName] = useState('')
   const [code, setCode] = useState('')
+  const [locode, setLocode] = useState('')
   const [city, setCity] = useState('')
   const [country, setCountry] = useState('')
   const [saving, setSaving] = useState(false)
@@ -24,7 +25,13 @@ export function AddAirPortPage() {
     setError(null)
     const { data, error: err } = await supabase
       .from('air_ports')
-      .insert({ name: name.trim(), code: code.trim() || null, city: city.trim() || null, country: country.trim() || null })
+      .insert({
+        name: name.trim(),
+        code: code.trim() || null,
+        locode: locode.trim().toUpperCase() || null,
+        city: city.trim() || null,
+        country: country.trim() || null,
+      })
       .select()
       .single()
     setSaving(false)
@@ -52,6 +59,9 @@ export function AddAirPortPage() {
           </Field>
           <Field label="Code (IATA)">
             <TextInput value={code} onChange={(e) => setCode(e.target.value)} />
+          </Field>
+          <Field label="LOCODE">
+            <TextInput value={locode} onChange={(e) => setLocode(e.target.value)} />
           </Field>
           <Field label="City">
             <TextInput value={city} onChange={(e) => setCity(e.target.value)} />

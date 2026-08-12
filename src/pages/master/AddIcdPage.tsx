@@ -11,6 +11,7 @@ export function AddIcdPage() {
   const navigate = useNavigate()
   const [name, setName] = useState('')
   const [code, setCode] = useState('')
+  const [locode, setLocode] = useState('')
   const [city, setCity] = useState('')
   const [country, setCountry] = useState('')
   const [saving, setSaving] = useState(false)
@@ -25,7 +26,13 @@ export function AddIcdPage() {
     setError(null)
     const { data, error: err } = await supabase
       .from('icds')
-      .insert({ name: name.trim(), code: code.trim() || null, city: city.trim() || null, country: country.trim() || null })
+      .insert({
+        name: name.trim(),
+        code: code.trim() || null,
+        locode: locode.trim().toUpperCase() || null,
+        city: city.trim() || null,
+        country: country.trim() || null,
+      })
       .select()
       .single()
     setSaving(false)
@@ -53,6 +60,9 @@ export function AddIcdPage() {
           </Field>
           <Field label="Code">
             <TextInput value={code} onChange={(e) => setCode(e.target.value)} />
+          </Field>
+          <Field label="LOCODE">
+            <TextInput value={locode} onChange={(e) => setLocode(e.target.value)} />
           </Field>
           <Field label="City">
             <TextInput value={city} onChange={(e) => setCity(e.target.value)} />

@@ -191,17 +191,23 @@ function VesselLegCard({
   }
 
   // Port/Terminal — sourced only from the Ports/ICDs/Terminals master
-  // (sea_ports / sea_port_terminals), never free text.
+  // (sea_ports / sea_port_terminals), never free text. One search box
+  // matches LOCODE, terminal code, or port name and picks both at once.
+  type TerminalMatch = {
+    id: string
+    name: string
+    code: string | null
+    port_id: string
+    sea_ports: { id: string; name: string; code: string | null } | null
+  }
   const [portQuery, setPortQuery] = useState('')
-  const [portResults, setPortResults] = useState<{ id: string; name: string; code: string | null }[]>([])
+  const [portResults, setPortResults] = useState<TerminalMatch[]>([])
   const [portOpen, setPortOpen] = useState(false)
   const [portName, setPortName] = useState('')
-  const [terminals, setTerminals] = useState<{ id: string; name: string }[]>([])
 
   useEffect(() => {
     if (!leg.portId) {
       setPortName('')
-      setTerminals([])
       return
     }
     let cancelled = false
@@ -213,14 +219,6 @@ function VesselLegCard({
       .then(({ data }) => {
         if (!cancelled && data) setPortName(data.name as string)
       })
-    supabase
-      .from('sea_port_terminals')
-      .select('id,name')
-      .eq('port_id', leg.portId)
-      .order('name', { ascending: true })
-      .then(({ data }) => {
-        if (!cancelled && data) setTerminals(data as { id: string; name: string }[])
-      })
     return () => {
       cancelled = true
     }
@@ -228,26 +226,29 @@ function VesselLegCard({
 
   useEffect(() => {
     const q = portQuery.trim()
-    if (!q || q === portName) {
+    if (!q) {
       setPortResults([])
       return
     }
     const t = setTimeout(() => {
       const safe = q.replace(/[,%]/g, ' ')
       supabase
-        .from('sea_ports')
-        .select('id,name,code')
-        .ilike('name', `%${safe}%`)
+        .from('sea_port_terminals')
+        .select('id,name,code,port_id,sea_ports!inner(id,name,code)')
+        .or(
+          `name.ilike.%${safe}%,code.ilike.%${safe}%,sea_ports.name.ilike.%${safe}%,sea_ports.code.ilike.%${safe}%`
+        )
         .order('name', { ascending: true })
-        .limit(8)
-        .then(({ data }) => setPortResults((data as { id: string; name: string; code: string | null }[]) ?? []))
+        .limit(10)
+        .then(({ data }) => setPortResults((data as unknown as TerminalMatch[]) ?? []))
     }, 250)
     return () => clearTimeout(t)
-  }, [portQuery, portName])
+  }, [portQuery])
 
-  const pickPort = (p: { id: string; name: string }) => {
-    onChange({ portId: p.id, terminal: null })
-    setPortName(p.name)
+  const pickTerminal = (m: TerminalMatch) => {
+    if (!m.sea_ports) return
+    onChange({ portId: m.sea_ports.id, terminal: m.name })
+    setPortName(m.sea_ports.name)
     setPortQuery('')
     setPortOpen(false)
   }
@@ -338,13 +339,13 @@ function VesselLegCard({
           value={leg.etaDestination ?? ''}
           onChange={(v) => onChange({ etaDestination: v })}
         />
-        <div className="relative">
+        <div className="relative sm:col-span-2">
           <label className="block rounded-btn border border-line bg-surface px-3 py-2 focus-within:border-primary">
-            <p className="font-mono text-[10px] uppercase tracking-wide text-muted">Port</p>
+            <p className="font-mono text-[10px] uppercase tracking-wide text-muted">Port / Terminal</p>
             <input
               type="text"
-              value={portOpen ? portQuery : portName}
-              placeholder="Search sea port…"
+              value={portOpen ? portQuery : leg.terminal ? `${portName} — ${leg.terminal}` : portName}
+              placeholder="Search LOCODE, terminal code, or port name…"
               onChange={(e) => {
                 setPortQuery(e.target.value)
                 setPortOpen(true)
@@ -359,38 +360,21 @@ function VesselLegCard({
           </label>
           {portOpen && portResults.length > 0 && (
             <div className="absolute z-10 mt-1 w-full overflow-hidden rounded-btn border border-line bg-surface shadow-lg">
-              {portResults.map((p) => (
+              {portResults.map((m) => (
                 <button
-                  key={p.id}
+                  key={m.id}
                   type="button"
-                  onMouseDown={() => pickPort(p)}
+                  onMouseDown={() => pickTerminal(m)}
                   className="block w-full px-3 py-2 text-left text-[12px] text-body hover:bg-surface-2"
                 >
-                  {p.name}
-                  {p.code ? ` (${p.code})` : ''}
+                  {m.sea_ports?.name}
+                  {m.sea_ports?.code ? ` (${m.sea_ports.code})` : ''} — {m.name}
+                  {m.code ? ` (${m.code})` : ''}
                 </button>
               ))}
             </div>
           )}
         </div>
-        <label className="block rounded-btn border border-line bg-surface px-3 py-2 focus-within:border-primary">
-          <p className="font-mono text-[10px] uppercase tracking-wide text-muted">Terminal</p>
-          <select
-            value={leg.terminal ?? ''}
-            disabled={!leg.portId}
-            onChange={(e) => onChange({ terminal: e.target.value || null })}
-            className="mt-0.5 w-full bg-transparent text-[13px] text-heading focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            <option value="" className="bg-white text-[#0F172A]">
-              {leg.portId ? '—' : 'Pick a port first'}
-            </option>
-            {terminals.map((t) => (
-              <option key={t.id} value={t.name} className="bg-white text-[#0F172A]">
-                {t.name}
-              </option>
-            ))}
-          </select>
-        </label>
         <EditableDatePill
           label="Gate open (planned)"
           value={leg.plannedGateOpen ?? ''}

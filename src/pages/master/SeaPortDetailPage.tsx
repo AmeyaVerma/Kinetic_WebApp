@@ -15,7 +15,14 @@ function rowToSeaPort(row: any): SeaPortRecord {
 }
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function rowToTerminal(row: any): SeaPortTerminalRecord {
-  return { id: row.id, portId: row.port_id, name: row.name, createdAt: row.created_at }
+  return {
+    id: row.id,
+    portId: row.port_id,
+    name: row.name,
+    code: row.code,
+    operatorName: row.operator_name,
+    createdAt: row.created_at,
+  }
 }
 
 /** Master Data → Ports/ICDs/Terminals → Sea Ports detail. Fetched live
@@ -33,6 +40,7 @@ export function SeaPortDetailPage() {
 
   const [showAddTerminal, setShowAddTerminal] = useState(false)
   const [terminalName, setTerminalName] = useState('')
+  const [terminalCode, setTerminalCode] = useState('')
   const [savingTerminal, setSavingTerminal] = useState(false)
   const [terminalError, setTerminalError] = useState<string | null>(null)
 
@@ -75,7 +83,7 @@ export function SeaPortDetailPage() {
     setTerminalError(null)
     const { data, error } = await supabase
       .from('sea_port_terminals')
-      .insert({ port_id: port.id, name: terminalName.trim() })
+      .insert({ port_id: port.id, name: terminalName.trim(), code: terminalCode.trim() || null })
       .select()
       .single()
     setSavingTerminal(false)
@@ -85,6 +93,7 @@ export function SeaPortDetailPage() {
     }
     setTerminals((t) => [...t, rowToTerminal(data)].sort((a, b) => a.name.localeCompare(b.name)))
     setTerminalName('')
+    setTerminalCode('')
     setShowAddTerminal(false)
   }
 
@@ -149,6 +158,11 @@ export function SeaPortDetailPage() {
                       <TextInput value={terminalName} onChange={(e) => setTerminalName(e.target.value)} />
                     </Field>
                   </div>
+                  <div className="w-40">
+                    <Field label="Terminal code">
+                      <TextInput value={terminalCode} onChange={(e) => setTerminalCode(e.target.value)} placeholder="e.g. NSICT" />
+                    </Field>
+                  </div>
                   {terminalError && <p className="text-xs text-[#DC2626]">{terminalError}</p>}
                 </div>
                 <div className="mt-3 flex justify-end gap-2">
@@ -170,12 +184,14 @@ export function SeaPortDetailPage() {
                   <thead>
                     <tr className="border-b border-line text-[11px] uppercase tracking-wide text-muted">
                       <th className="px-3 py-2 font-medium">Terminal</th>
+                      <th className="px-3 py-2 font-medium">Code</th>
                     </tr>
                   </thead>
                   <tbody>
                     {terminals.map((t) => (
                       <tr key={t.id} className="border-b border-line text-xs text-body last:border-0">
                         <td className="px-3 py-2">{t.name}</td>
+                        <td className="px-3 py-2 font-mono">{t.code ?? '—'}</td>
                       </tr>
                     ))}
                   </tbody>

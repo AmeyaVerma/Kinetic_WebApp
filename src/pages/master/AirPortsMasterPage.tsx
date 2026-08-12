@@ -9,7 +9,7 @@ import type { AirPortRecord } from '../../lib/types'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function rowToAirPort(row: any): AirPortRecord {
-  return { id: row.id, name: row.name, code: row.code, city: row.city, country: row.country, createdAt: row.created_at }
+  return { id: row.id, name: row.name, code: row.code, locode: row.locode, city: row.city, country: row.country, createdAt: row.created_at }
 }
 
 /** Master Data → Ports/ICDs/Terminals → Air Ports. The only place an air
@@ -34,7 +34,12 @@ export function AirPortsMasterPage() {
 
   const q = query.trim().toLowerCase()
   const filtered = q
-    ? airPorts.filter((a) => a.name.toLowerCase().includes(q) || (a.code ?? '').toLowerCase().includes(q))
+    ? airPorts.filter(
+        (a) =>
+          a.name.toLowerCase().includes(q) ||
+          (a.code ?? '').toLowerCase().includes(q) ||
+          (a.locode ?? '').toLowerCase().includes(q),
+      )
     : airPorts
 
   return (
@@ -57,7 +62,7 @@ export function AirPortsMasterPage() {
       <Card className="overflow-hidden">
         <div className="flex items-center justify-between gap-3 border-b border-line px-4 py-2.5">
           <div className="w-full max-w-xs">
-            <TextInput placeholder="Search air port name or code…" value={query} onChange={(e) => setQuery(e.target.value)} />
+            <TextInput placeholder="Search air port name, code, or LOCODE…" value={query} onChange={(e) => setQuery(e.target.value)} />
           </div>
           <p className="text-xs text-muted">{filtered.length} air port{filtered.length === 1 ? '' : 's'}</p>
         </div>
@@ -67,6 +72,7 @@ export function AirPortsMasterPage() {
               <tr className="border-b border-line text-[11px] uppercase tracking-wide text-muted">
                 <th className="px-5 py-3 font-medium">Name</th>
                 <th className="px-3 py-3 font-medium">Code</th>
+                <th className="px-3 py-3 font-medium">LOCODE</th>
                 <th className="px-3 py-3 font-medium">City</th>
                 <th className="px-5 py-3 font-medium">Country</th>
               </tr>
@@ -84,6 +90,7 @@ export function AirPortsMasterPage() {
                     </span>
                   </td>
                   <td className="px-3 py-3 font-mono text-xs text-body">{a.code || <span className="text-muted">—</span>}</td>
+                  <td className="px-3 py-3 font-mono text-xs text-body">{a.locode || <span className="text-muted">—</span>}</td>
                   <td className="px-3 py-3 text-xs text-body">{a.city || <span className="text-muted">—</span>}</td>
                   <td className="px-5 py-3 text-xs text-body">{a.country || <span className="text-muted">—</span>}</td>
                 </tr>
