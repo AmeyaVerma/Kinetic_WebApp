@@ -134,9 +134,6 @@ export function MnrPage() {
               <FileBarChart size={15} /> Container report
             </Button>
           </Link>
-          <Button onClick={() => setGateInOpen(true)}>
-            <Plus size={15} /> Gate-in container
-          </Button>
         </div>
       </div>
 
