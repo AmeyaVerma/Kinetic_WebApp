@@ -22,6 +22,9 @@ import { AddVesselPage } from './pages/master/AddVesselPage'
 import { ContainersHubPage } from './pages/master/ContainersHubPage'
 import { ContainersMasterPage } from './pages/master/ContainersMasterPage'
 import { ContainerDetailPage } from './pages/master/ContainerDetailPage'
+import { EmptyDepotsMasterPage } from './pages/master/EmptyDepotsMasterPage'
+import { AddEmptyDepotPage } from './pages/master/AddEmptyDepotPage'
+import { EmptyDepotDetailPage } from './pages/master/EmptyDepotDetailPage'
 import { PortsHubPage } from './pages/master/PortsHubPage'
 import { MiscellaneousHubPage } from './pages/master/MiscellaneousHubPage'
 import { SeaPortsMasterPage } from './pages/master/SeaPortsMasterPage'
@@ -168,6 +171,9 @@ export default function App() {
           <Route path="/master/containers" element={<Guard module="master"><ContainersHubPage /></Guard>} />
           <Route path="/master/containers/fleet" element={<Guard module="master"><ContainersMasterPage /></Guard>} />
           <Route path="/master/containers/fleet/:containerNo" element={<Guard module="master"><ContainerDetailPage /></Guard>} />
+          <Route path="/master/containers/empty-depots" element={<Guard module="master"><EmptyDepotsMasterPage /></Guard>} />
+          <Route path="/master/containers/empty-depots/new" element={<Guard module="master"><AddEmptyDepotPage /></Guard>} />
+          <Route path="/master/containers/empty-depots/:id" element={<Guard module="master"><EmptyDepotDetailPage /></Guard>} />
           <Route
             path="/master/containers/cmc"
             element={

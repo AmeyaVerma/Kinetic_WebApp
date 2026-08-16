@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowLeft, Container as ContainerIcon, Wrench, FileWarning, ChevronRight } from 'lucide-react'
+import { ArrowLeft, Container as ContainerIcon, Wrench, FileWarning, Warehouse, ChevronRight } from 'lucide-react'
 import { Card } from '../../components/ui/Card'
 import { useDataStore } from '../../store/useDataStore'
 
@@ -13,9 +13,10 @@ interface Tile {
   count?: number
 }
 
-/** Containers master — its own 3-tile sub-hub, mirroring the top-level
-    Master Data hub: click through to Container (the physical fleet, live),
-    CMC, or Container Items/Damage Codes (both not built yet). */
+/** Containers master — its own sub-hub, mirroring the top-level Master
+    Data hub: click through to Container (the physical fleet, live), CMC or
+    Container Items/Damage Codes (not built yet), or Empty Depots (live,
+    just no data imported yet). */
 export function ContainersHubPage() {
   const { containers, fetchContainers } = useDataStore()
 
@@ -46,6 +47,13 @@ export function ContainersHubPage() {
       icon: FileWarning,
       live: false,
     },
+    {
+      key: 'empty-depots',
+      label: 'Empty Depots',
+      description: 'Empty container return / pickup yards.',
+      icon: Warehouse,
+      live: true,
+    },
   ]
 
   return (
@@ -55,7 +63,7 @@ export function ContainersHubPage() {
           <ArrowLeft size={13} /> Master Data
         </Link>
         <h1 className="mt-2 text-2xl font-bold">Containers</h1>
-        <p className="mt-1 text-sm text-muted">Three subfields, built one at a time.</p>
+        <p className="mt-1 text-sm text-muted">Four subfields, built one at a time.</p>
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
