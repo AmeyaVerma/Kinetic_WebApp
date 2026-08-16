@@ -244,12 +244,17 @@ const cellInputCls =
   'w-full min-w-[92px] rounded-md border border-line bg-surface px-2 py-1.5 text-xs text-heading focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary'
 
 function ContainerInfoTab({ booking }: { booking: import('../lib/types').Booking }) {
-  const { updateContainerInfoField, requestBookingFieldChange, updateContainerDetails, approvals, masters } =
+  const { updateContainerInfoField, requestBookingFieldChange, updateContainerDetails, approvals, masters, containers, fetchContainers } =
     useDataStore()
   const currentUser = useCurrentUser()
   const viewAsRole = useAuthStore((s) => s.viewAsRole)
   const isAdmin = (viewAsRole ?? currentUser?.role) === 'admin'
   const actor = currentUser?.name ?? 'Ops'
+
+  useEffect(() => {
+    if (containers.length === 0) fetchContainers()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const pendingContainerType = approvals.find(
     (a) => a.bookingId === booking.id && a.status === 'Pending' && a.fieldChange?.field === 'containerType',
@@ -277,6 +282,14 @@ function ContainerInfoTab({ booking }: { booking: import('../lib/types').Booking
       updateContainerDetails(booking.id, next, actor)
     }
 
+  const setFreeDays = (field: 'freeDaysOrigin' | 'freeDaysDest', label: string) => (v: string) => {
+    const next = Math.max(0, Math.min(999, parseInt(v || '0', 10) || 0))
+    const value = String(next)
+    isAdmin
+      ? updateContainerInfoField(booking.id, field, value, actor)
+      : requestBookingFieldChange(booking.id, field, label, value, actor)
+  }
+
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
@@ -303,8 +316,32 @@ function ContainerInfoTab({ booking }: { booking: import('../lib/types').Booking
             className="mt-0.5 w-full bg-transparent text-[13px] text-heading placeholder:text-muted focus:outline-none"
           />
         </label>
-        <FieldPill label="Free days (origin)" value={`${booking.freeDaysOrigin} days`} />
-        <FieldPill label="Free days (destination)" value={`${booking.freeDaysDest} days`} />
+        <label className="block rounded-btn border border-line bg-surface-2/60 px-3 py-2 focus-within:border-primary">
+          <p className="font-mono text-[10px] uppercase tracking-wide text-muted">Free days (origin)</p>
+          <div className="mt-0.5 flex items-baseline gap-1.5">
+            <input
+              type="text"
+              inputMode="numeric"
+              value={booking.freeDaysOrigin}
+              onChange={(e) => setFreeDays('freeDaysOrigin', 'Free days (origin)')(e.target.value)}
+              className="w-10 bg-transparent text-[13px] text-heading focus:outline-none"
+            />
+            <span className="text-[13px] text-heading">days</span>
+          </div>
+        </label>
+        <label className="block rounded-btn border border-line bg-surface-2/60 px-3 py-2 focus-within:border-primary">
+          <p className="font-mono text-[10px] uppercase tracking-wide text-muted">Free days (destination)</p>
+          <div className="mt-0.5 flex items-baseline gap-1.5">
+            <input
+              type="text"
+              inputMode="numeric"
+              value={booking.freeDaysDest}
+              onChange={(e) => setFreeDays('freeDaysDest', 'Free days (destination)')(e.target.value)}
+              className="w-10 bg-transparent text-[13px] text-heading focus:outline-none"
+            />
+            <span className="text-[13px] text-heading">days</span>
+          </div>
+        </label>
       </div>
 
       <div className="rounded-card border border-line bg-surface-2/40 p-5">
@@ -342,12 +379,11 @@ function ContainerInfoTab({ booking }: { booking: import('../lib/types').Booking
                   return (
                     <tr key={i}>
                       <td className="border-b border-line px-2 py-1.5">
-                        <input
-                          type="text"
+                        <ContainerNoCell
                           value={row.containerNo}
                           placeholder={`Container ${i + 1}`}
-                          onChange={(e) => setRowField(i, 'containerNo')(e.target.value)}
-                          className={cellInputCls}
+                          containers={containers}
+                          onChange={setRowField(i, 'containerNo')}
                         />
                       </td>
                       <td className="border-b border-line px-2 py-1.5">
@@ -422,6 +458,67 @@ function ContainerInfoTab({ booking }: { booking: import('../lib/types').Booking
           </div>
         )}
       </div>
+    </div>
+  )
+}
+
+/** Container No cell — search-and-select only, sourced from the Containers
+    master (never free text). Matches on substring anywhere in the number. */
+function ContainerNoCell({
+  value,
+  placeholder,
+  containers,
+  onChange,
+}: {
+  value: string
+  placeholder: string
+  containers: import('../lib/types').ContainerRecord[]
+  onChange: (v: string) => void
+}) {
+  const [query, setQuery] = useState('')
+  const [open, setOpen] = useState(false)
+
+  const results = query.trim()
+    ? containers
+        .filter((c) => c.containerNo.toUpperCase().includes(query.trim().toUpperCase()))
+        .slice(0, 8)
+    : []
+
+  return (
+    <div className="relative">
+      <input
+        type="text"
+        value={open ? query : value}
+        placeholder={placeholder}
+        onChange={(e) => {
+          setQuery(e.target.value)
+          setOpen(true)
+        }}
+        onFocus={() => {
+          setQuery('')
+          setOpen(true)
+        }}
+        onBlur={() => setTimeout(() => setOpen(false), 150)}
+        className={cellInputCls}
+      />
+      {open && results.length > 0 && (
+        <div className="absolute z-10 mt-1 w-full min-w-[160px] overflow-hidden rounded-btn border border-line bg-surface shadow-lg">
+          {results.map((c) => (
+            <button
+              key={c.id}
+              type="button"
+              onMouseDown={() => {
+                onChange(c.containerNo)
+                setQuery('')
+                setOpen(false)
+              }}
+              className="block w-full px-3 py-2 text-left text-[12px] text-body hover:bg-surface-2"
+            >
+              {c.containerNo}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

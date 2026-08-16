@@ -665,12 +665,14 @@ const CONTAINER_INFO_FIELD_LABELS = {
   packages: 'Packages',
   packageType: 'Package type',
   grossWeightKg: 'Cargo weight',
+  freeDaysOrigin: 'Free days (origin)',
+  freeDaysDest: 'Free days (destination)',
 } as const
 
 /** Fields on Booking that are numbers, not strings — updateContainerInfoField
     and the booking_field_edit approval path both need to parse into these
     before writing, rather than storing the raw text. */
-const NUMERIC_BOOKING_FIELDS = new Set(['packages', 'grossWeightKg'])
+const NUMERIC_BOOKING_FIELDS = new Set(['packages', 'grossWeightKg', 'freeDaysOrigin', 'freeDaysDest'])
 
 const PLANNED_DATE_FIELD_LABELS = {
   plannedGateOpen: 'Planned gate open',
@@ -829,7 +831,8 @@ interface DataState {
     bookingId: string,
     field:
       | 'numberOfContainers' | 'sizeOfContainer' | 'sealNo' | 'customSealNo' | 'containerType'
-      | 'commodity' | 'hsCode' | 'principal' | 'freightTerms' | 'packages' | 'packageType' | 'grossWeightKg',
+      | 'commodity' | 'hsCode' | 'principal' | 'freightTerms' | 'packages' | 'packageType' | 'grossWeightKg'
+      | 'freeDaysOrigin' | 'freeDaysDest',
     value: string,
     actor: string,
   ) => void
