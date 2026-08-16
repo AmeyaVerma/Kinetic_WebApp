@@ -362,7 +362,7 @@ function ContainerInfoTab({ booking }: { booking: import('../lib/types').Booking
                 <tr>
                   {[
                     'Container No', 'Container Type', 'Empty/Laden', 'No of Pkgs', 'Pkg Unit',
-                    'Gross Weight', 'Net Weight', 'Cargo Weight', 'Seal', 'Custom Seal',
+                    'Net Weight', 'Gross Weight', 'VGM Weight', 'Cargo Weight', 'Seal', 'Custom Seal',
                   ].map((h) => (
                     <th
                       key={h}
@@ -426,10 +426,21 @@ function ContainerInfoTab({ booking }: { booking: import('../lib/types').Booking
                         />
                       </td>
                       <td className="border-b border-line px-2 py-1.5">
+                        <WeightCell value={row.netWeight} onChange={setRowField(i, 'netWeight')} />
+                      </td>
+                      <td className="border-b border-line px-2 py-1.5">
                         <WeightCell value={row.grossWeight} onChange={setRowField(i, 'grossWeight')} />
                       </td>
                       <td className="border-b border-line px-2 py-1.5">
-                        <WeightCell value={row.netWeight} onChange={setRowField(i, 'netWeight')} />
+                        <WeightCell
+                          value={
+                            row.grossWeight.trim() === ''
+                              ? ''
+                              : ((parseFloat(row.grossWeight) || 0) + 2500).toFixed(2)
+                          }
+                          onChange={() => {}}
+                          disabled
+                        />
                       </td>
                       <td className="border-b border-line px-2 py-1.5">
                         <WeightCell value={row.cargoWeight} onChange={setRowField(i, 'cargoWeight')} />
