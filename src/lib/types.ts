@@ -292,6 +292,42 @@ export interface PackageTypeRecord {
   createdAt: string
 }
 
+/* ── Miscellaneous → Units of Measurement — the only place UOM codes can
+   be added or removed; cargo/charge/rate entry reads from here. ── */
+
+export interface UnitOfMeasurementRecord {
+  id: string
+  code: string
+  name: string
+  category: string | null
+  createdAt: string
+}
+
+export const UOM_CATEGORIES = [
+  'Weight',
+  'Volume',
+  'Length',
+  'Area',
+  'Quantity',
+  'Container',
+  'Freight basis',
+  'Time',
+] as const
+
+/* ── Miscellaneous → Currencies — the only place currency codes can be
+   added or removed; invoicing and charge lines read from here. ── */
+
+export interface CurrencyRecord {
+  id: string
+  code: string
+  name: string
+  symbol: string | null
+  country: string | null
+  /** Minor-unit digits — 2 for most, 3 for Gulf dinars/rial, 0 for JPY/VND/KRW. */
+  decimals: number
+  createdAt: string
+}
+
 export interface IcdRecord {
   id: string
   name: string

@@ -14,8 +14,9 @@ const TILES: Tile[] = [
   {
     key: 'uom',
     label: 'Units of Measurement',
-    description: 'Not built yet.',
+    description: 'UOM codes used for cargo, charges and rates.',
     icon: Ruler,
+    live: true,
   },
   {
     key: 'package-types',
@@ -27,14 +28,14 @@ const TILES: Tile[] = [
   {
     key: 'currencies',
     label: 'Currencies',
-    description: 'Not built yet.',
+    description: 'Currencies used for invoicing, charges and rates.',
     icon: Coins,
+    live: true,
   },
 ]
 
 /** Miscellaneous master — its own 3-tile sub-hub, mirroring the Containers
-    hub pattern. Package types is live; UOM and Currencies still not
-    built. */
+    hub pattern. All three subfields are live. */
 export function MiscellaneousHubPage() {
   return (
     <div className="space-y-5">
@@ -43,7 +44,7 @@ export function MiscellaneousHubPage() {
           <ArrowLeft size={13} /> Master Data
         </Link>
         <h1 className="mt-2 text-2xl font-bold">Miscellaneous</h1>
-        <p className="mt-1 text-sm text-muted">Three subfields, built one at a time.</p>
+        <p className="mt-1 text-sm text-muted">Reference lists shared across the modules.</p>
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
