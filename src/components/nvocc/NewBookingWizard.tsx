@@ -374,17 +374,17 @@ export function NewBookingWizard({ open, onClose, onCreated }: Props) {
               ))}
             </Select>
           </Field>
-          <Field label="Container type" required>
-            <AddableSelect
-              value={containerType}
-              onChange={setContainerType}
-              addLabel="Add container type"
-              options={masters.containerTypes.map((t) => ({ value: t, label: t }))}
-              onAdd={(name) => addMasterOption('containerTypes', name)}
-            />
-          </Field>
-          <Field label="Container qty" required>
-            <TextInput type="number" min={1} value={containerQty} onChange={(e) => setContainerQty(+e.target.value)} />
+          <Field label="Container type / qty" required>
+            <div className="flex gap-2">
+              <AddableSelect
+                value={containerType}
+                onChange={setContainerType}
+                addLabel="Add container type"
+                options={masters.containerTypes.map((t) => ({ value: t, label: t }))}
+                onAdd={(name) => addMasterOption('containerTypes', name)}
+              />
+              <TextInput type="number" min={1} value={containerQty} onChange={(e) => setContainerQty(+e.target.value)} />
+            </div>
           </Field>
           <Field label="Commodity">
             <TextInput value={commodity} onChange={(e) => setCommodity(e.target.value)} placeholder="e.g. General cargo" />
