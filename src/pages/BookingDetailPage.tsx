@@ -24,7 +24,7 @@ import {
   WORKFLOW_STATUS_CHIP,
   workflowStatusOf,
 } from '../lib/bookingStatus'
-import { mockAgents, mockVendors } from '../mocks/masters'
+import { mockVendors } from '../mocks/masters'
 import { HAZMAT_FIELD_LABELS } from '../lib/types'
 import type { BookingWorkflowStatus, HazmatDetails, HazmatStatus } from '../lib/types'
 
@@ -816,9 +816,13 @@ function ShipmentDetailsTab({
 /* ── Tab: Agent details ──────────────────────────────────────── */
 
 function AgentDetailsTab({ booking }: { booking: import('../lib/types').Booking }) {
-  const { updateTransshipmentAgent } = useDataStore()
-  const origin = mockAgents.find((a) => a.id === booking.originAgentId)
-  const dest = mockAgents.find((a) => a.id === booking.destinationAgentId)
+  const { updateTransshipmentAgent, parties, fetchParties } = useDataStore()
+  useEffect(() => {
+    if (parties.length === 0) fetchParties()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+  const origin = parties.find((p) => p.id === booking.originAgentId)
+  const dest = parties.find((p) => p.id === booking.destinationAgentId)
   const surveyor = mockVendors.find((v) => v.id === booking.surveyorId)
   return (
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -826,8 +830,8 @@ function AgentDetailsTab({ booking }: { booking: import('../lib/types').Booking 
       <FieldPill label="Shipper" value={booking.shipper} />
       <FieldPill label="Consignee" value={booking.consignee} />
       <FieldPill label="Notify party" value={booking.notifyParty} />
-      <FieldPill label="Origin agent" value={origin ? `${origin.name} (${origin.country})` : ''} />
-      <FieldPill label="Destination agent" value={dest ? `${dest.name} (${dest.country})` : ''} />
+      <FieldPill label="Origin agent" value={origin ? `${origin.displayName}${origin.country ? ` (${origin.country})` : ''}` : ''} />
+      <FieldPill label="Destination agent" value={dest ? `${dest.displayName}${dest.country ? ` (${dest.country})` : ''}` : ''} />
       <EditableTextPill
         label="Transshipment agent"
         value={booking.transshipmentAgent ?? ''}

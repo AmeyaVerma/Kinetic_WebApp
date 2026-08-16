@@ -3,10 +3,13 @@ import type { InputHTMLAttributes, ReactNode, SelectHTMLAttributes, TextareaHTML
 const inputCls =
   'w-full rounded-input border border-[#E5E7EB] dark:border-line bg-surface px-3.5 py-2.5 text-sm text-heading placeholder:text-muted focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary'
 
-export function Field({ label, children }: { label: string; children: ReactNode }) {
+export function Field({ label, children, required }: { label: string; children: ReactNode; required?: boolean }) {
   return (
     <label className="block">
-      <span className="mb-1.5 block text-xs font-medium text-body">{label}</span>
+      <span className="mb-1.5 block text-xs font-medium text-body">
+        {label}
+        {required && <span className="ml-0.5 text-accent-coral">*</span>}
+      </span>
       {children}
     </label>
   )

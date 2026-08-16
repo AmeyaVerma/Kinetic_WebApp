@@ -269,6 +269,19 @@ export interface SeaPortTerminalRecord {
   createdAt: string
 }
 
+/* ── Container Master → Empty Depots — the only place empty container
+   return/pickup yards can be added or edited; booking flows read from
+   here, never free text. ── */
+
+export interface EmptyDepotRecord {
+  id: string
+  name: string
+  code: string | null
+  city: string | null
+  country: string | null
+  createdAt: string
+}
+
 export interface IcdRecord {
   id: string
   name: string

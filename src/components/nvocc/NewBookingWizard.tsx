@@ -1,17 +1,15 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Trash2, Plus } from 'lucide-react'
 import { Modal } from '../ui/Modal'
 import { Button } from '../ui/Button'
 import { Field, Select, TextInput } from '../ui/Field'
 import { AddableSelect } from '../ui/AddableSelect'
+import { PartySearchField } from './PartySearchField'
+import { VesselSearchField } from './VesselSearchField'
 import { useDataStore } from '../../store/useDataStore'
 import { useAuthStore, useCurrentUser } from '../../store/useAuthStore'
-import {
-  mockAgents,
-  mockDepots,
-  mockVendors,
-  mockVessels,
-} from '../../mocks/masters'
+import { supabase } from '../../lib/supabaseClient'
+import { mockDepots, mockVendors } from '../../mocks/masters'
 import type { ChargeLine, Direction, FreightTerms } from '../../lib/types'
 
 interface DraftCharge {
@@ -39,17 +37,25 @@ export function NewBookingWizard({ open, onClose, onCreated }: Props) {
 
   // Step 1 — header (doc §1 field grid)
   const [customerId, setCustomerId] = useState('')
+  const [customerName, setCustomerName] = useState('')
   const [direction, setDirection] = useState<Direction>('Export')
   const [bookingDate, setBookingDate] = useState(new Date().toISOString().slice(0, 10))
   const [principal, setPrincipal] = useState('Kinetic Line')
   const [shipper, setShipper] = useState('')
   const [consignee, setConsignee] = useState('')
   const [originAgentId, setOriginAgentId] = useState('')
+  const [originAgentName, setOriginAgentName] = useState('')
   const [destAgentId, setDestAgentId] = useState('')
+  const [destAgentName, setDestAgentName] = useState('')
   const [freeDaysOrigin, setFreeDaysOrigin] = useState(7)
   const [freeDaysDest, setFreeDaysDest] = useState(14)
   const [transitTime, setTransitTime] = useState(7)
   const [vesselId, setVesselId] = useState('')
+  const [vesselName, setVesselName] = useState('')
+  const [voyageNo, setVoyageNo] = useState('')
+  const [etd, setEtd] = useState('')
+  const [eta, setEta] = useState('')
+  const [voyages, setVoyages] = useState<{ id: string; voyage: string | null; etd: string | null; eta: string | null }[]>([])
   const [freightTerms, setFreightTerms] = useState<FreightTerms>('Prepaid')
   const [surveyorId, setSurveyorId] = useState('')
   const [emptyYardId, setEmptyYardId] = useState('')
@@ -65,8 +71,18 @@ export function NewBookingWizard({ open, onClose, onCreated }: Props) {
     { chargeCodeId: 'cc1', amount: 0, currency: 'USD', vendorId: null },
   ])
 
-  const vessel = mockVessels.find((v) => v.id === vesselId)
-  const customer = masters.customers.find((c) => c.id === customerId)
+  useEffect(() => {
+    if (!vesselId) {
+      setVoyages([])
+      return
+    }
+    supabase
+      .from('vessel_voyages')
+      .select('id,voyage,etd,eta')
+      .eq('vessel_id', vesselId)
+      .order('eta', { ascending: false })
+      .then(({ data }) => setVoyages((data as typeof voyages) ?? []))
+  }, [vesselId])
 
   const rateTotal = useMemo(() => {
     // Demo total at a flat FX for display only (real FX comes from currency master later)
@@ -74,21 +90,45 @@ export function NewBookingWizard({ open, onClose, onCreated }: Props) {
     return chargeLines.reduce((a, c) => a + fx(c), 0)
   }, [chargeLines])
 
-  const step1Valid = customerId && shipper && consignee && vesselId
+  const step1Valid =
+    !!customerId &&
+    !!direction &&
+    !!bookingDate &&
+    !!principal.trim() &&
+    !!originAgentId &&
+    !!destAgentId &&
+    !!vesselId &&
+    !!freightTerms &&
+    freeDaysOrigin >= 0 &&
+    freeDaysDest >= 0 &&
+    transitTime >= 0 &&
+    !!surveyorId &&
+    !!emptyYardId &&
+    !!containerType &&
+    containerQty >= 1
 
   const reset = () => {
     setStep(1)
     setCustomerId('')
+    setCustomerName('')
     setShipper('')
     setConsignee('')
+    setOriginAgentId('')
+    setOriginAgentName('')
+    setDestAgentId('')
+    setDestAgentName('')
     setVesselId('')
+    setVesselName('')
+    setVoyageNo('')
+    setEtd('')
+    setEta('')
     setChargeLines([
       { chargeCodeId: 'cc1', amount: 0, currency: 'USD', vendorId: null },
     ])
   }
 
   const submit = () => {
-    if (!vessel || !customer) return
+    if (!vesselId || !customerId) return
     const charges: Omit<ChargeLine, 'id' | 'bookingId'>[] = chargeLines
       .filter((c) => c.amount > 0)
       .map((c) => ({
@@ -102,8 +142,8 @@ export function NewBookingWizard({ open, onClose, onCreated }: Props) {
     const id = createBooking(
       {
         direction,
-        bookingPartyId: customer.id,
-        bookingPartyName: customer.name,
+        bookingPartyId: customerId,
+        bookingPartyName: customerName,
         bookingDate,
         principal,
         shipper,
@@ -114,13 +154,13 @@ export function NewBookingWizard({ open, onClose, onCreated }: Props) {
         freeDaysOrigin,
         freeDaysDest,
         transitTime,
-        vesselId: vessel.id,
-        vesselName: vessel.name,
-        voyageNo: vessel.voyageNo,
-        pol: vessel.pol,
-        pod: vessel.pod,
-        etd: vessel.etd,
-        eta: vessel.eta,
+        vesselId,
+        vesselName,
+        voyageNo,
+        pol: '',
+        pod: '',
+        etd,
+        eta,
         freightTerms,
         surveyorId: surveyorId || null,
         emptyYardId: emptyYardId || null,
@@ -170,76 +210,125 @@ export function NewBookingWizard({ open, onClose, onCreated }: Props) {
     >
       {step === 1 ? (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Field label="Booking party (customer master)">
-            <AddableSelect
-              value={customerId}
-              onChange={setCustomerId}
-              placeholder="Select customer…"
-              addLabel="Add customer"
-              options={masters.customers.map((c) => ({ value: c.id, label: c.name }))}
-              onAdd={(name) => addMasterOption('customers', name)}
+          <Field label="Booking party (Parties master)" required>
+            <PartySearchField
+              value={customerName}
+              roles={['Importer', 'Exporter']}
+              placeholder="Search customer…"
+              onSelect={(p) => {
+                setCustomerId(p.id)
+                setCustomerName(p.name)
+              }}
             />
           </Field>
-          <Field label="Direction">
+          <Field label="Direction" required>
             <Select value={direction} onChange={(e) => setDirection(e.target.value as Direction)}>
               <option>Export</option>
               <option>Import</option>
             </Select>
           </Field>
-          <Field label="Booking date">
+          <Field label="Booking date" required>
             <TextInput type="date" value={bookingDate} onChange={(e) => setBookingDate(e.target.value)} />
           </Field>
-          <Field label="Principal">
+          <Field label="Principal" required>
             <TextInput value={principal} onChange={(e) => setPrincipal(e.target.value)} />
           </Field>
-          <Field label="Shipper">
-            <TextInput value={shipper} onChange={(e) => setShipper(e.target.value)} placeholder="Shipper name" />
+          <Field label="Shipper (Parties master)">
+            <PartySearchField
+              value={shipper}
+              roles={['Exporter']}
+              placeholder="Search shipper…"
+              onSelect={(p) => setShipper(p.name)}
+            />
           </Field>
-          <Field label="Consignee">
-            <TextInput value={consignee} onChange={(e) => setConsignee(e.target.value)} placeholder="Consignee name + address" />
+          <Field label="Consignee (Parties master)">
+            <PartySearchField
+              value={consignee}
+              roles={['Importer']}
+              placeholder="Search consignee…"
+              onSelect={(p) => setConsignee(p.name)}
+            />
           </Field>
-          <Field label="Origin agent">
-            <Select value={originAgentId} onChange={(e) => setOriginAgentId(e.target.value)}>
-              <option value="">—</option>
-              {mockAgents.filter((a) => a.role !== 'destination').map((a) => (
-                <option key={a.id} value={a.id}>{a.name}</option>
-              ))}
-            </Select>
+          <Field label="Origin agent (Parties master)" required>
+            <PartySearchField
+              value={originAgentName}
+              roles={['Forwarder']}
+              placeholder="Search agent…"
+              onSelect={(p) => {
+                setOriginAgentId(p.id)
+                setOriginAgentName(p.name)
+              }}
+            />
           </Field>
-          <Field label="Destination agent">
-            <Select value={destAgentId} onChange={(e) => setDestAgentId(e.target.value)}>
-              <option value="">—</option>
-              {mockAgents.filter((a) => a.role !== 'origin').map((a) => (
-                <option key={a.id} value={a.id}>{a.name}</option>
-              ))}
-            </Select>
+          <Field label="Destination agent (Parties master)" required>
+            <PartySearchField
+              value={destAgentName}
+              roles={['Forwarder']}
+              placeholder="Search agent…"
+              onSelect={(p) => {
+                setDestAgentId(p.id)
+                setDestAgentName(p.name)
+              }}
+            />
           </Field>
-          <Field label="Vessel (auto-fills voyage, POL, POD, ETD, ETA)">
-            <Select value={vesselId} onChange={(e) => setVesselId(e.target.value)}>
-              <option value="">Select vessel…</option>
-              {mockVessels.map((v) => (
-                <option key={v.id} value={v.id}>
-                  {v.name} / {v.voyageNo} — {v.pol} → {v.pod}
-                </option>
-              ))}
-            </Select>
+          <Field label="Vessel (Vessels master)" required>
+            <VesselSearchField
+              value={vesselName}
+              onSelect={(v) => {
+                setVesselId(v.id)
+                setVesselName(v.name)
+                setVoyageNo('')
+                setEtd('')
+                setEta('')
+              }}
+            />
           </Field>
-          <Field label="Freight terms">
+          <Field label="Voyage no.">
+            {voyages.length > 0 ? (
+              <Select
+                value={voyageNo}
+                onChange={(e) => {
+                  const v = voyages.find((x) => x.voyage === e.target.value)
+                  setVoyageNo(e.target.value)
+                  setEtd(v?.etd ?? etd)
+                  setEta(v?.eta ?? eta)
+                }}
+              >
+                <option value="">—</option>
+                {voyages.map((v) => (
+                  <option key={v.id} value={v.voyage ?? ''}>{v.voyage || '(untitled)'}</option>
+                ))}
+              </Select>
+            ) : (
+              <TextInput
+                value={voyageNo}
+                placeholder={vesselId ? 'No voyages on file' : 'Pick a vessel first'}
+                onChange={(e) => setVoyageNo(e.target.value)}
+              />
+            )}
+          </Field>
+          <Field label="ETD (origin)">
+            <TextInput type="date" value={etd} onChange={(e) => setEtd(e.target.value)} />
+          </Field>
+          <Field label="ETA (destination)">
+            <TextInput type="date" value={eta} onChange={(e) => setEta(e.target.value)} />
+          </Field>
+          <Field label="Freight terms" required>
             <Select value={freightTerms} onChange={(e) => setFreightTerms(e.target.value as FreightTerms)}>
               <option>Prepaid</option>
               <option>Collect</option>
             </Select>
           </Field>
-          <Field label="Free days (origin)">
+          <Field label="Free days (origin)" required>
             <TextInput type="number" value={freeDaysOrigin} onChange={(e) => setFreeDaysOrigin(+e.target.value)} />
           </Field>
-          <Field label="Free days (destination)">
+          <Field label="Free days (destination)" required>
             <TextInput type="number" value={freeDaysDest} onChange={(e) => setFreeDaysDest(+e.target.value)} />
           </Field>
-          <Field label="Transit time (days)">
+          <Field label="Transit time (days)" required>
             <TextInput type="number" value={transitTime} onChange={(e) => setTransitTime(+e.target.value)} />
           </Field>
-          <Field label="Surveyor (vendor master)">
+          <Field label="Surveyor (vendor master)" required>
             <Select value={surveyorId} onChange={(e) => setSurveyorId(e.target.value)}>
               <option value="">—</option>
               {mockVendors.filter((v) => v.kind === 'Surveyor').map((v) => (
@@ -247,7 +336,7 @@ export function NewBookingWizard({ open, onClose, onCreated }: Props) {
               ))}
             </Select>
           </Field>
-          <Field label="Empty container yard (depot master)">
+          <Field label="Empty container yard (depot master)" required>
             <Select value={emptyYardId} onChange={(e) => setEmptyYardId(e.target.value)}>
               <option value="">—</option>
               {mockDepots.map((d) => (
@@ -255,7 +344,7 @@ export function NewBookingWizard({ open, onClose, onCreated }: Props) {
               ))}
             </Select>
           </Field>
-          <Field label="Container type">
+          <Field label="Container type" required>
             <AddableSelect
               value={containerType}
               onChange={setContainerType}
@@ -264,7 +353,7 @@ export function NewBookingWizard({ open, onClose, onCreated }: Props) {
               onAdd={(name) => addMasterOption('containerTypes', name)}
             />
           </Field>
-          <Field label="Container qty">
+          <Field label="Container qty" required>
             <TextInput type="number" min={1} value={containerQty} onChange={(e) => setContainerQty(+e.target.value)} />
           </Field>
           <Field label="Commodity">
@@ -285,12 +374,6 @@ export function NewBookingWizard({ open, onClose, onCreated }: Props) {
           <Field label="Gross weight (kg)">
             <TextInput type="number" value={grossWeightKg} onChange={(e) => setGrossWeightKg(+e.target.value)} />
           </Field>
-          {vessel && (
-            <div className="rounded-btn border border-line bg-surface-2/60 p-3 text-xs text-body sm:col-span-2">
-              <span className="font-medium text-heading">Auto from vessel master:</span>{' '}
-              {vessel.pol} → {vessel.pod} · ETD {vessel.etd} · ETA {vessel.eta} · Carrier {vessel.carrier}
-            </div>
-          )}
         </div>
       ) : (
         <div>
