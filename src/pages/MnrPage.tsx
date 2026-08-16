@@ -266,40 +266,8 @@ function FleetTable() {
     Status: f.status,
   }))
 
-  const locationSummary = useMemo(() => {
-    const onBooking = fleet.filter((f) => f.custodianBookingRef)
-    const counts = CONTAINER_REPORT_LOCATIONS.map((loc) => ({
-      label: loc.label,
-      count: onBooking.filter((f) => fleetLocation(f, bookings, containerActivities).code === loc.value).length,
-    }))
-    const unassigned = onBooking.filter((f) => !fleetLocation(f, bookings, containerActivities).code).length
-    return { counts, unassigned, total: onBooking.length }
-  }, [fleet, bookings, containerActivities])
-
   return (
     <div className="space-y-4">
-      {locationSummary.total > 0 && (
-        <Card className="p-4">
-          <p className="mb-2.5 text-xs font-semibold uppercase tracking-wide text-muted">
-            Fleet by location — {locationSummary.total} containers currently out on a booking
-          </p>
-          <div className="flex flex-wrap gap-2">
-            {locationSummary.counts.map((c) => (
-              <span
-                key={c.label}
-                className="rounded-badge border border-line bg-surface-2/60 px-2.5 py-1 text-xs text-body"
-              >
-                {c.label} <span className="font-mono font-semibold text-heading">{c.count}</span>
-              </span>
-            ))}
-            {locationSummary.unassigned > 0 && (
-              <span className="rounded-badge border border-accent-orange/30 bg-accent-orange/10 px-2.5 py-1 text-xs text-accent-orange">
-                Unmatched port text <span className="font-mono font-semibold">{locationSummary.unassigned}</span>
-              </span>
-            )}
-          </div>
-        </Card>
-      )}
       <Card className="overflow-hidden">
       <div className="flex flex-wrap items-center gap-2 border-b border-line px-4 py-3">
         <input
