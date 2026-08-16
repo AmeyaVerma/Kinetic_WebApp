@@ -709,7 +709,7 @@ function ProductInfoTab({ booking }: { booking: import('../lib/types').Booking }
             className="mt-0.5 w-full bg-transparent text-[13px] text-heading focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
           >
             <option value="Prepaid">Prepaid</option>
-            <option value="Collect">Collected</option>
+            <option value="Collect">Collect</option>
           </select>
           {hintFor('freightTerms') && <p className="mt-1 text-[11px] text-accent-orange">{hintFor('freightTerms')}</p>}
         </label>
