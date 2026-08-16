@@ -6,6 +6,7 @@ import { Field, Select, TextInput } from '../ui/Field'
 import { AddableSelect } from '../ui/AddableSelect'
 import { PartySearchField } from './PartySearchField'
 import { VesselSearchField } from './VesselSearchField'
+import { PortSearchField } from './PortSearchField'
 import { useDataStore } from '../../store/useDataStore'
 import { useAuthStore, useCurrentUser } from '../../store/useAuthStore'
 import { supabase } from '../../lib/supabaseClient'
@@ -18,6 +19,13 @@ interface DraftCharge {
   currency: 'USD' | 'INR'
   vendorId: string | null
 }
+
+/** Costing step only offers these three at booking creation — the rest of
+    the charge-code master (BL fee, DO fee, Detention, Survey, etc.) is
+    still available on the booking detail page's Invoicing tab, added
+    post-creation. A future "Local charges master" will extend this list;
+    not wired up yet since that master doesn't exist. */
+const WIZARD_CHARGE_CODE_IDS = ['cc1', 'cc2', 'cc3']
 
 interface Props {
   open: boolean
@@ -56,6 +64,10 @@ export function NewBookingWizard({ open, onClose, onCreated }: Props) {
   const [etd, setEtd] = useState('')
   const [eta, setEta] = useState('')
   const [voyages, setVoyages] = useState<{ id: string; voyage: string | null; etd: string | null; eta: string | null }[]>([])
+  const [portOfReceipt, setPortOfReceipt] = useState('')
+  const [pol, setPol] = useState('')
+  const [pod, setPod] = useState('')
+  const [finalPlaceOfDischarge, setFinalPlaceOfDischarge] = useState('')
   const [freightTerms, setFreightTerms] = useState<FreightTerms>('Prepaid')
   const [surveyorId, setSurveyorId] = useState('')
   const [emptyYardId, setEmptyYardId] = useState('')
@@ -122,6 +134,10 @@ export function NewBookingWizard({ open, onClose, onCreated }: Props) {
     setVoyageNo('')
     setEtd('')
     setEta('')
+    setPortOfReceipt('')
+    setPol('')
+    setPod('')
+    setFinalPlaceOfDischarge('')
     setChargeLines([
       { chargeCodeId: 'cc1', amount: 0, currency: 'USD', vendorId: null },
     ])
@@ -157,8 +173,10 @@ export function NewBookingWizard({ open, onClose, onCreated }: Props) {
         vesselId,
         vesselName,
         voyageNo,
-        pol: '',
-        pod: '',
+        portOfReceipt,
+        pol,
+        pod,
+        finalPlaceOfDischarge,
         etd,
         eta,
         freightTerms,
@@ -313,6 +331,18 @@ export function NewBookingWizard({ open, onClose, onCreated }: Props) {
           <Field label="ETA (destination)">
             <TextInput type="date" value={eta} onChange={(e) => setEta(e.target.value)} />
           </Field>
+          <Field label="Port of Receipt (Sea Ports master)">
+            <PortSearchField value={portOfReceipt} placeholder="Search port…" onSelect={setPortOfReceipt} />
+          </Field>
+          <Field label="Port of Loading (Sea Ports master)">
+            <PortSearchField value={pol} placeholder="Search port…" onSelect={setPol} />
+          </Field>
+          <Field label="Port of Destination (Sea Ports master)">
+            <PortSearchField value={pod} placeholder="Search port…" onSelect={setPod} />
+          </Field>
+          <Field label="Final Place of Discharge (Sea Ports master)">
+            <PortSearchField value={finalPlaceOfDischarge} placeholder="Search port…" onSelect={setFinalPlaceOfDischarge} />
+          </Field>
           <Field label="Freight terms" required>
             <Select value={freightTerms} onChange={(e) => setFreightTerms(e.target.value as FreightTerms)}>
               <option>Prepaid</option>
@@ -388,13 +418,16 @@ export function NewBookingWizard({ open, onClose, onCreated }: Props) {
           <div className="space-y-2">
             {chargeLines.map((c, i) => (
               <div key={i} className="flex items-center gap-2">
-                <AddableSelect
+                <Select
                   value={c.chargeCodeId}
-                  onChange={(v) => setChargeLines((ls) => ls.map((x, j) => (j === i ? { ...x, chargeCodeId: v } : x)))}
-                  addLabel="Add charge code"
-                  options={masters.chargeCodes.map((cc) => ({ value: cc.id, label: cc.name }))}
-                  onAdd={(name) => addMasterOption('chargeCodes', name)}
-                />
+                  onChange={(e) => setChargeLines((ls) => ls.map((x, j) => (j === i ? { ...x, chargeCodeId: e.target.value } : x)))}
+                >
+                  {masters.chargeCodes
+                    .filter((cc) => WIZARD_CHARGE_CODE_IDS.includes(cc.id))
+                    .map((cc) => (
+                      <option key={cc.id} value={cc.id}>{cc.name}</option>
+                    ))}
+                </Select>
                 <TextInput
                   type="number"
                   placeholder="Amount"
@@ -421,7 +454,7 @@ export function NewBookingWizard({ open, onClose, onCreated }: Props) {
             variant="secondary"
             size="sm"
             className="mt-3"
-            onClick={() => setChargeLines((ls) => [...ls, { chargeCodeId: 'cc8', amount: 0, currency: 'USD', vendorId: null }])}
+            onClick={() => setChargeLines((ls) => [...ls, { chargeCodeId: 'cc1', amount: 0, currency: 'USD', vendorId: null }])}
           >
             <Plus size={14} /> Add charge line
           </Button>
