@@ -75,8 +75,17 @@ export function NewBookingWizard({ open, onClose, onCreated }: Props) {
   const [containerQty, setContainerQty] = useState(1)
   const [commodity, setCommodity] = useState('')
   const [packages, setPackages] = useState(0)
-  const [packageType, setPackageType] = useState('Cartons')
+  const [packageType, setPackageType] = useState('')
+  const [packageTypeOptions, setPackageTypeOptions] = useState<string[]>([])
   const [grossWeightKg, setGrossWeightKg] = useState(0)
+
+  useEffect(() => {
+    supabase
+      .from('package_types')
+      .select('code')
+      .order('code', { ascending: true })
+      .then(({ data }) => setPackageTypeOptions((data ?? []).map((r) => r.code as string)))
+  }, [])
 
   // Step 2 — costing (doc §2)
   const [chargeLines, setChargeLines] = useState<DraftCharge[]>([
@@ -392,13 +401,12 @@ export function NewBookingWizard({ open, onClose, onCreated }: Props) {
           <Field label="Packages">
             <div className="flex gap-2">
               <TextInput type="number" value={packages} onChange={(e) => setPackages(+e.target.value)} />
-              <AddableSelect
-                value={packageType}
-                onChange={setPackageType}
-                addLabel="Add package type"
-                options={masters.packageTypes.map((t) => ({ value: t, label: t }))}
-                onAdd={(name) => addMasterOption('packageTypes', name)}
-              />
+              <Select value={packageType} onChange={(e) => setPackageType(e.target.value)}>
+                <option value="">—</option>
+                {packageTypeOptions.map((t) => (
+                  <option key={t} value={t}>{t}</option>
+                ))}
+              </Select>
             </div>
           </Field>
           <Field label="Gross weight (kg)">

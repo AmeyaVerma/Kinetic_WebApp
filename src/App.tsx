@@ -27,6 +27,7 @@ import { AddEmptyDepotPage } from './pages/master/AddEmptyDepotPage'
 import { EmptyDepotDetailPage } from './pages/master/EmptyDepotDetailPage'
 import { PortsHubPage } from './pages/master/PortsHubPage'
 import { MiscellaneousHubPage } from './pages/master/MiscellaneousHubPage'
+import { PackageTypesMasterPage } from './pages/master/PackageTypesMasterPage'
 import { SeaPortsMasterPage } from './pages/master/SeaPortsMasterPage'
 import { AddSeaPortPage } from './pages/master/AddSeaPortPage'
 import { SeaPortDetailPage } from './pages/master/SeaPortDetailPage'
@@ -36,7 +37,7 @@ import { IcdDetailPage } from './pages/master/IcdDetailPage'
 import { AirPortsMasterPage } from './pages/master/AirPortsMasterPage'
 import { AddAirPortPage } from './pages/master/AddAirPortPage'
 import { AirPortDetailPage } from './pages/master/AirPortDetailPage'
-import { Truck, Wrench, FileWarning, Wallet, Ruler, Package, Coins } from 'lucide-react'
+import { Truck, Wrench, FileWarning, Wallet, Ruler, Coins } from 'lucide-react'
 import { AgentsPage } from './pages/AgentsPage'
 import { HrPage } from './pages/HrPage'
 import { LoginPage } from './pages/LoginPage'
@@ -239,20 +240,7 @@ export default function App() {
               </Guard>
             }
           />
-          <Route
-            path="/master/misc/package-types"
-            element={
-              <Guard module="master">
-                <MasterComingSoon
-                  title="Package types"
-                  description="Not built yet."
-                  icon={Package}
-                  backTo="/master/misc"
-                  backLabel="Miscellaneous"
-                />
-              </Guard>
-            }
-          />
+          <Route path="/master/misc/package-types" element={<Guard module="master"><PackageTypesMasterPage /></Guard>} />
           <Route
             path="/master/misc/currencies"
             element={

@@ -71,7 +71,6 @@ import {
   mockVendors,
   mockVessels,
   CONTAINER_TYPES,
-  PACKAGE_TYPES,
 } from '../mocks/masters'
 import {
   mockActivities,
@@ -701,7 +700,6 @@ export interface Masters {
   depots: DepotMaster[]
   chargeCodes: ChargeCodeMaster[]
   containerTypes: string[]
-  packageTypes: string[]
 }
 export type MasterKind = keyof Masters
 
@@ -1112,13 +1110,12 @@ export const useDataStore = create<DataState>((set, get) => ({
     depots: mockDepots,
     chargeCodes: mockChargeCodes,
     containerTypes: [...CONTAINER_TYPES],
-    packageTypes: [...PACKAGE_TYPES],
   },
 
   addMasterOption: (kind, name) => {
     const trimmed = name.trim()
     if (!trimmed) return ''
-    if (kind === 'containerTypes' || kind === 'packageTypes') {
+    if (kind === 'containerTypes') {
       set((s) => {
         const list = s.masters[kind]
         if (list.includes(trimmed)) return s

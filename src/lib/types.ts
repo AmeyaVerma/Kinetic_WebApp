@@ -282,6 +282,16 @@ export interface EmptyDepotRecord {
   createdAt: string
 }
 
+/* ── Miscellaneous → Package types — the only place package type codes
+   can be added or removed; booking flows read from here, never
+   free-text/inline-add. ── */
+
+export interface PackageTypeRecord {
+  id: string
+  code: string
+  createdAt: string
+}
+
 export interface IcdRecord {
   id: string
   name: string

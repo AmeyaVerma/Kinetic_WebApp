@@ -13,6 +13,7 @@ import { ContainerActivitiesTab } from '../components/booking/ContainerActivitie
 import { VesselLegsSection } from '../components/booking/VesselLegsSection'
 import { useDataStore } from '../store/useDataStore'
 import { useAuthStore, useCurrentUser } from '../store/useAuthStore'
+import { supabase } from '../lib/supabaseClient'
 import { cyclePct, deriveStatus, milestoneDefs, statusSequence } from '../lib/milestones'
 import { StageStepper } from '../components/ui/StageStepper'
 import { EditableTextPill } from '../components/ui/EditableTextPill'
@@ -612,7 +613,6 @@ function ProductInfoTab({ booking }: { booking: import('../lib/types').Booking }
     updateContainerInfoField,
     requestBookingFieldChange,
     approvals,
-    masters,
   } = useDataStore()
   const currentUser = useCurrentUser()
   const viewAsRole = useAuthStore((s) => s.viewAsRole)
@@ -620,6 +620,15 @@ function ProductInfoTab({ booking }: { booking: import('../lib/types').Booking }
   const actor = currentUser?.name ?? 'Ops'
   const hazStatus: HazmatStatus = booking.hazmatStatus ?? 'Non-Haz'
   const details = booking.hazmatDetails ?? {}
+
+  const [packageTypeOptions, setPackageTypeOptions] = useState<string[]>([])
+  useEffect(() => {
+    supabase
+      .from('package_types')
+      .select('code')
+      .order('code', { ascending: true })
+      .then(({ data }) => setPackageTypeOptions((data ?? []).map((r) => r.code as string)))
+  }, [])
 
   const pendingFor = (field: string) =>
     approvals.find((a) => a.bookingId === booking.id && a.status === 'Pending' && a.fieldChange?.field === field)
@@ -678,10 +687,10 @@ function ProductInfoTab({ booking }: { booking: import('../lib/types').Booking }
               onChange={(e) => editField('packageType', 'Package type')(e.target.value)}
               className="min-w-0 flex-1 bg-transparent text-[13px] text-heading focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {!masters.packageTypes.includes(booking.packageType) && booking.packageType && (
+              {!packageTypeOptions.includes(booking.packageType) && booking.packageType && (
                 <option value={booking.packageType} className="bg-white text-[#0F172A]">{booking.packageType}</option>
               )}
-              {masters.packageTypes.map((t) => (
+              {packageTypeOptions.map((t) => (
                 <option key={t} value={t} className="bg-white text-[#0F172A]">{t}</option>
               ))}
             </select>

@@ -7,6 +7,7 @@ interface Tile {
   label: string
   description: string
   icon: LucideIcon
+  live?: boolean
 }
 
 const TILES: Tile[] = [
@@ -19,8 +20,9 @@ const TILES: Tile[] = [
   {
     key: 'package-types',
     label: 'Package types',
-    description: 'Not built yet.',
+    description: 'Package type codes used across NVOCC bookings.',
     icon: Package,
+    live: true,
   },
   {
     key: 'currencies',
@@ -31,7 +33,8 @@ const TILES: Tile[] = [
 ]
 
 /** Miscellaneous master — its own 3-tile sub-hub, mirroring the Containers
-    hub pattern. All three subfields not built yet — waiting on data. */
+    hub pattern. Package types is live; UOM and Currencies still not
+    built. */
 export function MiscellaneousHubPage() {
   return (
     <div className="space-y-5">
@@ -61,9 +64,15 @@ function MiscTile({ tile }: { tile: Tile }) {
           <span className="flex h-10 w-10 items-center justify-center rounded-btn bg-primary/10 text-primary">
             <Icon size={18} />
           </span>
-          <span className="rounded-badge bg-surface-2 px-1.5 py-0.5 text-[10px] font-semibold text-muted">
-            Coming soon
-          </span>
+          {tile.live ? (
+            <span className="rounded-badge bg-[#ECFDF5] px-1.5 py-0.5 text-[10px] font-semibold text-[#059669]">
+              Live
+            </span>
+          ) : (
+            <span className="rounded-badge bg-surface-2 px-1.5 py-0.5 text-[10px] font-semibold text-muted">
+              Coming soon
+            </span>
+          )}
         </div>
         <div>
           <h3 className="text-[15px] font-semibold text-heading">{tile.label}</h3>
