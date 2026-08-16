@@ -58,11 +58,15 @@ export function VesselLegsSection({
   onChange: (legs: VesselLeg[]) => void
 }) {
   const legs = legsFromBooking(booking)
+  // Transhipment = No means a single-leg voyage — only one vessel allowed.
+  // Yes opens it up to multiple legs (one per transhipment port).
+  const multipleAllowed = booking.transhipment === 'Yes'
 
   const updateLeg = (id: string, patch: Partial<VesselLeg>) => {
     onChange(legs.map((l) => (l.id === id ? { ...l, ...patch } : l)))
   }
   const addLeg = () => {
+    if (!multipleAllowed) return
     onChange([...legs, { id: `leg-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`, ...EMPTY_LEG }])
   }
   const removeLeg = (id: string) => {
@@ -77,7 +81,9 @@ export function VesselLegsSection({
         <button
           type="button"
           onClick={addLeg}
-          className="flex items-center gap-1 text-xs font-medium text-link hover:underline"
+          disabled={!multipleAllowed}
+          title={multipleAllowed ? undefined : 'Set Transhipment to Yes to add more than one vessel'}
+          className="flex items-center gap-1 text-xs font-medium text-link hover:underline disabled:cursor-not-allowed disabled:text-muted disabled:no-underline"
         >
           <Plus size={13} /> Add vessel
         </button>

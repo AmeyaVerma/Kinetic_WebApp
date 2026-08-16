@@ -748,7 +748,14 @@ function ShipmentDetailsTab({
             <p className="font-mono text-[10px] uppercase tracking-wide text-muted">Transhipment</p>
             <select
               value={booking.transhipment ?? 'No'}
-              onChange={(e) => onPortsChange({ transhipment: e.target.value as 'Yes' | 'No' })}
+              onChange={(e) => {
+                const next = e.target.value as 'Yes' | 'No'
+                onPortsChange({ transhipment: next })
+                // Dropping back to No collapses to a single vessel leg.
+                if (next === 'No' && (booking.vesselLegs?.length ?? 0) > 1) {
+                  onVesselLegsChange(booking.vesselLegs!.slice(0, 1))
+                }
+              }}
               className="mt-0.5 w-full bg-transparent text-[13px] text-heading focus:outline-none"
             >
               <option value="No" className="bg-surface text-heading">No</option>
@@ -760,6 +767,7 @@ function ShipmentDetailsTab({
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         <FieldPill label="MBL No." value={booking.mblNo ?? ''} />
+        <FieldPill label="HBL No." value={booking.hblNo ?? ''} />
       </div>
 
       <VesselLegsSection booking={booking} onChange={onVesselLegsChange} />
