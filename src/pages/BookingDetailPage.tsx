@@ -28,6 +28,40 @@ import { mockVendors } from '../mocks/masters'
 import { HAZMAT_FIELD_LABELS } from '../lib/types'
 import type { BookingWorkflowStatus, HazmatDetails, HazmatStatus } from '../lib/types'
 
+/** Which operational tab each milestone-sequence key is marked from —
+    the Ops mapping of "which section marks which field". Import direction
+    isn't mapped yet, so its milestones still fall back to being markable
+    directly from the Milestones tab until that mapping arrives. Keys here
+    are shown read-only (no mark button, just date + who) on the Milestones
+    tab, which is progress-only once a key is mapped — never a second place
+    to mark it from. */
+const MILESTONE_TAB_MAP: Record<string, 'activities' | 'documents' | 'invoicing'> = {
+  cro_released: 'activities',
+  container_picked_up: 'activities',
+  form13_released: 'activities',
+  gate_in: 'activities',
+  vessel_sailed: 'activities',
+  eta_destination: 'activities',
+  first_print_received: 'documents',
+  docs_checked: 'documents',
+  bl_draft_sent: 'documents',
+  bl_draft_approved: 'documents',
+  sob_sent: 'documents',
+  tdr_sent: 'documents',
+  original_bl_released: 'documents',
+  documents_received: 'documents',
+  surrender_released: 'documents',
+  invoice_shared: 'invoicing',
+  payment_received: 'invoicing',
+  tax_invoice_sent: 'invoicing',
+}
+
+const MILESTONE_TAB_LABEL: Record<'activities' | 'documents' | 'invoicing', string> = {
+  activities: 'Container activities',
+  documents: 'Documents',
+  invoicing: 'Invoicing',
+}
+
 const TABS = [
   { key: 'agents', label: 'Parties' },
   { key: 'shipment', label: 'Shipment details (O+D)' },
@@ -37,6 +71,7 @@ const TABS = [
   { key: 'activities', label: 'Container activities' },
   { key: 'invoicing', label: 'Invoicing' },
   { key: 'documents', label: 'Documents' },
+  { key: 'milestones', label: 'Milestones' },
 ]
 
 export function BookingDetailPage() {
@@ -178,9 +213,6 @@ export function BookingDetailPage() {
         {tab === 'shipment' && (
           <ShipmentDetailsTab
             booking={booking}
-            entries={entries}
-            onMark={(key, completedAt) => markMilestone(booking.id, key, 'Ops', completedAt)}
-            onEditDate={(key, completedAt) => updateMilestoneDate(booking.id, key, completedAt, currentUser?.name ?? 'Admin')}
             onPortsChange={(fields) => updateShipmentPorts(booking.id, fields, 'Ops')}
             onVesselLegsChange={(legs) => updateVesselLegs(booking.id, legs, 'Ops')}
           />
@@ -191,10 +223,47 @@ export function BookingDetailPage() {
           <ContainerActivitiesTab
             recordId={booking.id}
             containerNos={(booking.containerDetails ?? []).map((c) => c.containerNo.trim()).filter(Boolean)}
+            milestones={{
+              defs: milestoneDefs(booking.direction).filter((d) => MILESTONE_TAB_MAP[d.key] === 'activities'),
+              entries,
+              onMark: (key, completedAt) => markMilestone(booking.id, key, 'Ops', completedAt),
+              onEditDate: (key, completedAt) =>
+                updateMilestoneDate(booking.id, key, completedAt, currentUser?.name ?? 'Admin'),
+            }}
           />
         )}
-        {tab === 'invoicing' && <InvoicingTab booking={booking} />}
-        {tab === 'documents' && <DocumentsTab booking={booking} />}
+        {tab === 'invoicing' && (
+          <InvoicingTab
+            booking={booking}
+            milestones={{
+              defs: milestoneDefs(booking.direction).filter((d) => MILESTONE_TAB_MAP[d.key] === 'invoicing'),
+              entries,
+              onMark: (key, completedAt) => markMilestone(booking.id, key, 'Ops', completedAt),
+              onEditDate: (key, completedAt) =>
+                updateMilestoneDate(booking.id, key, completedAt, currentUser?.name ?? 'Admin'),
+            }}
+          />
+        )}
+        {tab === 'documents' && (
+          <DocumentsTab
+            booking={booking}
+            milestones={{
+              defs: milestoneDefs(booking.direction).filter((d) => MILESTONE_TAB_MAP[d.key] === 'documents'),
+              entries,
+              onMark: (key, completedAt) => markMilestone(booking.id, key, 'Ops', completedAt),
+              onEditDate: (key, completedAt) =>
+                updateMilestoneDate(booking.id, key, completedAt, currentUser?.name ?? 'Admin'),
+            }}
+          />
+        )}
+        {tab === 'milestones' && (
+          <MilestonesTab
+            booking={booking}
+            entries={entries}
+            onMark={(key, completedAt) => markMilestone(booking.id, key, 'Ops', completedAt)}
+            onEditDate={(key, completedAt) => updateMilestoneDate(booking.id, key, completedAt, currentUser?.name ?? 'Admin')}
+          />
+        )}
       </Card>
 
       {/* Activity log — append-only audit */}
@@ -696,16 +765,10 @@ function ProductInfoTab({ booking }: { booking: import('../lib/types').Booking }
 
 function ShipmentDetailsTab({
   booking,
-  entries,
-  onMark,
-  onEditDate,
   onPortsChange,
   onVesselLegsChange,
 }: {
   booking: import('../lib/types').Booking
-  entries: import('../lib/types').MilestoneEntry[]
-  onMark: (key: string, completedAt: string) => void
-  onEditDate: (key: string, completedAt: string) => void
   onPortsChange: (fields: {
     portOfReceipt?: string
     pol?: string
@@ -715,10 +778,6 @@ function ShipmentDetailsTab({
   }) => void
   onVesselLegsChange: (legs: import('../lib/types').VesselLeg[]) => void
 }) {
-  const defs = milestoneDefs(booking.direction)
-  const currentUser = useCurrentUser()
-  const viewAsRole = useAuthStore((s) => s.viewAsRole)
-  const isAdmin = (viewAsRole ?? currentUser?.role) === 'admin'
   return (
     <div className="space-y-6">
       <div>
@@ -771,51 +830,82 @@ function ShipmentDetailsTab({
       </div>
 
       <VesselLegsSection booking={booking} onChange={onVesselLegsChange} />
+    </div>
+  )
+}
 
-      <div>
-        <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted">
-          {booking.direction} milestone sequence — date-stamped, drives status & cycle %
-        </p>
-        <div className="space-y-1.5">
-          {defs.map((d, i) => {
-            const entry = entries.find((e) => e.key === d.key && e.completedAt)
-            return (
-              <div
-                key={d.key}
-                className={`flex items-center gap-3 rounded-btn border px-4 py-2.5 ${
-                  entry ? 'border-primary/30 bg-primary/5' : 'border-line bg-surface'
+/* ── Tab: Milestones — moved out of Shipment details, last tab ── */
+
+function MilestonesTab({
+  booking,
+  entries,
+  onMark,
+  onEditDate,
+}: {
+  booking: import('../lib/types').Booking
+  entries: import('../lib/types').MilestoneEntry[]
+  onMark: (key: string, completedAt: string) => void
+  onEditDate: (key: string, completedAt: string) => void
+}) {
+  const currentUser = useCurrentUser()
+  const viewAsRole = useAuthStore((s) => s.viewAsRole)
+  const isAdmin = (viewAsRole ?? currentUser?.role) === 'admin'
+  const defs = milestoneDefs(booking.direction)
+  return (
+    <div>
+      <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted">
+        {booking.direction} milestone sequence — date-stamped, drives status & cycle %
+      </p>
+      <div className="space-y-1.5">
+        {defs.map((d, i) => {
+          const entry = entries.find((e) => e.key === d.key && e.completedAt)
+          return (
+            <div
+              key={d.key}
+              className={`flex items-center gap-3 rounded-btn border px-4 py-2.5 ${
+                entry ? 'border-primary/30 bg-primary/5' : 'border-line bg-surface'
+              }`}
+            >
+              <span className="w-6 font-mono text-[11px] text-muted">{String(i + 1).padStart(2, '0')}</span>
+              <span
+                className={`flex h-5 w-5 items-center justify-center rounded-full ${
+                  entry ? 'bg-primary text-white' : 'border border-line text-transparent'
                 }`}
               >
-                <span className="w-6 font-mono text-[11px] text-muted">{String(i + 1).padStart(2, '0')}</span>
-                <span
-                  className={`flex h-5 w-5 items-center justify-center rounded-full ${
-                    entry ? 'bg-primary text-white' : 'border border-line text-transparent'
-                  }`}
-                >
-                  <Check size={12} />
-                </span>
-                <span className={`flex-1 text-[13px] ${entry ? 'font-medium text-heading' : 'text-body'}`}>
-                  {d.label}
-                </span>
-                {entry ? (
-                  <div className="flex items-center gap-1.5">
-                    <span className="font-mono text-[11px] text-muted">
-                      {new Date(entry.completedAt!).toLocaleDateString()} · {entry.completedBy}
-                    </span>
-                    {isAdmin && (
-                      <MarkMilestoneButton
-                        initialDate={entry.completedAt!.slice(0, 10)}
-                        onConfirm={(date) => onEditDate(d.key, date)}
-                      />
-                    )}
-                  </div>
-                ) : (
-                  <MarkMilestoneButton onConfirm={(date) => onMark(d.key, date)} />
+                <Check size={12} />
+              </span>
+              <span className={`flex-1 text-[13px] ${entry ? 'font-medium text-heading' : 'text-body'}`}>
+                {d.label}
+                {MILESTONE_TAB_MAP[d.key] && (
+                  <span className="ml-1.5 font-mono text-[10px] uppercase text-muted">
+                    (marked from {MILESTONE_TAB_LABEL[MILESTONE_TAB_MAP[d.key]]})
+                  </span>
                 )}
-              </div>
-            )
-          })}
-        </div>
+              </span>
+              {MILESTONE_TAB_MAP[d.key] ? (
+                entry && (
+                  <span className="font-mono text-[11px] text-muted">
+                    {new Date(entry.completedAt!).toLocaleDateString()} · {entry.completedBy}
+                  </span>
+                )
+              ) : entry ? (
+                <div className="flex items-center gap-1.5">
+                  <span className="font-mono text-[11px] text-muted">
+                    {new Date(entry.completedAt!).toLocaleDateString()} · {entry.completedBy}
+                  </span>
+                  {isAdmin && (
+                    <MarkMilestoneButton
+                      initialDate={entry.completedAt!.slice(0, 10)}
+                      onConfirm={(date) => onEditDate(d.key, date)}
+                    />
+                  )}
+                </div>
+              ) : (
+                <MarkMilestoneButton onConfirm={(date) => onMark(d.key, date)} />
+              )}
+            </div>
+          )
+        })}
       </div>
     </div>
   )

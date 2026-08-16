@@ -3,9 +3,10 @@ import { Upload, FileText, Lock, CheckCircle2, ShieldAlert, Eye, Loader2 } from 
 import { Button } from '../ui/Button'
 import { StatusChip } from '../ui/StatusChip'
 import { Field, Select, TextInput, Textarea } from '../ui/Field'
+import { BookingMilestonesSection } from './BookingMilestonesSection'
 import { useDataStore } from '../../store/useDataStore'
 import { useAuthStore, useCurrentUser } from '../../store/useAuthStore'
-import type { BlFields, Booking, DocType } from '../../lib/types'
+import type { BlFields, Booking, DocType, MilestoneDef, MilestoneEntry } from '../../lib/types'
 
 /* Doc §5 — the 12-document sequence, in display order */
 export const DOC_SEQUENCE: { type: DocType; trigger: string }[] = [
@@ -62,7 +63,18 @@ export const BL_FIELD_LABELS: { key: keyof BlFields; label: string; widget: BlFi
   { key: 'transhipmentAgentAccess', label: 'Transhipment Agent Access', widget: 'text' },
 ]
 
-export function DocumentsTab({ booking }: { booking: Booking }) {
+export function DocumentsTab({
+  booking,
+  milestones,
+}: {
+  booking: Booking
+  milestones?: {
+    defs: MilestoneDef[]
+    entries: MilestoneEntry[]
+    onMark: (key: string, completedAt: string) => void
+    onEditDate: (key: string, completedAt: string) => void
+  }
+}) {
   const {
     documents,
     blStates,
@@ -295,6 +307,16 @@ export function DocumentsTab({ booking }: { booking: Booking }) {
           </div>
         )}
       </div>
+
+      {milestones && (
+        <BookingMilestonesSection
+          title="Booking milestones"
+          defs={milestones.defs}
+          entries={milestones.entries}
+          onMark={milestones.onMark}
+          onEditDate={milestones.onEditDate}
+        />
+      )}
 
       {/* ── Documents sequence (doc §5) ── */}
       <div>

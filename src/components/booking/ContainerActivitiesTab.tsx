@@ -1,9 +1,11 @@
 import { useState } from 'react'
 import { Check, ChevronDown, ChevronRight } from 'lucide-react'
 import { MarkMilestoneButton } from '../ui/MarkMilestoneButton'
+import { BookingMilestonesSection } from './BookingMilestonesSection'
 import { useDataStore } from '../../store/useDataStore'
 import { useAuthStore, useCurrentUser } from '../../store/useAuthStore'
 import { CONTAINER_ACTIVITY_DEFS } from '../../mocks/seed'
+import type { MilestoneDef, MilestoneEntry } from '../../lib/types'
 
 /* ── Origin + destination container activities — generic, keyed by any
    record id (bookingId or FF shipment id share the same store slice).
@@ -11,13 +13,25 @@ import { CONTAINER_ACTIVITY_DEFS } from '../../mocks/seed'
    per-container rows), each activity is marked per-container: clicking
    the row opens the container list, and the activity only shows done
    once every container has a date. Without it (FF — no per-container
-   list exists yet) it falls back to the old single whole-record mark. ── */
+   list exists yet) it falls back to the old single whole-record mark.
+
+   `milestones` (NVOCC only) lets specific booking-level milestone sequence
+   items be marked from here instead of the Milestones tab — per the Ops
+   mapping of "which section marks which field", built up one mapping at a
+   time. Optional/undefined for FF, which has no such mapping yet. ── */
 export function ContainerActivitiesTab({
   recordId,
   containerNos,
+  milestones,
 }: {
   recordId: string
   containerNos?: string[]
+  milestones?: {
+    defs: MilestoneDef[]
+    entries: MilestoneEntry[]
+    onMark: (key: string, completedAt: string) => void
+    onEditDate: (key: string, completedAt: string) => void
+  }
 }) {
   const { containerActivities, containerActivityMarks, markContainerActivity, markContainerActivityForContainer } =
     useDataStore()
@@ -37,8 +51,18 @@ export function ContainerActivitiesTab({
   ]
 
   return (
-    <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-      {sections.map((sec) => (
+    <div className="space-y-6">
+      {milestones && (
+        <BookingMilestonesSection
+          title="Booking milestones"
+          defs={milestones.defs}
+          entries={milestones.entries}
+          onMark={milestones.onMark}
+          onEditDate={milestones.onEditDate}
+        />
+      )}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        {sections.map((sec) => (
         <div key={sec.key}>
           <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted">{sec.label}</p>
           <div className="space-y-1.5">
@@ -152,7 +176,8 @@ export function ContainerActivitiesTab({
               })}
           </div>
         </div>
-      ))}
+        ))}
+      </div>
     </div>
   )
 }

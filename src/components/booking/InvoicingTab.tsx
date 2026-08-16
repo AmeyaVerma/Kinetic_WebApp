@@ -4,9 +4,10 @@ import { Button } from '../ui/Button'
 import { StatusChip } from '../ui/StatusChip'
 import { Select, TextInput } from '../ui/Field'
 import { AddableSelect } from '../ui/AddableSelect'
+import { BookingMilestonesSection } from './BookingMilestonesSection'
 import { useDataStore } from '../../store/useDataStore'
 import { useAuthStore, useCurrentUser } from '../../store/useAuthStore'
-import type { Booking, ChipStatus, InvoiceStatus } from '../../lib/types'
+import type { Booking, ChipStatus, InvoiceStatus, MilestoneDef, MilestoneEntry } from '../../lib/types'
 
 const INVOICE_CHIP: Record<InvoiceStatus, ChipStatus> = {
   Draft: 'Draft',
@@ -29,7 +30,18 @@ const NEXT_LABEL: Partial<Record<InvoiceStatus, string>> = {
   'Partially paid': 'Record full payment',
 }
 
-export function InvoicingTab({ booking }: { booking: Booking }) {
+export function InvoicingTab({
+  booking,
+  milestones,
+}: {
+  booking: Booking
+  milestones?: {
+    defs: MilestoneDef[]
+    entries: MilestoneEntry[]
+    onMark: (key: string, completedAt: string) => void
+    onEditDate: (key: string, completedAt: string) => void
+  }
+}) {
   const { charges, invoices, approvals, addCharge, requestChargeApproval, removeCharge, generateInvoice, advanceInvoice, masters, addMasterOption } = useDataStore()
   const currentUser = useCurrentUser()
   const viewAsRole = useAuthStore((s) => s.viewAsRole)
@@ -67,6 +79,16 @@ export function InvoicingTab({ booking }: { booking: Booking }) {
           </p>
         </div>
       </div>
+
+      {milestones && (
+        <BookingMilestonesSection
+          title="Booking milestones"
+          defs={milestones.defs}
+          entries={milestones.entries}
+          onMark={milestones.onMark}
+          onEditDate={milestones.onEditDate}
+        />
+      )}
 
       {/* Rates / charge sheet (doc §8 "Rates tab") */}
       <div>
