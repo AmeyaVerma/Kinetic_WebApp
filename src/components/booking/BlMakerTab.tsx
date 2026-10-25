@@ -9,6 +9,7 @@ import { useAuthStore, useCurrentUser } from '../../store/useAuthStore'
 import type { Booking } from '../../lib/types'
 import { BlDocument, BlBackside } from '../../lib/pdf/templates/BlFrontSheet'
 import { ContainerAttachSheet } from '../../lib/pdf/templates/ContainerAttachSheet'
+import { SigningPanel } from './SigningPanel'
 import { buildBlSnapshot, type CompanySettingsLite } from '../../lib/pdf/buildBlSnapshot'
 import { missingBlFields, formatBlNumber, fyCodeFor, type BlSnapshot } from '../../lib/pdf/blSnapshot'
 import { BL_TYPE_LABEL, printsBackside, type BlType } from '../../lib/pdf/strings/bl'
@@ -365,6 +366,16 @@ export function BlMakerTab({ booking }: { booking: Booking }) {
             </Button>
           )}
         </div>
+
+        {snapshot && (
+          <SigningPanel
+            snapshot={snapshot}
+            blNumber={row.bl_number}
+            blType={row.bl_type}
+            bookingId={dbId}
+            isAdmin={role === 'admin'}
+          />
+        )}
 
         {issued && (
           <p className="text-xs text-muted">
