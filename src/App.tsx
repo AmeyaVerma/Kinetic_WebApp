@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
-import { useEffect, type ReactNode } from 'react'
+import { useEffect, type ReactNode, lazy, Suspense } from 'react'
 import { Layout } from './components/layout/Layout'
 import { DesignSystemPage } from './pages/DesignSystemPage'
 import { PlaceholderPage } from './pages/PlaceholderPage'
@@ -49,7 +49,13 @@ import { ResetPasswordPage } from './pages/ResetPasswordPage'
 import { SettingsPage } from './pages/SettingsPage'
 import { ExternalPortal } from './pages/ExternalPortal'
 import { UsersRolesPage } from './pages/admin/UsersRolesPage'
-import { DocEngineTestPage } from './pages/admin/DocEngineTestPage'
+
+// Lazy: pulls in @react-pdf/renderer. Admin-only build harness -- no reason
+// for it to sit in the main bundle.
+const DocEngineTestPage = lazy(() =>
+  import('./pages/admin/DocEngineTestPage').then((m) => ({ default: m.DocEngineTestPage })),
+)
+
 import { useAuthStore, useCurrentUser } from './store/useAuthStore'
 import { effectiveAccess, isExternal, LANDING, type ModuleKey } from './lib/rbac'
 
@@ -244,7 +250,7 @@ export default function App() {
           <Route path="/settings" element={<Guard module="settings"><SettingsPage /></Guard>} />
           <Route path="/admin/users" element={<Guard module="users"><UsersRolesPage /></Guard>} />
           {/* Phase 1 document-engine harness. Admin-only, unlinked. */}
-          <Route path="/admin/doc-engine-test" element={<Guard module="users"><DocEngineTestPage /></Guard>} />
+          <Route path="/admin/doc-engine-test" element={<Guard module="users"><Suspense fallback={null}><DocEngineTestPage /></Suspense></Guard>} />
           <Route path="/design-system" element={<DesignSystemPage />} />
           <Route path="*" element={<Navigate to={LANDING[user.role]} replace />} />
         </Route>

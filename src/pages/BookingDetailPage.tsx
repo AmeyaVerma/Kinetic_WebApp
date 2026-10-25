@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, lazy, Suspense } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { ArrowLeft, Check, Container as ContainerIcon, Ban } from 'lucide-react'
 import { Card } from '../components/ui/Card'
@@ -8,8 +8,16 @@ import { ProgressBar } from '../components/ui/ProgressBar'
 import { Tabs } from '../components/ui/Tabs'
 import { FieldPill, TextInput } from '../components/ui/Field'
 import { DocumentsTab } from '../components/booking/DocumentsTab'
-import { BlMakerTab } from '../components/booking/BlMakerTab'
-import { DocumentMakerTab } from '../components/booking/DocumentMakerTab'
+// Lazy: these pull in @react-pdf/renderer, which is ~470 kB gzipped. Loading
+// it eagerly would charge every user of every module for a document engine
+// most of them never open. Split out, it arrives only when a BL or Document
+// Maker tab is actually selected.
+const BlMakerTab = lazy(() =>
+  import('../components/booking/BlMakerTab').then((m) => ({ default: m.BlMakerTab })),
+)
+const DocumentMakerTab = lazy(() =>
+  import('../components/booking/DocumentMakerTab').then((m) => ({ default: m.DocumentMakerTab })),
+)
 import { InvoicingTab } from '../components/booking/InvoicingTab'
 import { ContainerActivitiesTab } from '../components/booking/ContainerActivitiesTab'
 import { VesselLegsSection } from '../components/booking/VesselLegsSection'
@@ -249,9 +257,15 @@ export function BookingDetailPage() {
             }}
           />
         )}
-        {tab === 'bl' && <BlMakerTab booking={booking} />}
+        {tab === 'bl' && (
+          <Suspense fallback={<p className="p-4 text-sm text-muted">Loading document engine…</p>}>
+            <BlMakerTab booking={booking} />
+          </Suspense>
+        )}
         {tab === 'docmaker' && (
-          <DocumentMakerTab booking={booking} onOpenBl={() => setTab('bl')} />
+          <Suspense fallback={<p className="p-4 text-sm text-muted">Loading document engine…</p>}>
+            <DocumentMakerTab booking={booking} onOpenBl={() => setTab('bl')} />
+          </Suspense>
         )}
         {tab === 'documents' && (
           <DocumentsTab
