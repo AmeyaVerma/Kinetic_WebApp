@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { PDFViewer, PDFDownloadLink } from '@react-pdf/renderer'
+import { Document, PDFViewer, PDFDownloadLink } from '@react-pdf/renderer'
 import { AlertTriangle, FileCheck2, Lock } from 'lucide-react'
 import { Card } from '../ui/Card'
 import { Button } from '../ui/Button'
@@ -7,7 +7,8 @@ import { Select } from '../ui/Field'
 import { supabase } from '../../lib/supabaseClient'
 import { useAuthStore, useCurrentUser } from '../../store/useAuthStore'
 import type { Booking } from '../../lib/types'
-import { BlDocument } from '../../lib/pdf/templates/BlFrontSheet'
+import { BlDocument, BlBackside } from '../../lib/pdf/templates/BlFrontSheet'
+import { ContainerAttachSheet } from '../../lib/pdf/templates/ContainerAttachSheet'
 import { buildBlSnapshot, type CompanySettingsLite } from '../../lib/pdf/buildBlSnapshot'
 import { missingBlFields, formatBlNumber, fyCodeFor, type BlSnapshot } from '../../lib/pdf/blSnapshot'
 import { BL_TYPE_LABEL, printsBackside, type BlType } from '../../lib/pdf/strings/bl'
@@ -319,7 +320,35 @@ export function BlMakerTab({ booking }: { booking: Booking }) {
               fileName={fileName}
               className="inline-flex items-center gap-2 rounded-btn border px-4 py-2 text-sm"
             >
-              {({ loading: l }) => (l ? 'Preparing…' : 'Print BL (front sheet)')}
+              {({ loading: l }) => (l ? 'Preparing…' : 'Print BL')}
+            </PDFDownloadLink>
+          )}
+
+          {/* The backside is also available on its own, print-ready. It is
+              the same artwork Print BL appends, so the two cannot diverge. */}
+          {snapshot && printsBackside(row.bl_type) && (
+            <PDFDownloadLink
+              document={
+                <Document title={row.bl_number + ' backside'}>
+                  <BlBackside scan={row.print_mode === 'Scan'} />
+                </Document>
+              }
+              fileName={row.bl_number + '_BACKSIDE.pdf'}
+              className="inline-flex items-center gap-2 rounded-btn border px-4 py-2 text-sm"
+            >
+              {({ loading: l }) => (l ? 'Preparing…' : 'Backside')}
+            </PDFDownloadLink>
+          )}
+
+          {/* Deliberately NOT bundled into Print BL -- it is a separate
+              document that travels with the BL, per the brief's action table. */}
+          {snapshot && snapshot.containers.length > 0 && (
+            <PDFDownloadLink
+              document={<ContainerAttachSheet snapshot={snapshot} />}
+              fileName={row.bl_number + '_CONTAINER_SHEET.pdf'}
+              className="inline-flex items-center gap-2 rounded-btn border px-4 py-2 text-sm"
+            >
+              {({ loading: l }) => (l ? 'Preparing…' : 'Container attach sheet')}
             </PDFDownloadLink>
           )}
           {!issued && (

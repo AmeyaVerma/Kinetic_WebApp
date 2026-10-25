@@ -55,6 +55,9 @@ export const BL_STRINGS = {
   /** Printed in the container column when the attach sheet is used. */
   asPerAttachedSheet: 'AS PER ATTACHED CONTAINER SHEET',
 
+  /** Foot of the description area on every sheet except the last. */
+  continuedOnNextPage: 'Continued on next page',
+
   /** Consignee line when the BL is made out to order. */
   toOrder: 'TO ORDER',
 } as const

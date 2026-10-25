@@ -20,6 +20,8 @@ export function DocPage({
   numbered = true,
   continuedNote = false,
   padding = 24,
+  footerLeft,
+  footerRight,
 }: {
   children: ReactNode
   scan?: boolean
@@ -30,7 +32,19 @@ export function DocPage({
    */
   continuedNote?: boolean
   padding?: number
+  /**
+   * Explicit footer text, overriding the renderer's own page counting.
+   *
+   * The BL needs this: its Page X of Y counts FRONT SHEETS ONLY, while the
+   * renderer's totalPages counts every page in the document and would
+   * include the appended backside -- reporting "Page 1 of 3" on a two-sheet
+   * BL. Documents whose every page is countable leave these unset and use
+   * the render props below.
+   */
+  footerLeft?: string
+  footerRight?: string
 }) {
+  const explicitFooter = footerLeft !== undefined || footerRight !== undefined
   const c = palette(scan)
   const styles = StyleSheet.create({
     page: {
@@ -64,19 +78,26 @@ export function DocPage({
           documents to one sheet and makes Page X of Y report "1 of 1". */}
       {children}
 
-      {(numbered || continuedNote) && (
-        <View style={styles.footer} fixed>
-          <Text
-            render={({ pageNumber, totalPages }) =>
-              continuedNote && pageNumber < totalPages ? 'Continued on next page' : ''
-            }
-          />
-          <Text
-            render={({ pageNumber, totalPages }) =>
-              numbered ? `Page ${pageNumber} of ${totalPages}` : ''
-            }
-          />
+      {explicitFooter ? (
+        <View style={styles.footer}>
+          <Text>{footerLeft ?? ''}</Text>
+          <Text>{footerRight ?? ''}</Text>
         </View>
+      ) : (
+        (numbered || continuedNote) && (
+          <View style={styles.footer} fixed>
+            <Text
+              render={({ pageNumber, totalPages }) =>
+                continuedNote && pageNumber < totalPages ? 'Continued on next page' : ''
+              }
+            />
+            <Text
+              render={({ pageNumber, totalPages }) =>
+                numbered ? `Page ${pageNumber} of ${totalPages}` : ''
+              }
+            />
+          </View>
+        )
       )}
     </Page>
   )

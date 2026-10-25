@@ -12,6 +12,30 @@ import type { BlType } from './strings/bl'
  * render, so a draft tracks the booking live. On Issue it is written to
  * document_versions and never rebuilt.
  */
+/**
+ * One row of the container attach sheet.
+ *
+ * SOC (shipper-owned container) has no column in container_details today, so
+ * it defaults to 'N' -- the overwhelmingly common case for an NVOCC moving
+ * carrier-owned boxes. It is carried here as real data rather than hard-coded
+ * in the template so adding the column later is a builder change, not a
+ * template change.
+ */
+export interface ContainerSheetRow {
+  containerNo: string
+  size: string
+  type: string
+  soc: 'Y' | 'N'
+  sealNo: string
+  /** Pre-formatted to 3 decimals; totals are summed from the raw values. */
+  grossWeight: string
+  netWeight: string
+  packages: string
+  grossRaw: number
+  netRaw: number
+  packagesRaw: number
+}
+
 export interface BlSnapshot {
   blNumber: string
   blType: BlType
@@ -38,6 +62,8 @@ export interface BlSnapshot {
   marksAndNumbers: string
   /** Replaced by "AS PER ATTACHED CONTAINER SHEET" when the sheet is used. */
   useContainerSheet: boolean
+  /** Rows for the container attach sheet, frozen with the rest. */
+  containers: ContainerSheetRow[]
   packagesAndDescription: string
   grossWeightKgs: string
   measurementM3: string

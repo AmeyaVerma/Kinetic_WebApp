@@ -1,5 +1,5 @@
 import type { Booking, ContainerLineItem } from '../types'
-import type { BlSnapshot } from './blSnapshot'
+import type { BlSnapshot, ContainerSheetRow } from './blSnapshot'
 import type { BlType } from './strings/bl'
 import { fmtDate, fmtWeight } from './format'
 
@@ -76,6 +76,7 @@ export function buildBlSnapshot({
 
     marksAndNumbers: lines.marks,
     useContainerSheet,
+    containers: buildContainerRows(booking),
     packagesAndDescription: describeCargo(booking),
     grossWeightKgs: lines.grossTotal,
     measurementM3: '',
@@ -130,6 +131,57 @@ function containerLines(booking: Booking): { marks: string; grossTotal: string }
     ? nos.map((n) => [n, booking.sealNo, booking.containerType].filter(Boolean).join(' / ')).join('\n')
     : ''
   return { marks, grossTotal: fmtWeight(booking.grossWeightKg) }
+}
+
+/**
+ * Rows for the container attach sheet, one per container with a number.
+ *
+ * Containers without a number are skipped rather than printed blank: the
+ * sheet's totals row states a container count, and counting empty
+ * placeholder rows would overstate the shipment.
+ */
+function buildContainerRows(booking: Booking): ContainerSheetRow[] {
+  const details = booking.containerDetails ?? []
+  return details
+    .filter((d) => (d.containerNo ?? '').trim() !== '')
+    .map((d) => {
+      const { size, type } = splitSizeType(d.containerType ?? '', booking)
+      const gross = num(d.grossWeight)
+      const net = num(d.netWeight)
+      const pkgs = num(d.noOfPkgs)
+      return {
+        containerNo: (d.containerNo ?? '').toUpperCase(),
+        size,
+        type,
+        // No SOC column exists in container_details yet; carrier-owned is
+        // the normal case for this trade. See ContainerSheetRow.
+        soc: 'N' as const,
+        sealNo: (d.sealNo ?? '').toUpperCase(),
+        grossWeight: gross ? fmtWeight(gross) : '',
+        netWeight: net ? fmtWeight(net) : '',
+        packages: pkgs ? String(pkgs) : '',
+        grossRaw: gross,
+        netRaw: net,
+        packagesRaw: pkgs,
+      }
+    })
+}
+
+/**
+ * The sample sheet prints size and type in separate columns ("20 FT" / "HD")
+ * while the booking stores one string ("20 ft dry", "40 ft OT"). Split on the
+ * leading digits; whatever follows is the type, upper-cased.
+ *
+ * Imperfect by nature -- the type strings are free-ish text -- so anything
+ * unrecognised falls back to the booking's own containerType rather than
+ * printing an empty column.
+ */
+function splitSizeType(raw: string, booking: Booking): { size: string; type: string } {
+  const source = raw.trim() || booking.containerType || ''
+  const m = source.match(/^\s*(\d{2})\s*(?:ft|')?\s*(.*)$/i)
+  if (!m) return { size: '', type: source.toUpperCase() }
+  const rest = m[2].trim().toUpperCase()
+  return { size: m[1] + ' FT', type: rest }
 }
 
 /** "100 CARTONS\nGENERAL CARGO" -- packages and kind, then the commodity. */

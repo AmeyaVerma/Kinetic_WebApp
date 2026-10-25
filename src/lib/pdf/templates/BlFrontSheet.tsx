@@ -1,8 +1,9 @@
-import { Document, Text, View, StyleSheet } from '@react-pdf/renderer'
+import { Document, Image, Text, View, StyleSheet } from '@react-pdf/renderer'
 import { DocPage } from '../components/DocPage'
 import { FONT_SIZE, palette } from '../theme'
-import { BL_STRINGS as S, BL_TYPE_LABEL, numberOfOriginals } from '../strings/bl'
+import { BL_STRINGS as S, BL_TYPE_LABEL, numberOfOriginals, printsBackside } from '../strings/bl'
 import type { BlSnapshot } from '../blSnapshot'
+import { paginateBlCargo, type BlCargoPage } from '../paginateBl'
 
 /**
  * The Kinetic Line Multi-Modal Transport Document front sheet, matching
@@ -17,7 +18,17 @@ import type { BlSnapshot } from '../blSnapshot'
  * the booking or the store, which is what lets an issued BL reprint
  * identically a year later.
  */
-export function BlFrontSheet({ snapshot }: { snapshot: BlSnapshot }) {
+export function BlFrontSheet({
+  snapshot,
+  page,
+}: {
+  snapshot: BlSnapshot
+  /**
+   * The slice of cargo this sheet carries. Omitted for a single-sheet BL,
+   * where the whole cargo block prints as-is.
+   */
+  page?: BlCargoPage
+}) {
   const scan = snapshot.printMode === 'Scan'
   const c = palette(scan)
   const rule = '0.7pt solid ' + c.rule
@@ -189,15 +200,26 @@ export function BlFrontSheet({ snapshot }: { snapshot: BlSnapshot }) {
           </View>
         </View>
 
-        {/* Cargo body. Overflow onto continuation sheets is Phase 3. */}
+        {/* Cargo body. When the content spans sheets, `page` carries this
+            sheet's slice; the header block above repeats on every sheet so
+            each one is a complete form. */}
         <View style={s.cargoBody}>
           <View style={[s.cell, { width: COL.marks }]}>
             <Text style={s.value}>
-              {snapshot.useContainerSheet ? S.asPerAttachedSheet : snapshot.marksAndNumbers}
+              {snapshot.useContainerSheet
+                ? S.asPerAttachedSheet
+                : (page ? page.marks : snapshot.marksAndNumbers)}
             </Text>
           </View>
           <View style={[s.cell, { width: COL.desc }]}>
-            <Text style={s.value}>{snapshot.packagesAndDescription}</Text>
+            <Text style={s.value}>
+              {page ? page.description : snapshot.packagesAndDescription}
+            </Text>
+            {page && !page.isLast && (
+              <Text style={[s.value, { marginTop: 'auto', fontFamily: 'Helvetica-Bold' }]}>
+                {S.continuedOnNextPage}
+              </Text>
+            )}
           </View>
           <View style={[s.cell, { width: COL.gross }]}>
             <Text style={s.value}>{snapshot.grossWeightKgs}</Text>
@@ -242,14 +264,78 @@ export function BlFrontSheet({ snapshot }: { snapshot: BlSnapshot }) {
   )
 }
 
-/** A complete BL PDF. Backside and continuation sheets arrive in Phase 3. */
-export function BlDocument({ snapshot }: { snapshot: BlSnapshot }) {
+/**
+ * A complete BL PDF: one or more front sheets, then the backside terms as
+ * the last page.
+ *
+ * Page X of Y counts front sheets only, so the backside is unnumbered and
+ * the count comes from paginateBlCargo rather than the renderer.
+ *
+ * `backsideSrc` is the terms artwork. Until Siddharth supplies it (O5) the
+ * caller passes nothing and a placeholder page prints instead, clearly
+ * marked -- a BL that silently omitted its terms would look complete and be
+ * worthless, which is the worse failure.
+ */
+export function BlDocument({
+  snapshot,
+  backsideSrc,
+}: {
+  snapshot: BlSnapshot
+  backsideSrc?: string
+}) {
   const scan = snapshot.printMode === 'Scan'
+  const { pages, totalFrontSheets } = paginateBlCargo(snapshot)
+  const withBackside = printsBackside(snapshot.blType)
+
   return (
     <Document title={(snapshot.blNumber || 'BL') + ' ' + snapshot.blType}>
-      <DocPage scan={scan} padding={18}>
-        <BlFrontSheet snapshot={snapshot} />
-      </DocPage>
+      {pages.map((page) => (
+        <DocPage
+          key={page.pageNumber}
+          scan={scan}
+          padding={18}
+          footerLeft={snapshot.blNumber}
+          footerRight={'Page ' + page.pageNumber + ' of ' + totalFrontSheets}
+        >
+          <BlFrontSheet snapshot={snapshot} page={page} />
+        </DocPage>
+      ))}
+
+      {withBackside && <BlBackside scan={scan} src={backsideSrc} />}
     </Document>
+  )
+}
+
+/**
+ * The terms page appended to every BL except a Draft. Unnumbered and always
+ * last. Stamps and signatures never appear here.
+ */
+export function BlBackside({ scan = false, src }: { scan?: boolean; src?: string }) {
+  const c = palette(scan)
+  return (
+    <DocPage scan={scan} numbered={false} padding={0} footerLeft="" footerRight="">
+      {src ? (
+        <Image src={src} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+      ) : (
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 40 }}>
+          <Text style={{ fontSize: FONT_SIZE.heading, fontFamily: 'Helvetica-Bold', color: c.text }}>
+            TERMS AND CONDITIONS
+          </Text>
+          <Text
+            style={{
+              marginTop: 12,
+              fontSize: FONT_SIZE.body,
+              textAlign: 'center',
+              color: c.muted,
+            }}
+          >
+            Backside artwork has not been uploaded. This placeholder stands in
+            its place so the page count and ordering are correct; it is not a
+            substitute for the carrier's terms and this BL must not be issued
+            to a customer in this state.
+          </Text>
+        </View>
+      )}
+    </DocPage>
   )
 }
