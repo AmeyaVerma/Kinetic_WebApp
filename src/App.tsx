@@ -27,6 +27,8 @@ import { AddEmptyDepotPage } from './pages/master/AddEmptyDepotPage'
 import { EmptyDepotDetailPage } from './pages/master/EmptyDepotDetailPage'
 import { PortsHubPage } from './pages/master/PortsHubPage'
 import { MiscellaneousHubPage } from './pages/master/MiscellaneousHubPage'
+import { SurveyorsMasterPage } from './pages/master/SurveyorsMasterPage'
+import { ChasMasterPage } from './pages/master/ChasMasterPage'
 import { PackageTypesMasterPage } from './pages/master/PackageTypesMasterPage'
 import { UnitsOfMeasurementMasterPage } from './pages/master/UnitsOfMeasurementMasterPage'
 import { CurrenciesMasterPage } from './pages/master/CurrenciesMasterPage'
@@ -47,6 +49,7 @@ import { ResetPasswordPage } from './pages/ResetPasswordPage'
 import { SettingsPage } from './pages/SettingsPage'
 import { ExternalPortal } from './pages/ExternalPortal'
 import { UsersRolesPage } from './pages/admin/UsersRolesPage'
+import { DocEngineTestPage } from './pages/admin/DocEngineTestPage'
 import { useAuthStore, useCurrentUser } from './store/useAuthStore'
 import { effectiveAccess, isExternal, LANDING, type ModuleKey } from './lib/rbac'
 
@@ -217,6 +220,8 @@ export default function App() {
               </Guard>
             }
           />
+          <Route path="/master/surveyors" element={<Guard module="master"><SurveyorsMasterPage /></Guard>} />
+          <Route path="/master/chas" element={<Guard module="master"><ChasMasterPage /></Guard>} />
           <Route path="/master/ports" element={<Guard module="master"><PortsHubPage /></Guard>} />
           <Route path="/master/ports/sea-ports" element={<Guard module="master"><SeaPortsMasterPage /></Guard>} />
           <Route path="/master/ports/sea-ports/new" element={<Guard module="master"><AddSeaPortPage /></Guard>} />
@@ -238,6 +243,8 @@ export default function App() {
           <Route path="/hr" element={<Guard module="hr"><HrPage /></Guard>} />
           <Route path="/settings" element={<Guard module="settings"><SettingsPage /></Guard>} />
           <Route path="/admin/users" element={<Guard module="users"><UsersRolesPage /></Guard>} />
+          {/* Phase 1 document-engine harness. Admin-only, unlinked. */}
+          <Route path="/admin/doc-engine-test" element={<Guard module="users"><DocEngineTestPage /></Guard>} />
           <Route path="/design-system" element={<DesignSystemPage />} />
           <Route path="*" element={<Navigate to={LANDING[user.role]} replace />} />
         </Route>

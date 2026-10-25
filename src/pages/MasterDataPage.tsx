@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Contact, Truck, Ship, Container, Wallet, Anchor, LayoutGrid, ChevronRight } from 'lucide-react'
+import { Briefcase, UserCheck, Contact, Truck, Ship, Container, Wallet, Anchor, LayoutGrid, ChevronRight } from 'lucide-react'
 import { Card } from '../components/ui/Card'
 import { useDataStore } from '../store/useDataStore'
 import { supabase } from '../lib/supabaseClient'
@@ -77,14 +77,28 @@ export function MasterDataPage() {
       label: 'Ports / ICDs / Terminals',
       description: 'Sea ports with terminals, ICDs, and air ports.',
       icon: Anchor,
-      live: false,
+      live: true,
     },
     {
       key: 'misc',
       label: 'Miscellaneous',
       description: 'Units of measurement, package types, and currencies.',
       icon: LayoutGrid,
-      live: false,
+      live: true,
+    },
+    {
+      key: 'surveyors',
+      label: 'Surveyors',
+      description: 'Container surveyors printed on the Container Release Order.',
+      icon: UserCheck,
+      live: true,
+    },
+    {
+      key: 'chas',
+      label: 'CHAs',
+      description: 'Customs House Agents printed on the Delivery Order and Off Loading Letter.',
+      icon: Briefcase,
+      live: true,
     },
   ]
 
