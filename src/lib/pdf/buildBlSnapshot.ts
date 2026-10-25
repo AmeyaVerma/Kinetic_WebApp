@@ -62,7 +62,7 @@ export function buildBlSnapshot({
     // master loaded; the id alone is not printable.
     deliveryAgent: '',
 
-    preCarriageBy: '',
+    preCarriageBy: booking.preCarriageBy ?? '',
     portOfReceipt: booking.portOfReceipt ?? '',
     oceanVessel: booking.vesselName ?? '',
     voyageNo: booking.voyageNo ?? '',
@@ -79,15 +79,15 @@ export function buildBlSnapshot({
     containers: buildContainerRows(booking),
     packagesAndDescription: describeCargo(booking),
     grossWeightKgs: lines.grossTotal,
-    measurementM3: '',
+    measurementM3: booking.measurementM3 ? String(booking.measurementM3) : '',
 
     freightTerms: booking.freightTerms ?? '',
-    freightPayableAt: '',
+    freightPayableAt: booking.freightPayableAt ?? '',
     // The blank format stamps place and date only when the BL is issued.
     placeAndDateOfIssue: issuedAt
       ? company.place_of_issue + ', ' + fmtDate(issuedAt)
       : '',
-    otherParticulars: '',
+    otherParticulars: booking.otherParticulars ?? '',
 
     company: {
       legalName: company.legal_name,
@@ -189,8 +189,10 @@ function describeCargo(booking: Booking): string {
   const count = booking.packages
   const kind = booking.packageType ?? ''
   const head = count ? [String(count), kind].filter(Boolean).join(' ') : kind
-  const commodity = (booking.commodity ?? '').trim()
-  return [head, commodity].filter((x) => x && x !== ',').join('\n')
+  // cargoDescription is the one value Siddharth wants typed by hand, so it
+  // wins over the booking's commodity wherever it has been written.
+  const described = (booking.cargoDescription || booking.commodity || '').trim()
+  return [head, described].filter((x) => x && x !== ',').join('\n')
 }
 
 function splitAddress(address: string): string[] {

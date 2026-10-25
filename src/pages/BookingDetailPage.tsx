@@ -8,13 +8,11 @@ import { ProgressBar } from '../components/ui/ProgressBar'
 import { Tabs } from '../components/ui/Tabs'
 import { FieldPill, TextInput } from '../components/ui/Field'
 import { DocumentsTab } from '../components/booking/DocumentsTab'
+import { DocumentFieldsSection } from '../components/booking/DocumentFieldsSection'
 // Lazy: these pull in @react-pdf/renderer, which is ~470 kB gzipped. Loading
 // it eagerly would charge every user of every module for a document engine
 // most of them never open. Split out, it arrives only when a BL or Document
 // Maker tab is actually selected.
-const BlMakerTab = lazy(() =>
-  import('../components/booking/BlMakerTab').then((m) => ({ default: m.BlMakerTab })),
-)
 const DocumentMakerTab = lazy(() =>
   import('../components/booking/DocumentMakerTab').then((m) => ({ default: m.DocumentMakerTab })),
 )
@@ -81,8 +79,6 @@ const TABS = [
   { key: 'yard', label: 'Container yard' },
   { key: 'activities', label: 'Container activities' },
   { key: 'invoicing', label: 'Invoicing' },
-  { key: 'bl', label: 'BL' },
-  { key: 'docmaker', label: 'Document Maker' },
   { key: 'documents', label: 'Documents' },
   { key: 'milestones', label: 'Milestones' },
 ]
@@ -222,15 +218,32 @@ export function BookingDetailPage() {
 
       <Card className="p-5">
         {tab === 'container' && <ContainerInfoTab booking={booking} />}
-        {tab === 'product' && <ProductInfoTab booking={booking} />}
-        {tab === 'shipment' && (
-          <ShipmentDetailsTab
-            booking={booking}
-            onPortsChange={(fields) => updateShipmentPorts(booking.id, fields, 'Ops')}
-            onVesselLegsChange={(legs) => updateVesselLegs(booking.id, legs, 'Ops')}
-          />
+        {tab === 'product' && (
+          <div className="space-y-5">
+            <ProductInfoTab booking={booking} />
+            <DocumentFieldsSection booking={booking} section="product" />
+          </div>
         )}
-        {tab === 'agents' && <AgentDetailsTab booking={booking} />}
+        {tab === 'shipment' && (
+          <div className="space-y-5">
+            <ShipmentDetailsTab
+              booking={booking}
+              onPortsChange={(fields) => updateShipmentPorts(booking.id, fields, 'Ops')}
+              onVesselLegsChange={(legs) => updateVesselLegs(booking.id, legs, 'Ops')}
+            />
+            <DocumentFieldsSection booking={booking} section="shipment" />
+          </div>
+        )}
+        {tab === 'agents' && (
+          <div className="space-y-5">
+            <AgentDetailsTab booking={booking} />
+            <DocumentFieldsSection
+              booking={booking}
+              section="agents"
+              title="Depot, surveyor and CHA"
+            />
+          </div>
+        )}
         {tab === 'yard' && <ContainerYardTab booking={booking} />}
         {tab === 'activities' && (
           <ContainerActivitiesTab
@@ -257,27 +270,31 @@ export function BookingDetailPage() {
             }}
           />
         )}
-        {tab === 'bl' && (
-          <Suspense fallback={<p className="p-4 text-sm text-muted">Loading document engine…</p>}>
-            <BlMakerTab booking={booking} />
-          </Suspense>
-        )}
-        {tab === 'docmaker' && (
-          <Suspense fallback={<p className="p-4 text-sm text-muted">Loading document engine…</p>}>
-            <DocumentMakerTab booking={booking} onOpenBl={() => setTab('bl')} />
-          </Suspense>
-        )}
         {tab === 'documents' && (
-          <DocumentsTab
-            booking={booking}
+          <div className="space-y-6">
+            {/* Documents this booking can produce, from the booking's own
+                data. The BL is created here too — there is no separate BL
+                section. */}
+            <Suspense fallback={<p className="p-4 text-sm text-muted">Loading document engine…</p>}>
+              <DocumentMakerTab booking={booking} />
+            </Suspense>
+
+            {/* Documents that arrive from outside — VGM, CLP, Shipping Bill,
+                Commercial Invoice, COO, MSDS and the rest. These are tracked
+                and uploaded, never generated, so they keep their own list
+                rather than being folded into the cards above. */}
+            <DocumentsTab
+              booking={booking}
+              showBlPanel={false}
             milestones={{
               defs: milestoneDefs(booking.direction).filter((d) => MILESTONE_TAB_MAP[d.key] === 'documents'),
               entries,
               onMark: (key, completedAt) => markMilestone(booking.id, key, 'Ops', completedAt),
               onEditDate: (key, completedAt) =>
                 updateMilestoneDate(booking.id, key, completedAt, currentUser?.name ?? 'Admin'),
-            }}
-          />
+              }}
+            />
+          </div>
         )}
         {tab === 'milestones' && (
           <MilestonesTab

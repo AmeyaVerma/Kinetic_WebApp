@@ -534,6 +534,48 @@ export interface Booking {
       missing as 'Non-Haz'. `hazmatDetails` only applies when status is 'Haz'. */
   hazmatStatus?: HazmatStatus
   hazmatDetails?: Partial<HazmatDetails>
+  /* ── Document fields ───────────────────────────────────────────
+     Every value the six generated documents print comes from here.
+     Siddharth's rule: documents read the booking, and anything the
+     booking cannot supply gets added here for the user to fill in --
+     never typed onto the document itself. `cargoDescription` is the
+     single exception he asked to keep manual. */
+  preCarriageBy?: string
+  freightPayableAt?: string
+  measurementM3?: number | null
+  otherParticulars?: string
+  cargoDescription?: string
+  /** The customer's own reference, distinct from bookingRef. */
+  customerReference?: string
+  shippingLine?: string
+  shipmentType?: string
+  shipmentTerms?: string
+  cfs?: string
+  netWeightKg?: number | null
+  /** Vessel sailed — printed as POL / SOB on the Onboard Confirmation. */
+  shippedOnBoard?: string | null
+  hblDate?: string | null
+  mblDate?: string | null
+  igmNo?: string
+  igmDate?: string | null
+  itemNumber?: string
+  arrivalDate?: string | null
+  chaId?: string | null
+  destuffingType?: string
+  placeOfSurvey?: string
+  doNumber?: string
+  doTo?: string
+  doValidUpto?: string | null
+  doType?: string
+  /** Where empties go back; distinct from the pick-up yard. */
+  returnDepotId?: string | null
+  croValidTill?: string | null
+  sbNumber?: string
+  sbDate?: string | null
+  /** Master links. The legacy emptyYardId/surveyorId hold mock ids. */
+  depotId?: string | null
+  surveyorRefId?: string | null
+
   // System
   hblNo: string | null
   cancelled: boolean

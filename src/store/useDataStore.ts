@@ -55,6 +55,11 @@ import type {
   Role,
   WarrantyClaimStatus,
 } from '../lib/types'
+import {
+  BOOKING_DOCUMENT_COLUMNS,
+  BOOKING_DOCUMENT_LABELS,
+  type BookingDocumentField,
+} from '../lib/bookingDocumentFields'
 import { INSPECTION_CHECKLIST, approverBand, latestEstimate } from '../lib/mnr'
 import { mockFleet, mockMnrJobs } from '../mocks/mnrSeed'
 import { CREDIT_LIMIT_USD, buyTotal, overTolerance } from '../lib/ff'
@@ -276,6 +281,37 @@ function rowToBooking(row: any): Booking {
     containerDetails: row.container_details ?? undefined,
     hazmatStatus: row.hazmat_status ?? undefined,
     hazmatDetails: row.hazmat_details ?? undefined,
+    preCarriageBy: row.pre_carriage_by ?? undefined,
+    freightPayableAt: row.freight_payable_at ?? undefined,
+    measurementM3: row.measurement_m3 ?? undefined,
+    otherParticulars: row.other_particulars ?? undefined,
+    cargoDescription: row.cargo_description ?? undefined,
+    customerReference: row.customer_reference ?? undefined,
+    shippingLine: row.shipping_line ?? undefined,
+    shipmentType: row.shipment_type ?? undefined,
+    shipmentTerms: row.shipment_terms ?? undefined,
+    cfs: row.cfs ?? undefined,
+    netWeightKg: row.net_weight_kg ?? undefined,
+    shippedOnBoard: row.shipped_on_board ?? undefined,
+    hblDate: row.hbl_date ?? undefined,
+    mblDate: row.mbl_date ?? undefined,
+    igmNo: row.igm_no ?? undefined,
+    igmDate: row.igm_date ?? undefined,
+    itemNumber: row.item_number ?? undefined,
+    arrivalDate: row.arrival_date ?? undefined,
+    chaId: row.cha_id ?? undefined,
+    destuffingType: row.destuffing_type ?? undefined,
+    placeOfSurvey: row.place_of_survey ?? undefined,
+    doNumber: row.do_number ?? undefined,
+    doTo: row.do_to ?? undefined,
+    doValidUpto: row.do_valid_upto ?? undefined,
+    doType: row.do_type ?? undefined,
+    returnDepotId: row.return_depot_id ?? undefined,
+    croValidTill: row.cro_valid_till ?? undefined,
+    sbNumber: row.sb_number ?? undefined,
+    sbDate: row.sb_date ?? undefined,
+    depotId: row.depot_id ?? undefined,
+    surveyorRefId: row.surveyor_ref_id ?? undefined,
     hblNo: row.hbl_no,
     cancelled: row.cancelled,
     createdAt: row.created_at,
@@ -335,6 +371,37 @@ function bookingToInsertRow(b: Booking) {
     container_details: b.containerDetails ?? null,
     hazmat_status: b.hazmatStatus ?? 'Non-Haz',
     hazmat_details: b.hazmatDetails ?? null,
+    pre_carriage_by: b.preCarriageBy ?? null,
+    freight_payable_at: b.freightPayableAt ?? null,
+    measurement_m3: b.measurementM3 ?? null,
+    other_particulars: b.otherParticulars ?? null,
+    cargo_description: b.cargoDescription ?? null,
+    customer_reference: b.customerReference ?? null,
+    shipping_line: b.shippingLine ?? null,
+    shipment_type: b.shipmentType ?? null,
+    shipment_terms: b.shipmentTerms ?? null,
+    cfs: b.cfs ?? null,
+    net_weight_kg: b.netWeightKg ?? null,
+    shipped_on_board: b.shippedOnBoard || null,
+    hbl_date: b.hblDate || null,
+    mbl_date: b.mblDate || null,
+    igm_no: b.igmNo ?? null,
+    igm_date: b.igmDate || null,
+    item_number: b.itemNumber ?? null,
+    arrival_date: b.arrivalDate || null,
+    cha_id: b.chaId || null,
+    destuffing_type: b.destuffingType ?? null,
+    place_of_survey: b.placeOfSurvey ?? null,
+    do_number: b.doNumber ?? null,
+    do_to: b.doTo ?? null,
+    do_valid_upto: b.doValidUpto || null,
+    do_type: b.doType ?? null,
+    return_depot_id: b.returnDepotId || null,
+    cro_valid_till: b.croValidTill || null,
+    sb_number: b.sbNumber ?? null,
+    sb_date: b.sbDate || null,
+    depot_id: b.depotId || null,
+    surveyor_ref_id: b.surveyorRefId || null,
     hbl_no: b.hblNo,
     cancelled: b.cancelled,
     workflow_status: b.workflowStatus ?? 'Booked',
@@ -814,6 +881,15 @@ interface DataState {
   updatePlannedDate: (
     bookingId: string,
     field: 'plannedGateOpen' | 'plannedGateClose' | 'plannedSiCutoff' | 'plannedVgmCutoff' | 'plannedCyCutoff',
+    value: string,
+    actor: string,
+  ) => void
+  /** Any of the document fields added in 0040. These feed the six
+      generated documents, which read the booking and never hold their own
+      copy of a value — so this is the only place they are edited. */
+  updateBookingDocumentField: (
+    bookingId: string,
+    field: BookingDocumentField,
     value: string,
     actor: string,
   ) => void
@@ -1625,6 +1701,34 @@ export const useDataStore = create<DataState>((set, get) => ({
       return {
         bookings: s.bookings.map((b) => (b.id === bookingId ? { ...b, ...fields } : b)),
         activities: log(s.activities, bookingId, actor, `Ports updated — ${changed.join(', ')}`),
+      }
+    }),
+
+  updateBookingDocumentField: (bookingId, field, value, actor) =>
+    set((st) => {
+      const booking = st.bookings.find((b) => b.id === bookingId)
+      if (!booking) return st
+      const current = booking[field]
+      // Numeric columns must not be written as '' — Postgres rejects it.
+      const numeric = field === 'measurementM3' || field === 'netWeightKg'
+      const next = numeric ? (value === '' ? null : Number(value)) : value
+      if ((current ?? '') === (next ?? '')) return st
+
+      persistBookingUpdate(
+        booking.dbId,
+        { [BOOKING_DOCUMENT_COLUMNS[field]]: next === '' ? null : next },
+        'updateBookingDocumentField',
+      )
+      return {
+        bookings: st.bookings.map((b) =>
+          b.id === bookingId ? { ...b, [field]: next } : b,
+        ),
+        activities: log(
+          st.activities,
+          bookingId,
+          actor,
+          `${BOOKING_DOCUMENT_LABELS[field]} → ${value || '(cleared)'}`,
+        ),
       }
     }),
 

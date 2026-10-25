@@ -204,6 +204,27 @@ export function equipmentGroups(booking: Booking): { code: string; size: string;
     .map(([size, count]) => ({ code: count + 'X' + size, size, count }))
 }
 
+/** Master records resolved for this booking, so the builder can print them. */
+export interface ResolvedMasters {
+  depot?: DepotRecord | null
+  returnDepot?: DepotRecord | null
+  surveyor?: { name: string; address_line1?: string; address_line2?: string; city?: string; phone?: string } | null
+  cha?: { name: string } | null
+}
+
+export interface DepotRecord {
+  name: string
+  address_line1?: string
+  address_line2?: string
+  city?: string
+  state?: string
+  pin_code?: string
+  attn_name?: string
+  phone?: string
+  email?: string
+  default_instructions?: string[]
+}
+
 export interface BuildOpDocInput {
   docType: OpDocType
   booking: Booking
@@ -211,14 +232,18 @@ export interface BuildOpDocInput {
   /** CRO only: which equipment group this document covers. */
   equipmentGroup?: string
   printedBy?: string
-  overrides?: Partial<OpDocSnapshot>
+  /** Depot, surveyor and CHA records the booking points at. */
+  masters?: ResolvedMasters
 }
 
 /**
- * Builds printed values from a booking. Everything not derivable from the
- * booking today -- CHA, surveyor, depot contact details, IGM, shipping bill
- * -- comes back empty and is filled in on the document itself, which is why
- * every document is editable before generation.
+ * Builds printed values from the booking alone.
+ *
+ * There is no per-document override: a document never holds its own copy of
+ * a value. Anything printed here comes from a booking field or a master
+ * record the booking points at, so correcting a document means correcting
+ * the booking — and the correction then shows on every document that uses
+ * it, instead of on the one PDF somebody happened to retype.
  */
 export function buildOpDocSnapshot({
   docType,
@@ -226,7 +251,7 @@ export function buildOpDocSnapshot({
   company,
   equipmentGroup = '',
   printedBy = '',
-  overrides,
+  masters = {},
 }: BuildOpDocInput): OpDocSnapshot {
   const rows: DocContainerRow[] = (booking.containerDetails ?? [])
     .filter((d) => (d.containerNo ?? '').trim() !== '')
@@ -259,7 +284,7 @@ export function buildOpDocSnapshot({
     company,
 
     bookingRef: booking.bookingRef ?? '',
-    customerReference: '',
+    customerReference: booking.customerReference ?? '',
     principal: company.principalName,
 
     // shipper/consignee are plain text on bookings today, so the address and
@@ -269,7 +294,7 @@ export function buildOpDocSnapshot({
 
     vessel: booking.vesselName ?? '',
     voyage: booking.voyageNo ?? '',
-    shippingLine: '',
+    shippingLine: booking.shippingLine ?? '',
     terminal: booking.terminal ?? '',
     portOfReceipt: booking.portOfReceipt ?? '',
     pol: booking.pol ?? '',
@@ -277,60 +302,76 @@ export function buildOpDocSnapshot({
     finalDestination: booking.finalPlaceOfDischarge ?? '',
     etd: fmtDate(booking.etd),
     eta: fmtDate(booking.eta),
-    sob: '',
+    sob: fmtDate(booking.shippedOnBoard),
     gateOpen: fmtDate(booking.plannedGateOpen),
     gateCutOff: fmtDate(booking.plannedGateClose),
 
-    commodity: booking.commodity ?? '',
+    // The one value Siddharth wants typed by hand; falls back to the
+    // booking's commodity when it has not been written.
+    commodity: booking.cargoDescription || booking.commodity || '',
     packages: booking.packages ? String(booking.packages) : '',
     packageType: booking.packageType ?? '',
-    netWeightKgs: '',
+    netWeightKgs: booking.netWeightKg ? fmtWeight(booking.netWeightKg) : '',
     grossWeightKgs: booking.grossWeightKg ? fmtWeight(booking.grossWeightKg) : '',
     containers: rows,
-    shipmentType: 'FCL',
-    shipmentTerms: '',
+    shipmentType: booking.shipmentType ?? 'FCL',
+    shipmentTerms: booking.shipmentTerms ?? '',
     freeDays: String(
       booking.direction === 'Import' ? (booking.freeDaysDest ?? '') : (booking.freeDaysOrigin ?? ''),
     ),
-    cfs: '',
+    cfs: booking.cfs ?? '',
 
     hblNo: booking.hblNo ?? '',
-    hblDate: '',
+    hblDate: fmtDate(booking.hblDate),
     mblNo: booking.mblNo ?? '',
-    mblDate: '',
+    mblDate: fmtDate(booking.mblDate),
 
-    igmNo: '',
-    igmDate: '',
-    itemNumber: '',
+    igmNo: booking.igmNo ?? '',
+    igmDate: fmtDate(booking.igmDate),
+    itemNumber: booking.itemNumber ?? '',
 
-    depotName: '',
-    depotAddress: '',
-    depotAttn: '',
-    depotPhone: '',
-    depotEmail: '',
-    instructions: [],
+    depotName: masters.depot?.name ?? '',
+    depotAddress: depotAddress(masters.depot),
+    depotAttn: masters.depot?.attn_name ?? '',
+    depotPhone: masters.depot?.phone ?? '',
+    depotEmail: masters.depot?.email ?? '',
+    instructions: masters.depot?.default_instructions ?? [],
     equipmentGroup,
-    surveyorName: '',
-    surveyorAddress: '',
-    surveyorPhone: '',
-    validTill: '',
+    surveyorName: masters.surveyor?.name ?? '',
+    surveyorAddress: [masters.surveyor?.address_line1, masters.surveyor?.address_line2, masters.surveyor?.city]
+      .filter(Boolean)
+      .join(', '),
+    surveyorPhone: masters.surveyor?.phone ?? '',
+    validTill: fmtDate(booking.croValidTill),
 
     // O2: defaults to the booking reference, editable per DO.
-    doNumber: booking.bookingRef ?? '',
-    doTo: 'THE MANAGER',
-    chaName: '',
-    arrivalDate: fmtDate(booking.eta),
-    destuffingType: '',
-    placeOfSurvey: '',
-    validUpto: '',
-    returnDepot: '',
+    // O2: the DO number defaults to the booking reference until a separate
+    // series is confirmed, and is set on the booking rather than the document.
+    doNumber: booking.doNumber || booking.bookingRef || '',
+    doTo: booking.doTo || 'THE MANAGER',
+    chaName: masters.cha?.name ?? '',
+    arrivalDate: fmtDate(booking.arrivalDate ?? booking.eta),
+    destuffingType: booking.destuffingType ?? '',
+    placeOfSurvey: booking.placeOfSurvey ?? '',
+    validUpto: fmtDate(booking.doValidUpto),
+    returnDepot: [masters.returnDepot?.name, depotAddress(masters.returnDepot)]
+      .filter(Boolean)
+      .join(', '),
 
-    doType: '',
+    doType: booking.doType ?? '',
 
     printedBy,
-    sbNumber: '',
-    sbDate: '',
+    sbNumber: booking.sbNumber ?? '',
+    sbDate: fmtDate(booking.sbDate),
   }
 
-  return { ...base, ...overrides }
+  return base
+}
+
+/** Depot block as the CRO, DO and Off Loading Letter print it. */
+function depotAddress(d?: DepotRecord | null): string {
+  if (!d) return ''
+  return [d.address_line1, d.address_line2, [d.city, d.state].filter(Boolean).join(', '), d.pin_code]
+    .filter(Boolean)
+    .join('\n')
 }
