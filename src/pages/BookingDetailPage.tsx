@@ -9,6 +9,7 @@ import { Tabs } from '../components/ui/Tabs'
 import { FieldPill, TextInput } from '../components/ui/Field'
 import { DocumentsTab } from '../components/booking/DocumentsTab'
 import { BlMakerTab } from '../components/booking/BlMakerTab'
+import { DocumentMakerTab } from '../components/booking/DocumentMakerTab'
 import { InvoicingTab } from '../components/booking/InvoicingTab'
 import { ContainerActivitiesTab } from '../components/booking/ContainerActivitiesTab'
 import { VesselLegsSection } from '../components/booking/VesselLegsSection'
@@ -73,6 +74,7 @@ const TABS = [
   { key: 'activities', label: 'Container activities' },
   { key: 'invoicing', label: 'Invoicing' },
   { key: 'bl', label: 'BL' },
+  { key: 'docmaker', label: 'Document Maker' },
   { key: 'documents', label: 'Documents' },
   { key: 'milestones', label: 'Milestones' },
 ]
@@ -248,6 +250,9 @@ export function BookingDetailPage() {
           />
         )}
         {tab === 'bl' && <BlMakerTab booking={booking} />}
+        {tab === 'docmaker' && (
+          <DocumentMakerTab booking={booking} onOpenBl={() => setTab('bl')} />
+        )}
         {tab === 'documents' && (
           <DocumentsTab
             booking={booking}
