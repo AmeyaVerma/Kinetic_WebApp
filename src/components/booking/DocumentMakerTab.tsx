@@ -112,6 +112,10 @@ export function DocumentMakerTab({ booking }: { booking: Booking }) {
   const [bl, setBl] = useState<BlRow | null>(null)
   const [masters, setMasters] = useState<ResolvedMasters>({})
   const [issuedSnapshot, setIssuedSnapshot] = useState<BlSnapshot | null>(null)
+  // Signed URL for the BL backside artwork. The bucket is private; a narrow
+  // policy lets this one file be read so the preview shows the same page
+  // print appends.
+  const [backsideSrc, setBacksideSrc] = useState<string | undefined>(undefined)
   const [open, setOpen] = useState<{ type: CardKey; group: string } | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -128,6 +132,16 @@ export function DocumentMakerTab({ booking }: { booking: Booking }) {
       supabase.from('bl_state').select('*').eq('booking_id', dbId).maybeSingle(),
     ])
     setCompany((cs as CompanySettingsLite | null) ?? null)
+
+    const backsidePath = (cs as unknown as { bl_backside_path?: string } | null)?.bl_backside_path
+    if (backsidePath) {
+      const { data: signed } = await supabase.storage
+        .from('company-assets')
+        .createSignedUrl(backsidePath, 3600)
+      setBacksideSrc(signed?.signedUrl)
+    } else {
+      setBacksideSrc(undefined)
+    }
     setVersions((vers as VersionRow[]) ?? [])
     setBl((blRow as BlRow | null) ?? null)
 
@@ -354,7 +368,7 @@ export function DocumentMakerTab({ booking }: { booking: Booking }) {
     setError(null)
     try {
       const fileName = blSnapshot.blNumber + '_' + bl.bl_type.toUpperCase() + '.pdf'
-      const blob = await pdf(<BlDocument snapshot={blSnapshot} />).toBlob()
+      const blob = await pdf(<BlDocument snapshot={blSnapshot} backsideSrc={backsideSrc} />).toBlob()
       await storeVersion('bl', '', blSnapshot, fileName, blob)
       await supabase
         .from('bl_state')
@@ -505,10 +519,10 @@ export function DocumentMakerTab({ booking }: { booking: Booking }) {
 
           <MissingList items={blMissing} blocking />
 
-          {printsBackside(bl.bl_type) && (
+          {printsBackside(bl.bl_type) && !backsideSrc && (
             <p className="rounded border border-line bg-surface-2 p-3 text-sm text-muted">
-              The BL backside artwork has not been supplied yet, so this type
-              cannot print a complete document. The front sheet is correct.
+              No BL backside artwork uploaded, so this type cannot print a
+              complete document. Add it under Master Data → Company settings.
             </p>
           )}
 
@@ -516,7 +530,7 @@ export function DocumentMakerTab({ booking }: { booking: Booking }) {
             <Button
               variant="ghost"
               onClick={async () => {
-                const blob = await pdf(<BlDocument snapshot={blSnapshot} />).toBlob()
+                const blob = await pdf(<BlDocument snapshot={blSnapshot} backsideSrc={backsideSrc} />).toBlob()
                 download(blob, bl.bl_number + '_' + bl.bl_type.toUpperCase() + '.pdf')
               }}
             >
@@ -529,7 +543,7 @@ export function DocumentMakerTab({ booking }: { booking: Booking }) {
                   const { Document } = await import('@react-pdf/renderer')
                   const blob = await pdf(
                     <Document title={bl.bl_number + ' backside'}>
-                      <BlBackside scan={bl.print_mode === 'Scan'} />
+                      <BlBackside scan={bl.print_mode === 'Scan'} src={backsideSrc} />
                     </Document>,
                   ).toBlob()
                   download(blob, bl.bl_number + '_BACKSIDE.pdf')
@@ -571,7 +585,7 @@ export function DocumentMakerTab({ booking }: { booking: Booking }) {
           <VersionHistory rows={versions.filter((v) => v.doc_type === 'bl')} />
 
           <PDFViewer className="min-h-[70vh] w-full rounded border" showToolbar>
-            <BlDocument snapshot={blSnapshot} />
+            <BlDocument snapshot={blSnapshot} backsideSrc={backsideSrc} />
           </PDFViewer>
         </Card>
       )}

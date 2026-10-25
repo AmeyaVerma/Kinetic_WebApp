@@ -49,6 +49,7 @@ import { ResetPasswordPage } from './pages/ResetPasswordPage'
 import { SettingsPage } from './pages/SettingsPage'
 import { ExternalPortal } from './pages/ExternalPortal'
 import { UsersRolesPage } from './pages/admin/UsersRolesPage'
+import { CompanySettingsPage } from './pages/admin/CompanySettingsPage'
 
 // Lazy: pulls in @react-pdf/renderer. Admin-only build harness -- no reason
 // for it to sit in the main bundle.
@@ -249,6 +250,7 @@ export default function App() {
           <Route path="/hr" element={<Guard module="hr"><HrPage /></Guard>} />
           <Route path="/settings" element={<Guard module="settings"><SettingsPage /></Guard>} />
           <Route path="/admin/users" element={<Guard module="users"><UsersRolesPage /></Guard>} />
+          <Route path="/master/company" element={<Guard module="master"><CompanySettingsPage /></Guard>} />
           {/* Phase 1 document-engine harness. Admin-only, unlinked. */}
           <Route path="/admin/doc-engine-test" element={<Guard module="users"><Suspense fallback={null}><DocEngineTestPage /></Suspense></Guard>} />
           <Route path="/design-system" element={<DesignSystemPage />} />

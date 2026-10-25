@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Briefcase, UserCheck, Contact, Truck, Ship, Container, Wallet, Anchor, LayoutGrid, ChevronRight } from 'lucide-react'
+import { Building2, Briefcase, UserCheck, Contact, Truck, Ship, Container, Wallet, Anchor, LayoutGrid, ChevronRight } from 'lucide-react'
 import { Card } from '../components/ui/Card'
 import { useDataStore } from '../store/useDataStore'
 import { supabase } from '../lib/supabaseClient'
@@ -84,6 +84,13 @@ export function MasterDataPage() {
       label: 'Miscellaneous',
       description: 'Units of measurement, package types, and currencies.',
       icon: LayoutGrid,
+      live: true,
+    },
+    {
+      key: 'company',
+      label: 'Company settings',
+      description: 'The text and artwork every generated document prints — logo, stamps, BL backside.',
+      icon: Building2,
       live: true,
     },
     {

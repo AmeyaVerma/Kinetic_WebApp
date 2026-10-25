@@ -1,6 +1,6 @@
-import { Document, Image, Text, View, StyleSheet } from '@react-pdf/renderer'
+import { Document, Image, Page, Text, View, StyleSheet } from '@react-pdf/renderer'
 import { DocPage } from '../components/DocPage'
-import { FONT_SIZE, palette } from '../theme'
+import { A4, FONT_SIZE, palette } from '../theme'
 import { BL_STRINGS as S, BL_TYPE_LABEL, numberOfOriginals, printsBackside } from '../strings/bl'
 import type { BlSnapshot } from '../blSnapshot'
 import { paginateBlCargo, type BlCargoPage } from '../paginateBl'
@@ -312,10 +312,16 @@ export function BlDocument({
  */
 export function BlBackside({ scan = false, src }: { scan?: boolean; src?: string }) {
   const c = palette(scan)
+  // Rendered as a bare Page rather than through DocPage: DocPage always
+  // reserves 34pt at the foot for the Page X of Y footer, and a full-bleed
+  // backside image sized against that shorter box overflows and wraps onto a
+  // second sheet -- a three-page BL where two are the same terms. The
+  // backside carries no footer and is never numbered, so it owns its page
+  // outright, at exact A4, and is pinned with wrap={false}.
   return (
-    <DocPage scan={scan} numbered={false} padding={0} footerLeft="" footerRight="">
+    <Page size="A4" style={{ backgroundColor: '#FFFFFF' }} wrap={false}>
       {src ? (
-        <Image src={src} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+        <Image src={src} style={{ width: A4.width, height: A4.height, objectFit: 'fill' }} />
       ) : (
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 40 }}>
           <Text style={{ fontSize: FONT_SIZE.heading, fontFamily: 'Helvetica-Bold', color: c.text }}>
@@ -336,6 +342,6 @@ export function BlBackside({ scan = false, src }: { scan?: boolean; src?: string
           </Text>
         </View>
       )}
-    </DocPage>
+    </Page>
   )
 }
