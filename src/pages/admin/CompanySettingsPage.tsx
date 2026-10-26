@@ -28,6 +28,12 @@ interface AssetSlot {
   accept: string
   /** False for the stamps: uploaded, never readable back. */
   readable: boolean
+  /**
+   * Column holding the black-and-white variant. When set, uploading a
+   * colour file also generates and stores the greyscale copy Scan Copy
+   * prints, so nobody has to make two versions of the same stamp by hand.
+   */
+  greyKey?: string
 }
 
 const ASSETS: AssetSlot[] = [
@@ -47,20 +53,23 @@ const ASSETS: AssetSlot[] = [
   },
   {
     key: 'signature_path',
-    label: 'Authorised signature',
-    hint: 'Composited server-side after a signing PIN. Never sent to a browser.',
+    greyKey: 'signature_grey_path',
+    label: 'Authorised signature (with company stamp)',
+    hint: 'May be one combined image. Composited server-side after a signing PIN; never sent to a browser.',
     accept: 'image/png',
     readable: false,
   },
   {
     key: 'stamp_path',
-    label: 'Company stamp',
-    hint: 'Composited with the signature.',
+    greyKey: 'stamp_grey_path',
+    label: 'Company stamp (separate)',
+    hint: 'Only needed if the stamp is not already part of the signature image.',
     accept: 'image/png',
     readable: false,
   },
   {
     key: 'surrender_stamp_path',
+    greyKey: 'surrender_stamp_grey_path',
     label: 'Surrender stamp',
     hint: 'Only for a Surrender BL.',
     accept: 'image/png',
@@ -83,6 +92,59 @@ const TEXT_FIELDS: { key: string; label: string }[] = [
   { key: 'website', label: 'Website' },
   { key: 'place_of_issue', label: 'Place of issue' },
 ]
+
+/**
+ * Black-and-white copy of an uploaded stamp, for Scan Copy mode.
+ *
+ * Done here rather than at render time because desaturating a signature on
+ * the fly produces a muddy grey that reproduces badly on a scan or fax --
+ * which is exactly what Scan Copy exists for. Alpha is carried through
+ * untouched so the stamp overlays the form.
+ */
+/**
+ * Writes an asset under a fresh, unique name and returns the path.
+ *
+ * Not upsert, and not delete-then-write either. Supabase Storage has to look
+ * an object up before it can overwrite OR delete it, and the stamps have no
+ * read policy at all -- that is precisely what makes them write-only. So an
+ * upsert is refused as an RLS violation, and a remove() silently matches
+ * nothing and reports success, which would have made "Replace" fail on the
+ * second upload while appearing to work.
+ *
+ * Writing a new object each time sidesteps the lookup entirely: the settings
+ * row points at the newest file and the previous one is simply unreferenced.
+ * Superseded files are left in the bucket rather than granting read access
+ * to a signature in order to tidy up.
+ */
+async function putAsset(prefix: string, body: Blob, contentType: string): Promise<string> {
+  const path = prefix + '-' + Date.now() + '.png'
+  const { error } = await supabase.storage
+    .from('company-assets')
+    .upload(path, body, { contentType, upsert: false })
+  if (error) throw new Error(error.message)
+  return path
+}
+
+async function toGreyscale(file: File): Promise<Blob> {
+  const bitmap = await createImageBitmap(file)
+  const canvas = document.createElement('canvas')
+  canvas.width = bitmap.width
+  canvas.height = bitmap.height
+  const ctx = canvas.getContext('2d')
+  if (!ctx) throw new Error('Could not process the image')
+  ctx.drawImage(bitmap, 0, 0)
+  const img = ctx.getImageData(0, 0, canvas.width, canvas.height)
+  const d = img.data
+  for (let i = 0; i < d.length; i += 4) {
+    // Rec. 601 luma, which keeps ink dark rather than washing it out.
+    const y = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2]
+    d[i] = d[i + 1] = d[i + 2] = y
+  }
+  ctx.putImageData(img, 0, 0)
+  return await new Promise<Blob>((resolve, reject) =>
+    canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('Greyscale failed'))), 'image/png'),
+  )
+}
 
 export function CompanySettingsPage() {
   const user = useCurrentUser()
@@ -111,19 +173,24 @@ export function CompanySettingsPage() {
     setNote(null)
     try {
       const tenantId = String(settings.tenant_id)
-      const ext = file.name.split('.').pop()?.toLowerCase() || 'png'
-      // Stable name per slot so re-uploading replaces rather than piles up,
-      // and so the backside read policy (bl-backside*) matches.
-      const path = tenantId + '/' + slot.key.replace('_path', '').replace(/_/g, '-') + '.' + ext
+      // The name keeps its slot prefix so the backside read policy
+      // (bl-backside*) still matches, with a timestamp making each upload a
+      // distinct object -- see putAsset.
+      const prefix = tenantId + '/' + slot.key.replace('_path', '').replace(/_/g, '-')
+      const path = await putAsset(prefix, file, file.type)
 
-      const { error: upErr } = await supabase.storage
-        .from('company-assets')
-        .upload(path, file, { contentType: file.type, upsert: true })
-      if (upErr) throw new Error(upErr.message)
+      const patch: Record<string, string> = { [slot.key]: path }
+
+      if (slot.greyKey) {
+        // Desaturate the colour channels and keep the alpha, so the stamp
+        // still sits over the form instead of printing on a white box.
+        const grey = await toGreyscale(file)
+        patch[slot.greyKey] = await putAsset(prefix + '-grey', grey, 'image/png')
+      }
 
       const { error: setErr } = await supabase
         .from('company_settings')
-        .update({ [slot.key]: path })
+        .update(patch)
         .eq('tenant_id', tenantId)
       if (setErr) throw new Error(setErr.message)
 

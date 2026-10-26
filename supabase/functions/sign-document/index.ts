@@ -171,10 +171,17 @@ Deno.serve(async (req) => {
     if (!settings) return fail(500, 'Company settings missing')
 
     const grey = scan
-    const wanted: { path: string | null; place: string }[] =
+    // The company's signature artwork already carries the round stamp, so a
+    // separate stamp file is optional rather than required. Composite
+    // whichever of the two exist; only refuse when neither does, because
+    // that is the case where the output would look signed and not be.
+    const candidates =
       option === 'signed'
         ? [
-            { path: grey ? settings.signature_grey_path : settings.signature_path, place: 'signature' },
+            {
+              path: grey ? settings.signature_grey_path : settings.signature_path,
+              place: 'signature',
+            },
             { path: grey ? settings.stamp_grey_path : settings.stamp_path, place: 'stamp' },
           ]
         : [
@@ -184,11 +191,13 @@ Deno.serve(async (req) => {
             },
           ]
 
-    const missing = wanted.filter((w) => !w.path).map((w) => w.place)
-    if (missing.length) {
+    const wanted = candidates.filter((w) => w.path)
+    if (wanted.length === 0) {
       return fail(
         409,
-        'Artwork not uploaded yet: ' + missing.join(', ') + '. Upload it in company settings first.',
+        'No artwork uploaded for ' +
+          (option === 'signed' ? 'the signature' : 'the surrender stamp') +
+          '. Upload it under Master Data -> Company settings first.',
       )
     }
 
