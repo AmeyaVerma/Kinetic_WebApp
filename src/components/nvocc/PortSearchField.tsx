@@ -22,22 +22,18 @@ export function PortSearchField({
 
   useEffect(() => {
     const q = query.trim()
-    if (!q) {
-      setResults([])
-      return
-    }
+    // Empty query lists the first few, so focusing the field shows options.
     const t = setTimeout(() => {
       const safe = q.replace(/[,%]/g, ' ')
-      supabase
-        .from('sea_ports')
-        .select('id,name,code')
-        .or(`name.ilike.%${safe}%,code.ilike.%${safe}%`)
+      let req = supabase.from('sea_ports').select('id,name,code')
+      if (safe) req = req.or(`name.ilike.%${safe}%,code.ilike.%${safe}%`)
+      req
         .order('name', { ascending: true })
-        .limit(8)
+        .limit(q ? 8 : 12)
         .then(({ data }) => setResults((data as { id: string; name: string; code: string | null }[]) ?? []))
     }, 250)
     return () => clearTimeout(t)
-  }, [query])
+  }, [query, open])
 
   return (
     <div className="relative">

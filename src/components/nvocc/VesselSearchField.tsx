@@ -20,22 +20,19 @@ export function VesselSearchField({
 
   useEffect(() => {
     const q = query.trim()
-    if (!q) {
-      setResults([])
-      return
-    }
+    // Empty query lists the first few, so focusing the field shows what is
+    // available instead of an empty box.
     const t = setTimeout(() => {
       const safe = q.replace(/[,%]/g, ' ')
-      supabase
-        .from('vessels')
-        .select('id,name,code')
-        .ilike('name', `%${safe}%`)
+      let req = supabase.from('vessels').select('id,name,code')
+      if (safe) req = req.ilike('name', `%${safe}%`)
+      req
         .order('name', { ascending: true })
-        .limit(8)
+        .limit(q ? 8 : 12)
         .then(({ data }) => setResults((data as VesselOption[]) ?? []))
     }, 250)
     return () => clearTimeout(t)
-  }, [query])
+  }, [query, open])
 
   return (
     <div className="relative">

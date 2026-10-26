@@ -25,19 +25,21 @@ export function PartySearchField({
 
   useEffect(() => {
     const q = query.trim()
-    if (!q) {
-      setResults([])
-      return
-    }
+    // An empty query lists the first few instead of nothing, so the options
+    // are visible on focus rather than only after guessing a few letters.
     const t = setTimeout(() => {
       const safe = q.replace(/[,%]/g, ' ')
-      supabase
+      let req = supabase
         .from('parties')
         .select('id,legal_name,display_name,code,party_role')
-        .in('party_role', roles)
-        .ilike('display_name', `%${safe}%`)
+        // party_role is null on every record in the master today, so an
+        // `.in()` filter matched nothing and the search returned no results
+        // at all. Null is treated as "any role" until the column is filled.
+        .or('party_role.in.(' + roles.join(',') + '),party_role.is.null')
+      if (safe) req = req.ilike('display_name', `%${safe}%`)
+      req
         .order('display_name', { ascending: true })
-        .limit(8)
+        .limit(q ? 8 : 12)
         .then(({ data }) => {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const rows = (data as any[]) ?? []
@@ -46,7 +48,7 @@ export function PartySearchField({
     }, 250)
     return () => clearTimeout(t)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [query])
+  }, [query, open])
 
   return (
     <div className="relative">
