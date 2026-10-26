@@ -34,6 +34,7 @@ export function buildBlSnapshot({
   printMode,
   useContainerSheet,
   issuedAt,
+  logoSrc,
   overrides,
 }: {
   booking: Booking
@@ -44,6 +45,8 @@ export function buildBlSnapshot({
   useContainerSheet: boolean
   /** Stamped on Issue; a Draft leaves the issue box empty. */
   issuedAt?: string | null
+  /** Signed URL for the logo, when it has been uploaded. */
+  logoSrc?: string
   /** Fields edited on the BL itself. They never write back to the booking. */
   overrides?: Partial<BlSnapshot>
 }): BlSnapshot {
@@ -96,6 +99,7 @@ export function buildBlSnapshot({
       telEmailLine: 'TEL: ' + company.tel + '  EMAIL: ' + company.email.toUpperCase(),
       webLine: 'WEB : ' + company.website.toUpperCase(),
       mtoRegistration: company.mto_registration,
+      logoSrc,
     },
   }
 

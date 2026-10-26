@@ -81,6 +81,11 @@ export interface BlSnapshot {
     webLine: string
     mtoRegistration: string
     tagline: string
+    /**
+     * Signed URL for the logo artwork. When absent the BL typesets the brand
+     * name instead, so the form is still complete -- just without the mark.
+     */
+    logoSrc?: string
   }
 }
 

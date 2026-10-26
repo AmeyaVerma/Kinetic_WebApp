@@ -46,6 +46,7 @@ const ASSETS: AssetSlot[] = [
   },
   {
     key: 'logo_path',
+    greyKey: 'logo_grey_path',
     label: 'Company logo',
     hint: 'Printed in the BL header. Without it the name prints in type.',
     accept: 'image/png',

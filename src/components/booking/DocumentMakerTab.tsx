@@ -116,6 +116,9 @@ export function DocumentMakerTab({ booking }: { booking: Booking }) {
   // policy lets this one file be read so the preview shows the same page
   // print appends.
   const [backsideSrc, setBacksideSrc] = useState<string | undefined>(undefined)
+  // Logo is public branding and readable, unlike the stamps.
+  const [logoSrc, setLogoSrc] = useState<string | undefined>(undefined)
+  const [logoGreySrc, setLogoGreySrc] = useState<string | undefined>(undefined)
   const [open, setOpen] = useState<{ type: CardKey; group: string } | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -133,15 +136,19 @@ export function DocumentMakerTab({ booking }: { booking: Booking }) {
     ])
     setCompany((cs as CompanySettingsLite | null) ?? null)
 
-    const backsidePath = (cs as unknown as { bl_backside_path?: string } | null)?.bl_backside_path
-    if (backsidePath) {
-      const { data: signed } = await supabase.storage
-        .from('company-assets')
-        .createSignedUrl(backsidePath, 3600)
-      setBacksideSrc(signed?.signedUrl)
-    } else {
-      setBacksideSrc(undefined)
+    const paths = cs as unknown as {
+      bl_backside_path?: string
+      logo_path?: string
+      logo_grey_path?: string
+    } | null
+    const signArt = async (path?: string) => {
+      if (!path) return undefined
+      const { data } = await supabase.storage.from('company-assets').createSignedUrl(path, 3600)
+      return data?.signedUrl
     }
+    setBacksideSrc(await signArt(paths?.bl_backside_path))
+    setLogoSrc(await signArt(paths?.logo_path))
+    setLogoGreySrc(await signArt(paths?.logo_grey_path))
     setVersions((vers as VersionRow[]) ?? [])
     setBl((blRow as BlRow | null) ?? null)
 
@@ -218,8 +225,12 @@ export function DocumentMakerTab({ booking }: { booking: Booking }) {
       printMode: bl?.print_mode ?? 'Original',
       useContainerSheet: bl?.use_container_sheet ?? false,
       issuedAt: bl?.issued_at ?? null,
+      // Scan Copy prints everything black and white, so it takes the
+      // greyscale masthead; a colour logo on a mono page would be the one
+      // thing that gave it away as not a photocopy.
+      logoSrc: bl?.print_mode === 'Scan' ? (logoGreySrc ?? logoSrc) : logoSrc,
     })
-  }, [booking, company, bl, issuedSnapshot])
+  }, [booking, company, bl, issuedSnapshot, logoSrc, logoGreySrc])
 
   const opSnapshot = useMemo(() => {
     if (!open || open.type === 'bl' || !docCompany) return null

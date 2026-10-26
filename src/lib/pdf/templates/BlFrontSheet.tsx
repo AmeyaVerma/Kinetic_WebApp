@@ -53,6 +53,8 @@ export function BlFrontSheet({
 
     company: { alignItems: 'center', paddingVertical: 4 },
     brand: { fontSize: 16, fontFamily: 'Helvetica-Bold', letterSpacing: 1 },
+    // 6.36:1 artwork; width drives the height so it never distorts.
+    logo: { width: 185, height: 29, objectFit: 'contain', marginBottom: 3 },
     tagline: { fontSize: FONT_SIZE.small, color: c.label, marginBottom: 2 },
     companyLine: { fontSize: FONT_SIZE.tiny, fontFamily: 'Helvetica-Bold', textAlign: 'center' },
     clause: { fontSize: 4.6, textAlign: 'justify', padding: 2, lineHeight: 1.15 },
@@ -130,8 +132,18 @@ export function BlFrontSheet({
                 typographically at the same footprint. Swapping in the PNG
                 later is a one-element change. */}
             <View style={[s.company, { borderBottom: rule }]}>
-              <Text style={s.brand}>KINETIC LINE</Text>
-              <Text style={s.tagline}>{snapshot.company.tagline}</Text>
+              {/* The supplied logo already contains the wordmark and the
+                  tagline, so it replaces both lines rather than sitting above
+                  them. Without it the brand is typeset instead, which keeps
+                  the form complete but unmistakably unbranded. */}
+              {snapshot.company.logoSrc ? (
+                <Image src={snapshot.company.logoSrc} style={s.logo} />
+              ) : (
+                <>
+                  <Text style={s.brand}>KINETIC LINE</Text>
+                  <Text style={s.tagline}>{snapshot.company.tagline}</Text>
+                </>
+              )}
               <Text style={s.companyLine}>{snapshot.company.legalName}</Text>
               {snapshot.company.addressLines.map((l, i) => (
                 <Text key={i} style={s.companyLine}>
