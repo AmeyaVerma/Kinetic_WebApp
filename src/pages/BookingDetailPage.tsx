@@ -6,7 +6,7 @@ import { Button } from '../components/ui/Button'
 import { StatusChip } from '../components/ui/StatusChip'
 import { ProgressBar } from '../components/ui/ProgressBar'
 import { Tabs } from '../components/ui/Tabs'
-import { FieldPill, TextInput } from '../components/ui/Field'
+import { FieldPill, TextInput, Select } from '../components/ui/Field'
 import { DocumentsTab } from '../components/booking/DocumentsTab'
 import { DocumentFieldsSection } from '../components/booking/DocumentFieldsSection'
 // Lazy: these pull in @react-pdf/renderer, which is ~470 kB gzipped. Loading
@@ -33,7 +33,6 @@ import {
   WORKFLOW_STATUS_CHIP,
   workflowStatusOf,
 } from '../lib/bookingStatus'
-import { mockVendors } from '../mocks/masters'
 import { HAZMAT_FIELD_LABELS } from '../lib/types'
 import type { BookingWorkflowStatus, HazmatDetails, HazmatStatus } from '../lib/types'
 
@@ -962,28 +961,123 @@ function MilestonesTab({
 /* ── Tab: Agent details ──────────────────────────────────────── */
 
 function AgentDetailsTab({ booking }: { booking: import('../lib/types').Booking }) {
-  const { updateTransshipmentAgent, parties, fetchParties } = useDataStore()
+  const {
+    updateTransshipmentAgent,
+    updateContainerInfoField,
+    requestBookingFieldChange,
+    parties,
+    fetchParties,
+  } = useDataStore()
+  const currentUser = useCurrentUser()
+  const viewAsRole = useAuthStore((st) => st.viewAsRole)
+  const isAdmin = (viewAsRole ?? currentUser?.role) === 'admin'
+  const actor = currentUser?.name ?? 'Ops'
+
   useEffect(() => {
     if (parties.length === 0) fetchParties()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
   const origin = parties.find((p) => p.id === booking.originAgentId)
   const dest = parties.find((p) => p.id === booking.destinationAgentId)
-  const surveyor = mockVendors.find((v) => v.id === booking.surveyorId)
+
+  /* Shipper, consignee and notify party print on the BL and on every
+     operational document, so they follow the same rule as Product and
+     Container info: an Admin edits directly, anyone else raises an approval.
+     They were previously read-only here, which meant a wrong consignee could
+     only be fixed by rebuilding the booking. */
+  const save = (
+    field: 'bookingPartyName' | 'shipper' | 'consignee' | 'notifyParty' | 'originAgentId' | 'destinationAgentId',
+    label: string,
+    value: string,
+  ) =>
+    isAdmin
+      ? updateContainerInfoField(booking.id, field, value, actor)
+      : requestBookingFieldChange(booking.id, field, label, value, actor)
+
+  /* Not filtered by role: every party in the master currently has an empty
+     `roles` array, so filtering on 'Agent' produced an empty dropdown and no
+     agent could be chosen at all. Listing everything is less tidy but it
+     works today; once roles are populated this can narrow again. */
+  const agentOptions = [...parties].sort((a, b) => a.displayName.localeCompare(b.displayName))
+
   return (
-    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-      <FieldPill label="Booking party" value={booking.bookingPartyName} />
-      <FieldPill label="Shipper" value={booking.shipper} />
-      <FieldPill label="Consignee" value={booking.consignee} />
-      <FieldPill label="Notify party" value={booking.notifyParty} />
-      <FieldPill label="Origin agent" value={origin ? `${origin.displayName}${origin.country ? ` (${origin.country})` : ''}` : ''} />
-      <FieldPill label="Destination agent" value={dest ? `${dest.displayName}${dest.country ? ` (${dest.country})` : ''}` : ''} />
-      <EditableTextPill
-        label="Transshipment agent"
-        value={booking.transshipmentAgent ?? ''}
-        onChange={(v) => updateTransshipmentAgent(booking.id, v, 'Ops')}
-      />
-      <FieldPill label="Surveyor" value={surveyor?.name ?? ''} />
+    <div className="space-y-3">
+      {!isAdmin && (
+        <p className="text-xs text-muted">
+          Changes here need Admin approval — your edit is raised as a request.
+        </p>
+      )}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <EditableTextPill
+          label="Booking party"
+          value={booking.bookingPartyName}
+          onChange={(v) => save('bookingPartyName', 'Booking party', v)}
+        />
+        <EditableTextPill
+          label="Shipper"
+          value={booking.shipper}
+          onChange={(v) => save('shipper', 'Shipper', v)}
+        />
+        <EditableTextPill
+          label="Consignee"
+          value={booking.consignee}
+          onChange={(v) => save('consignee', 'Consignee', v)}
+        />
+        <EditableTextPill
+          label="Notify party"
+          value={booking.notifyParty}
+          onChange={(v) => save('notifyParty', 'Notify party', v)}
+        />
+
+        <label className="space-y-1">
+          <span className="block font-mono text-[10px] uppercase tracking-wide text-muted">
+            Origin agent
+          </span>
+          <Select
+            value={booking.originAgentId ?? ''}
+            onChange={(e) => save('originAgentId', 'Origin agent', e.target.value)}
+          >
+            <option value="">— not set —</option>
+            {agentOptions.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.displayName}
+                {p.country ? ' (' + p.country + ')' : ''}
+              </option>
+            ))}
+          </Select>
+          <span className="block text-[10px] text-muted">
+            {origin ? origin.displayName : 'Printed as Delivery Agent on the BL when set as destination'}
+          </span>
+        </label>
+
+        <label className="space-y-1">
+          <span className="block font-mono text-[10px] uppercase tracking-wide text-muted">
+            Destination agent
+          </span>
+          <Select
+            value={booking.destinationAgentId ?? ''}
+            onChange={(e) => save('destinationAgentId', 'Destination agent', e.target.value)}
+          >
+            <option value="">— not set —</option>
+            {agentOptions.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.displayName}
+                {p.country ? ' (' + p.country + ')' : ''}
+              </option>
+            ))}
+          </Select>
+          <span className="block text-[10px] text-muted">
+            {dest ? dest.displayName : 'Prints as Delivery Agent on the BL'}
+          </span>
+        </label>
+
+        <EditableTextPill
+          label="Transshipment agent"
+          value={booking.transshipmentAgent ?? ''}
+          onChange={(v) => updateTransshipmentAgent(booking.id, v, actor)}
+        />
+      </div>
     </div>
   )
 }

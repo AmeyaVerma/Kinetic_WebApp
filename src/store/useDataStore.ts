@@ -733,6 +733,12 @@ const CONTAINER_INFO_FIELD_LABELS = {
   grossWeightKg: 'Cargo weight',
   freeDaysOrigin: 'Free days (origin)',
   freeDaysDest: 'Free days (destination)',
+  bookingPartyName: 'Booking party',
+  shipper: 'Shipper',
+  consignee: 'Consignee',
+  notifyParty: 'Notify party',
+  originAgentId: 'Origin agent',
+  destinationAgentId: 'Destination agent',
 } as const
 
 /** Fields on Booking that are numbers, not strings — updateContainerInfoField
@@ -906,7 +912,12 @@ interface DataState {
     field:
       | 'numberOfContainers' | 'sizeOfContainer' | 'sealNo' | 'customSealNo' | 'containerType'
       | 'commodity' | 'hsCode' | 'principal' | 'freightTerms' | 'packages' | 'packageType' | 'grossWeightKg'
-      | 'freeDaysOrigin' | 'freeDaysDest',
+      | 'freeDaysOrigin' | 'freeDaysDest'
+      // Parties. These print on the BL and on every operational document, so
+      // they go through the same admin-direct / approval-gated path as the
+      // rest rather than being quietly editable.
+      | 'bookingPartyName' | 'shipper' | 'consignee' | 'notifyParty'
+      | 'originAgentId' | 'destinationAgentId',
     value: string,
     actor: string,
   ) => void
