@@ -718,6 +718,32 @@ function persistFfVendorLineUpdate(dbId: string | undefined, patch: Record<strin
   })()
 }
 
+/** Readable names for the activity line written by saveBookingEdits. */
+const BOOKING_FIELD_LABEL: Record<string, string> = {
+  ...BOOKING_DOCUMENT_LABELS,
+  bookingPartyName: 'Booking party',
+  shipper: 'Shipper',
+  consignee: 'Consignee',
+  notifyParty: 'Notify party',
+  originAgentId: 'Origin agent',
+  destinationAgentId: 'Destination agent',
+  transshipmentAgent: 'Transshipment agent',
+  numberOfContainers: 'Number of containers',
+  sizeOfContainer: 'Size of container',
+  sealNo: 'Seal No.',
+  customSealNo: 'Custom Seal No.',
+  containerType: 'Container type',
+  commodity: 'Commodity',
+  hsCode: 'HS code',
+  principal: 'Principal',
+  freightTerms: 'Freight terms',
+  packages: 'Packages',
+  packageType: 'Package type',
+  grossWeightKg: 'Cargo weight',
+  freeDaysOrigin: 'Free days (origin)',
+  freeDaysDest: 'Free days (destination)',
+}
+
 const CONTAINER_INFO_FIELD_LABELS = {
   numberOfContainers: 'Number of containers',
   sizeOfContainer: 'Size of container',
@@ -890,6 +916,14 @@ interface DataState {
     value: string,
     actor: string,
   ) => void
+  /** Commits a whole Edit session at once: every changed column in a single
+      update, and one activity line naming what moved. Returns a promise so
+      the Save button can show progress and surface a failure. */
+  saveBookingEdits: (
+    bookingId: string,
+    draft: Partial<Record<string, unknown>>,
+    actor: string,
+  ) => Promise<void>
   /** Any of the document fields added in 0040. These feed the six
       generated documents, which read the booking and never hold their own
       copy of a value — so this is the only place they are edited. */
@@ -1714,6 +1748,43 @@ export const useDataStore = create<DataState>((set, get) => ({
         activities: log(s.activities, bookingId, actor, `Ports updated — ${changed.join(', ')}`),
       }
     }),
+
+  saveBookingEdits: async (bookingId, draft, actor) => {
+    const booking = get().bookings.find((b) => b.id === bookingId)
+    if (!booking) return
+
+    const entries = Object.entries(draft).filter(
+      ([field, value]) => (booking[field as keyof typeof booking] ?? '') !== ((value as unknown) ?? ''),
+    )
+    if (entries.length === 0) return
+
+    const columns: Record<string, unknown> = {}
+    const labels: string[] = []
+    for (const [field, value] of entries) {
+      // camelCase -> snake_case, the same mapping the rest of the store uses.
+      const column = field.replace(/([A-Z])/g, '_$1').toLowerCase()
+      // Empty strings must not be written into numeric or date columns.
+      columns[column] = value === '' ? null : value
+      labels.push(BOOKING_FIELD_LABEL[field] ?? field)
+    }
+
+    if (booking.dbId) {
+      const { error } = await supabase.from('bookings').update(columns).eq('id', booking.dbId)
+      if (error) throw new Error(error.message)
+    }
+
+    set((st) => ({
+      bookings: st.bookings.map((b) =>
+        b.id === bookingId ? { ...b, ...(draft as Partial<typeof b>) } : b,
+      ),
+      activities: log(
+        st.activities,
+        bookingId,
+        actor,
+        'Booking edited — ' + labels.join(', '),
+      ),
+    }))
+  },
 
   updateBookingDocumentField: (bookingId, field, value, actor) =>
     set((st) => {

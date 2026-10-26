@@ -9,6 +9,8 @@ import { Tabs } from '../components/ui/Tabs'
 import { FieldPill, TextInput, Select } from '../components/ui/Field'
 import { DocumentsTab } from '../components/booking/DocumentsTab'
 import { DocumentFieldsSection } from '../components/booking/DocumentFieldsSection'
+import { BookingEditProvider, useFieldBinding } from '../components/booking/BookingEditContext'
+import { BookingEditBar } from '../components/booking/BookingEditBar'
 // Lazy: these pull in @react-pdf/renderer, which is ~470 kB gzipped. Loading
 // it eagerly would charge every user of every module for a document engine
 // most of them never open. Split out, it arrives only when a BL or Document
@@ -133,6 +135,7 @@ export function BookingDetailPage() {
   const roadmapIndex = roadmap.indexOf(lifecycleStatus)
 
   return (
+    <BookingEditProvider booking={booking}>
     <div className="space-y-5">
       {/* Header */}
       <div className="rounded-card border border-line bg-surface p-5 shadow-card">
@@ -211,6 +214,10 @@ export function BookingDetailPage() {
           </p>
           <StageStepper stages={roadmap} currentIndex={roadmapIndex} />
         </div>
+      </div>
+
+      <div className="mb-3">
+        <BookingEditBar />
       </div>
 
       <Tabs tabs={TABS} active={tab} onChange={setTab} />
@@ -325,6 +332,7 @@ export function BookingDetailPage() {
         </div>
       </Card>
     </div>
+    </BookingEditProvider>
   )
 }
 
@@ -986,14 +994,18 @@ function AgentDetailsTab({ booking }: { booking: import('../lib/types').Booking 
      Container info: an Admin edits directly, anyone else raises an approval.
      They were previously read-only here, which meant a wrong consignee could
      only be fixed by rebuilding the booking. */
-  const save = (
-    field: 'bookingPartyName' | 'shipper' | 'consignee' | 'notifyParty' | 'originAgentId' | 'destinationAgentId',
-    label: string,
-    value: string,
-  ) =>
+  const binding = useFieldBinding(booking, (field, label, value) =>
     isAdmin
-      ? updateContainerInfoField(booking.id, field, value, actor)
-      : requestBookingFieldChange(booking.id, field, label, value, actor)
+      ? updateContainerInfoField(
+          booking.id,
+          field as Parameters<typeof updateContainerInfoField>[1],
+          value,
+          actor,
+        )
+      : requestBookingFieldChange(booking.id, field, label, value, actor),
+  )
+  const save = (field: string, label: string, value: string) =>
+    binding.commit(field, label, value)
 
   /* Not filtered by role: every party in the master currently has an empty
      `roles` array, so filtering on 'Agent' produced an empty dropdown and no
@@ -1008,25 +1020,34 @@ function AgentDetailsTab({ booking }: { booking: import('../lib/types').Booking 
           Changes here need Admin approval — your edit is raised as a request.
         </p>
       )}
+      {isAdmin && !binding.canType && (
+        <p className="text-xs text-muted">
+          Read-only. Press “Edit booking” above to make changes.
+        </p>
+      )}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <EditableTextPill
           label="Booking party"
-          value={booking.bookingPartyName}
+          value={binding.value('bookingPartyName')}
+          disabled={!binding.canType}
           onChange={(v) => save('bookingPartyName', 'Booking party', v)}
         />
         <EditableTextPill
           label="Shipper"
-          value={booking.shipper}
+          value={binding.value('shipper')}
+          disabled={!binding.canType}
           onChange={(v) => save('shipper', 'Shipper', v)}
         />
         <EditableTextPill
           label="Consignee"
-          value={booking.consignee}
+          value={binding.value('consignee')}
+          disabled={!binding.canType}
           onChange={(v) => save('consignee', 'Consignee', v)}
         />
         <EditableTextPill
           label="Notify party"
-          value={booking.notifyParty}
+          value={binding.value('notifyParty')}
+          disabled={!binding.canType}
           onChange={(v) => save('notifyParty', 'Notify party', v)}
         />
 
@@ -1035,7 +1056,8 @@ function AgentDetailsTab({ booking }: { booking: import('../lib/types').Booking 
             Origin agent
           </span>
           <Select
-            value={booking.originAgentId ?? ''}
+            value={binding.value('originAgentId')}
+            disabled={!binding.canType}
             onChange={(e) => save('originAgentId', 'Origin agent', e.target.value)}
           >
             <option value="">— not set —</option>
@@ -1056,7 +1078,8 @@ function AgentDetailsTab({ booking }: { booking: import('../lib/types').Booking 
             Destination agent
           </span>
           <Select
-            value={booking.destinationAgentId ?? ''}
+            value={binding.value('destinationAgentId')}
+            disabled={!binding.canType}
             onChange={(e) => save('destinationAgentId', 'Destination agent', e.target.value)}
           >
             <option value="">— not set —</option>
@@ -1074,8 +1097,13 @@ function AgentDetailsTab({ booking }: { booking: import('../lib/types').Booking 
 
         <EditableTextPill
           label="Transshipment agent"
-          value={booking.transshipmentAgent ?? ''}
-          onChange={(v) => updateTransshipmentAgent(booking.id, v, actor)}
+          value={binding.value('transshipmentAgent')}
+          disabled={!binding.canType}
+          onChange={(v) =>
+            binding.editing
+              ? save('transshipmentAgent', 'Transshipment agent', v)
+              : updateTransshipmentAgent(booking.id, v, actor)
+          }
         />
       </div>
     </div>

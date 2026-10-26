@@ -6,6 +6,7 @@ import { supabase } from '../../lib/supabaseClient'
 import { useDataStore } from '../../store/useDataStore'
 import { useAuthStore, useCurrentUser } from '../../store/useAuthStore'
 import type { Booking } from '../../lib/types'
+import { useFieldBinding } from './BookingEditContext'
 import {
   fieldsForSection,
   type BookingSection,
@@ -36,6 +37,12 @@ export function DocumentFieldsSection({
   const viewAsRole = useAuthStore((s) => s.viewAsRole)
   const role = viewAsRole ?? user?.role
   const canEdit = role === 'admin' || role === 'ops'
+
+  // Joins the booking-wide Edit/Save session: while an Admin is editing,
+  // changes here collect in the same draft and are written by one Save.
+  const binding = useFieldBinding(booking, (field, _label, value) =>
+    update(booking.id, field as Parameters<typeof update>[1], value, user?.name ?? 'Ops'),
+  )
 
   const fields = fieldsForSection(section, booking.direction)
   const needsMasters = fields.some((f) =>
@@ -70,13 +77,10 @@ export function DocumentFieldsSection({
 
   if (fields.length === 0) return null
 
-  const valueOf = (f: BookingDocumentFieldSpec) => {
-    const v = booking[f.key]
-    return v === null || v === undefined ? '' : String(v)
-  }
+  const valueOf = (f: BookingDocumentFieldSpec) => binding.value(f.key)
 
   const commit = (f: BookingDocumentFieldSpec, value: string) => {
-    update(booking.id, f.key, value, user?.name ?? 'Ops')
+    binding.commit(f.key, f.label, value)
   }
 
   const optionsFor = (f: BookingDocumentFieldSpec) => {
@@ -112,7 +116,7 @@ export function DocumentFieldsSection({
             {isMasterWidget(f) ? (
               <Select
                 value={valueOf(f)}
-                disabled={!canEdit}
+                disabled={!canEdit || !binding.canType}
                 onChange={(e) => commit(f, e.target.value)}
               >
                 <option value="">— not set —</option>
@@ -125,7 +129,7 @@ export function DocumentFieldsSection({
             ) : f.widget === 'select' ? (
               <Select
                 value={valueOf(f)}
-                disabled={!canEdit}
+                disabled={!canEdit || !binding.canType}
                 onChange={(e) => commit(f, e.target.value)}
               >
                 <option value="">— not set —</option>
@@ -136,19 +140,40 @@ export function DocumentFieldsSection({
                 ))}
               </Select>
             ) : f.widget === 'textarea' ? (
-              <Textarea
-                rows={3}
-                defaultValue={valueOf(f)}
-                disabled={!canEdit}
-                onBlur={(e) => commit(f, e.target.value)}
-              />
+              // Controlled while editing so Cancel visibly reverts the field;
+              // uncontrolled otherwise, where a blur-commit is still right for
+              // the approval path.
+              binding.editing ? (
+                <Textarea
+                  rows={3}
+                  value={valueOf(f)}
+                  disabled={!canEdit || !binding.canType}
+                  onChange={(e) => commit(f, e.target.value)}
+                />
+              ) : (
+                <Textarea
+                  rows={3}
+                  defaultValue={valueOf(f)}
+                  disabled={!canEdit || !binding.canType}
+                  onBlur={(e) => commit(f, e.target.value)}
+                />
+              )
             ) : (
-              <TextInput
-                type={f.widget === 'date' ? 'date' : f.widget === 'number' ? 'number' : 'text'}
-                defaultValue={valueOf(f)}
-                disabled={!canEdit}
-                onBlur={(e) => commit(f, e.target.value)}
-              />
+              binding.editing ? (
+                <TextInput
+                  type={f.widget === 'date' ? 'date' : f.widget === 'number' ? 'number' : 'text'}
+                  value={valueOf(f)}
+                  disabled={!canEdit || !binding.canType}
+                  onChange={(e) => commit(f, e.target.value)}
+                />
+              ) : (
+                <TextInput
+                  type={f.widget === 'date' ? 'date' : f.widget === 'number' ? 'number' : 'text'}
+                  defaultValue={valueOf(f)}
+                  disabled={!canEdit || !binding.canType}
+                  onBlur={(e) => commit(f, e.target.value)}
+                />
+              )
             )}
 
             <span className="block text-[10px] text-muted">{f.usedBy}</span>
