@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { ArrowLeft, Check, Lock, Upload } from 'lucide-react'
 import { Card } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'
-import { TextInput } from '../../components/ui/Field'
+import { TextInput, Textarea } from '../../components/ui/Field'
 import { supabase } from '../../lib/supabaseClient'
 import { useAuthStore, useCurrentUser } from '../../store/useAuthStore'
 
@@ -66,6 +66,11 @@ const ASSETS: AssetSlot[] = [
     accept: 'image/png',
     readable: false,
   },
+]
+
+const ADDRESS_FIELDS: { key: string; label: string }[] = [
+  { key: 'corporate_address', label: 'Corporate address' },
+  { key: 'gst_address', label: 'GST address' },
 ]
 
 const TEXT_FIELDS: { key: string; label: string }[] = [
@@ -231,6 +236,30 @@ export function CompanySettingsPage() {
           PNG or JPEG, up to 5 MB. A multi-page or vector original should be
           exported to a single image first — documents embed images, not PDFs.
         </p>
+      </Card>
+
+      <Card className="space-y-4 p-4">
+        <h2 className="font-display text-sm">Printed addresses</h2>
+        <p className="text-xs text-muted">
+          Shared by every document — the BL and all five letters — so a change
+          here lands on all of them. The same shipment printing two different
+          company addresses would read as an error.
+        </p>
+        <div className="space-y-3">
+          {ADDRESS_FIELDS.map((f) => (
+            <label key={f.key} className="block space-y-1">
+              <span className="block font-mono text-[10px] uppercase tracking-wide text-muted">
+                {f.label}
+              </span>
+              <Textarea
+                rows={2}
+                defaultValue={String(settings[f.key] ?? '')}
+                disabled={!isAdmin}
+                onBlur={(e) => saveText(f.key, e.target.value)}
+              />
+            </label>
+          ))}
+        </div>
       </Card>
 
       <Card className="space-y-4 p-4">
