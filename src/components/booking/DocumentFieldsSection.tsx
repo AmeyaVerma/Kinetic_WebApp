@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { FileText } from 'lucide-react'
 import { Card } from '../ui/Card'
 import { TextInput, Textarea, Select } from '../ui/Field'
@@ -90,6 +91,16 @@ export function DocumentFieldsSection({
     return []
   }
 
+  const masterNameFor = (f: BookingDocumentFieldSpec) =>
+    f.widget === 'depot' ? 'depots' : f.widget === 'surveyor' ? 'surveyors' : 'CHAs'
+
+  const masterLinkFor = (f: BookingDocumentFieldSpec) =>
+    f.widget === 'depot'
+      ? '/master/containers/empty-depots'
+      : f.widget === 'surveyor'
+        ? '/master/surveyors'
+        : '/master/chas'
+
   const isMasterWidget = (f: BookingDocumentFieldSpec) =>
     f.widget === 'depot' || f.widget === 'surveyor' || f.widget === 'cha'
 
@@ -114,18 +125,28 @@ export function DocumentFieldsSection({
             </span>
 
             {isMasterWidget(f) ? (
-              <Select
-                value={valueOf(f)}
-                disabled={!canEdit || !binding.canType}
-                onChange={(e) => commit(f, e.target.value)}
-              >
-                <option value="">— not set —</option>
-                {optionsFor(f).map((o) => (
-                  <option key={o.id} value={o.id}>
-                    {o.name}
-                  </option>
-                ))}
-              </Select>
+              optionsFor(f).length === 0 ? (
+                <p className="rounded border border-amber-300 bg-amber-50 px-2 py-1.5 text-xs text-amber-900">
+                  No {masterNameFor(f)} added yet —{' '}
+                  <Link to={masterLinkFor(f)} className="underline">
+                    add them in Master Data
+                  </Link>
+                  , then pick one here.
+                </p>
+              ) : (
+                <Select
+                  value={valueOf(f)}
+                  disabled={!canEdit || !binding.canType}
+                  onChange={(e) => commit(f, e.target.value)}
+                >
+                  <option value="">— not set —</option>
+                  {optionsFor(f).map((o) => (
+                    <option key={o.id} value={o.id}>
+                      {o.name}
+                    </option>
+                  ))}
+                </Select>
+              )
             ) : f.widget === 'select' ? (
               <Select
                 value={valueOf(f)}
@@ -185,12 +206,7 @@ export function DocumentFieldsSection({
         ))}
       </div>
 
-      {needsMasters && masters.depots.length === 0 && (
-        <p className="text-xs text-muted">
-          No depots, surveyors or CHAs have been added yet — add them under
-          Master Data and they will appear here.
-        </p>
-      )}
+
     </Card>
   )
 }

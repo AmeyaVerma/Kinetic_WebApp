@@ -1,4 +1,4 @@
-import { Pencil, Save, X } from 'lucide-react'
+import { Lock, Pencil, Save, X } from 'lucide-react'
 import { Button } from '../ui/Button'
 import { useBookingEdit } from './BookingEditContext'
 
@@ -17,13 +17,14 @@ export function BookingEditBar() {
 
   if (!editing) {
     return (
-      <div className="flex items-center gap-3">
-        <Button size="sm" variant="ghost" onClick={begin}>
+      <div className="flex flex-wrap items-center gap-3 rounded-card border border-line bg-surface-2/60 px-3 py-2">
+        <Lock size={15} className="text-muted" />
+        <span className="text-sm">
+          This booking is <strong>read-only</strong>. Press Edit to change any field.
+        </span>
+        <Button size="sm" onClick={begin} className="ml-auto">
           <Pencil size={14} /> Edit booking
         </Button>
-        <span className="text-xs text-muted">
-          Fields are read-only until you start editing.
-        </span>
       </div>
     )
   }
