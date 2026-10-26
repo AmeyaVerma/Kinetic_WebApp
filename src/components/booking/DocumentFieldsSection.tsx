@@ -145,6 +145,7 @@ export function DocumentFieldsSection({
               // the approval path.
               binding.editing ? (
                 <Textarea
+                  key={'edit-' + f.key}
                   rows={3}
                   value={valueOf(f)}
                   disabled={!canEdit || !binding.canType}
@@ -152,6 +153,7 @@ export function DocumentFieldsSection({
                 />
               ) : (
                 <Textarea
+                  key={'view-' + f.key}
                   rows={3}
                   defaultValue={valueOf(f)}
                   disabled={!canEdit || !binding.canType}
@@ -161,6 +163,7 @@ export function DocumentFieldsSection({
             ) : (
               binding.editing ? (
                 <TextInput
+                  key={'edit-' + f.key}
                   type={f.widget === 'date' ? 'date' : f.widget === 'number' ? 'number' : 'text'}
                   value={valueOf(f)}
                   disabled={!canEdit || !binding.canType}
@@ -168,6 +171,7 @@ export function DocumentFieldsSection({
                 />
               ) : (
                 <TextInput
+                  key={'view-' + f.key}
                   type={f.widget === 'date' ? 'date' : f.widget === 'number' ? 'number' : 'text'}
                   defaultValue={valueOf(f)}
                   disabled={!canEdit || !binding.canType}
