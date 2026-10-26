@@ -3,6 +3,7 @@ import { UserPlus, ShieldCheck, KeyRound, Trash2, Eye, Check, X, UserCheck } fro
 import { Card } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'
 import { CsvButton } from '../../components/ui/CsvButton'
+import { AuditTrailTab } from '../../components/admin/AuditTrailTab'
 import { StatusChip } from '../../components/ui/StatusChip'
 import { Tabs } from '../../components/ui/Tabs'
 import { Modal } from '../../components/ui/Modal'
@@ -31,7 +32,7 @@ const ALL_ROLES: Role[] = [...INTERNAL_ROLES, 'customer', 'agent']
 
 export function UsersRolesPage() {
   const [tab, setTab] = useState('pending')
-  const { users, audit, pendingSignups, fetchPendingSignups } = useAuthStore()
+  const { users, pendingSignups, fetchPendingSignups } = useAuthStore()
 
   useEffect(() => {
     fetchPendingSignups()
@@ -67,28 +68,7 @@ export function UsersRolesPage() {
       {tab === 'pending' && <PendingApprovalsTab />}
       {tab === 'users' && <UsersTab />}
       {tab === 'roles' && <RolesTab />}
-      {tab === 'audit' && (
-        <Card>
-          <div className="px-5 py-5">
-            <div className="mb-2 flex items-center justify-between">
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted">
-                Every role &amp; access change — immutable
-              </p>
-              <CsvButton
-                filename="users-audit-trail"
-                rows={audit.map((a) => ({ At: a.at, Actor: a.actor, Action: a.action }))}
-              />
-            </div>
-            {audit.map((a) => (
-              <div key={a.id} className="flex items-start gap-3 border-b border-line py-2 text-xs last:border-0">
-                <span className="w-36 shrink-0 font-mono text-muted">{new Date(a.at).toLocaleString()}</span>
-                <span className="w-28 shrink-0 font-medium text-heading">{a.actor}</span>
-                <span className="text-body">{a.action}</span>
-              </div>
-            ))}
-          </div>
-        </Card>
-      )}
+      {tab === 'audit' && <AuditTrailTab />}
     </div>
   )
 }
