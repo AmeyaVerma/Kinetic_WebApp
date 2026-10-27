@@ -1,4 +1,4 @@
-import { Text, View, StyleSheet } from '@react-pdf/renderer'
+import { Image, Text, View, StyleSheet } from '@react-pdf/renderer'
 import { FONT_SIZE, palette } from '../theme'
 
 /**
@@ -14,6 +14,11 @@ import { FONT_SIZE, palette } from '../theme'
  * ours to tidy.
  */
 export interface LetterheadCompany {
+  /**
+   * Signed URL for the logo artwork. It prints above the legal name, as on
+   * the printed letterhead; without it the block is text only.
+   */
+  logoSrc?: string
   legalName: string
   corporateAddress: string
   gstAddress: string
@@ -36,6 +41,14 @@ export function Letterhead({
   const c = palette(scan)
   const s = StyleSheet.create({
     wrap: { alignItems: align === 'center' ? 'center' : 'flex-start' },
+    logo: {
+      // 6.36:1 artwork. Width drives height so it never distorts.
+      width: 132,
+      height: 21,
+      objectFit: 'contain',
+      marginBottom: 3,
+      alignSelf: align === 'center' ? 'center' : 'flex-start',
+    },
     name: {
       fontSize: FONT_SIZE.label,
       fontFamily: 'Helvetica-Bold',
@@ -49,6 +62,7 @@ export function Letterhead({
 
   return (
     <View style={s.wrap}>
+      {company.logoSrc ? <Image src={company.logoSrc} style={s.logo} /> : null}
       <Text style={s.name}>{t(company.legalName)}</Text>
       <Text style={s.line}>{t('Corporate Address- ' + company.corporateAddress)}</Text>
       <Text style={s.line}>{t('GST ADD - ' + company.gstAddress + ' MUMBAI 400072')}</Text>

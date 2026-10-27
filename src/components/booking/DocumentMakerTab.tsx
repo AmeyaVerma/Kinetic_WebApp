@@ -202,6 +202,7 @@ export function DocumentMakerTab({ booking }: { booking: Booking }) {
     () =>
       company
         ? {
+            logoSrc,
             legalName: company.legal_name,
             principalName: (company as unknown as { principal_name: string }).principal_name,
             corporateAddress: company.corporate_address,
@@ -211,7 +212,7 @@ export function DocumentMakerTab({ booking }: { booking: Booking }) {
             website: company.website,
           }
         : null,
-    [company],
+    [company, logoSrc],
   )
 
   const blSnapshot = useMemo(() => {

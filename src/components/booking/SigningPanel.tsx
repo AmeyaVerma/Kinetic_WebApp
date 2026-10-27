@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { pdf } from '@react-pdf/renderer'
-import { KeyRound, PenLine, Stamp } from 'lucide-react'
+import { Download, KeyRound, PenLine, Stamp } from 'lucide-react'
 import { Button } from '../ui/Button'
 import { TextInput } from '../ui/Field'
 import { supabase } from '../../lib/supabaseClient'
@@ -41,6 +41,10 @@ export function SigningPanel({
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [note, setNote] = useState<string | null>(null)
+  // The signed PDF is shown before it is saved. Downloading straight out of
+  // the PIN prompt gave nobody a chance to check the stamp landed correctly
+  // -- on a document that carries legal weight, that is the wrong default.
+  const [signed, setSigned] = useState<{ url: string; fileName: string } | null>(null)
 
   const invoke = useCallback(async (body: Record<string, unknown>) => {
     const { data, error: err } = await supabase.functions.invoke('sign-document', { body })
@@ -116,11 +120,15 @@ export function SigningPanel({
         bookingId,
       })
 
-      downloadBase64Pdf(
-        data.pdf as string,
-        blNumber + (option === 'surrender' ? '_SURRENDER_STAMP' : '_SIGNED') + '.pdf',
+      const fileName =
+        blNumber + (option === 'surrender' ? '_SURRENDER_STAMP' : '_SIGNED') + '.pdf'
+      if (signed) URL.revokeObjectURL(signed.url)
+      setSigned({ url: base64ToBlobUrl(data.pdf as string), fileName })
+      setNote(
+        option === 'surrender'
+          ? 'Surrender stamp applied — check it below, then download.'
+          : 'Signed — check it below, then download.',
       )
-      setNote(option === 'surrender' ? 'Surrender stamp applied.' : 'Signed copy downloaded.')
       setMode('idle')
       setPin('')
     } catch (e) {
@@ -218,6 +226,39 @@ export function SigningPanel({
 
       {error && <p className="text-sm text-red-600">{error}</p>}
       {note && <p className="text-sm text-emerald-700">{note}</p>}
+
+      {signed && (
+        <div className="space-y-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="font-mono text-[10px] uppercase tracking-wide text-muted">
+              Signed preview — {signed.fileName}
+            </span>
+            <Button
+              size="sm"
+              className="ml-auto"
+              onClick={() => saveUrl(signed.url, signed.fileName)}
+            >
+              <Download size={14} /> Download
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                URL.revokeObjectURL(signed.url)
+                setSigned(null)
+                setNote(null)
+              }}
+            >
+              Close preview
+            </Button>
+          </div>
+          <iframe
+            title="Signed document preview"
+            src={signed.url}
+            className="h-[70vh] w-full rounded border border-line"
+          />
+        </div>
+      )}
     </div>
   )
 }
@@ -231,14 +272,16 @@ function blobToBase64(blob: Blob): Promise<string> {
   })
 }
 
-function downloadBase64Pdf(base64: string, fileName: string) {
+function base64ToBlobUrl(base64: string): string {
   const bin = atob(base64)
   const bytes = new Uint8Array(bin.length)
   for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i)
-  const url = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }))
+  return URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }))
+}
+
+function saveUrl(url: string, fileName: string) {
   const a = document.createElement('a')
   a.href = url
   a.download = fileName
   a.click()
-  URL.revokeObjectURL(url)
 }

@@ -20,6 +20,8 @@ import { fmtDate, fmtWeight } from './format'
 export type OpDocType = 'cro' | 'onboard' | 'can' | 'do' | 'offloading'
 
 export interface DocCompany {
+  /** Signed URL for the logo; printed at the head of every document. */
+  logoSrc?: string
   legalName: string
   /** CRO and Off Loading print "Principal", which may differ in spelling. */
   principalName: string

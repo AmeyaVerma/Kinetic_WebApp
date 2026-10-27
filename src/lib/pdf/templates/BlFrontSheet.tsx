@@ -34,11 +34,12 @@ export function BlFrontSheet({
   const rule = '0.7pt solid ' + c.rule
 
   const s = StyleSheet.create({
-    titleRow: { flexDirection: 'row', alignItems: 'flex-end', marginBottom: 3 },
+    titleRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 3 },
+    // Balances the label so the title stays optically centred.
+    titleSpacer: { width: 120 },
     title: { flex: 1, textAlign: 'center', fontSize: FONT_SIZE.heading, fontFamily: 'Helvetica-Bold' },
     typeLabel: {
-      position: 'absolute',
-      right: 0,
+      width: 120,
       color: c.label,
       fontSize: FONT_SIZE.heading,
       fontFamily: 'Courier-BoldOblique',
@@ -97,6 +98,7 @@ export function BlFrontSheet({
   return (
     <>
       <View style={s.titleRow}>
+        <View style={s.titleSpacer} />
         <Text style={s.title}>{S.title}</Text>
         <Text style={s.typeLabel}>{BL_TYPE_LABEL[snapshot.blType]}</Text>
       </View>
