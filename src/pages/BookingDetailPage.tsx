@@ -12,6 +12,7 @@ import { DocumentFieldsSection } from '../components/booking/DocumentFieldsSecti
 import { BookingEditProvider, useBookingEdit, useFieldBinding } from '../components/booking/BookingEditContext'
 import { BookingEditBar } from '../components/booking/BookingEditBar'
 import { BookingAuditLog } from '../components/booking/BookingAuditLog'
+import { StopBookingDialog, type StopKind } from '../components/booking/StopBookingDialog'
 import { PortSearchField } from '../components/nvocc/PortSearchField'
 // Lazy: these pull in @react-pdf/renderer, which is ~470 kB gzipped. Loading
 // it eagerly would charge every user of every module for a document engine
@@ -89,6 +90,8 @@ const TABS = [
 export function BookingDetailPage() {
   const { id } = useParams<{ id: string }>()
   const [tab, setTab] = useState('container')
+  const [stopKind, setStopKind] = useState<StopKind | null>(null)
+  const viewAsRole = useAuthStore((st) => st.viewAsRole)
   const currentUser = useCurrentUser()
   const {
     bookings,
@@ -96,6 +99,7 @@ export function BookingDetailPage() {
     markMilestone,
     activities,
     cancelBooking,
+    voidBooking,
     updateShipmentPorts,
     updateVesselLegs,
     updateMilestoneDate,
@@ -113,6 +117,7 @@ export function BookingDetailPage() {
     fetchBlStates()
   }, [fetchBookings, fetchContainerActivities, fetchContainerActivityMarks, fetchBlStates])
 
+  const isAdmin = (viewAsRole ?? currentUser?.role) === 'admin'
   const booking = bookings.find((b) => b.id === id)
   if (!booking) {
     return (
@@ -174,15 +179,32 @@ export function BookingDetailPage() {
               )}
             </p>
           </div>
-          {!booking.cancelled && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => cancelBooking(booking.id, 'Ops request')}
-              className="text-accent-coral"
-            >
-              <Ban size={13} /> Void booking
-            </Button>
+          {/* Cancel and Void are offered separately because they mean
+              different things, and both now ask for a reason (spec F5). */}
+          {!booking.cancelled && isAdmin && (
+            <>
+              <Button variant="ghost" size="sm" onClick={() => setStopKind('cancel')}>
+                Cancel booking
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setStopKind('void')}
+                className="text-accent-coral"
+              >
+                <Ban size={13} /> Void booking
+              </Button>
+            </>
+          )}
+          {booking.cancelled && (
+            <span className="rounded-badge bg-[#FEE2E2] px-2.5 py-1 text-[11px] font-semibold text-[#DC2626]">
+              {booking.voided ? 'Voided' : 'Cancelled'}
+              {(booking.voidReason || booking.cancelReason) && (
+                <span className="ml-1 font-normal">
+                  &#183; {booking.voided ? booking.voidReason : booking.cancelReason}
+                </span>
+              )}
+            </span>
           )}
         </div>
         {/* Cycle progress (doc §6 — computed, never manual) */}
@@ -227,6 +249,20 @@ export function BookingDetailPage() {
       <div className="mb-3">
         <BookingEditBar />
       </div>
+
+      <StopBookingDialog
+        open={stopKind !== null}
+        kind={stopKind ?? 'cancel'}
+        reference={booking.bookingRef}
+        onClose={() => setStopKind(null)}
+        onConfirm={(reason) =>
+          (stopKind === 'void' ? voidBooking : cancelBooking)(
+            booking.id,
+            reason,
+            { name: currentUser?.name ?? '', isAdmin },
+          )
+        }
+      />
 
       <Tabs tabs={TABS} active={tab} onChange={setTab} />
 

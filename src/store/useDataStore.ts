@@ -1037,7 +1037,22 @@ interface DataState {
     charges: Omit<ChargeLine, 'id' | 'bookingId'>[],
     opts?: { actor?: string; isAdmin?: boolean },
   ) => string
-  cancelBooking: (bookingId: string, reason: string) => void
+  /** Cancelling and voiding are different events and the spec keeps them
+      apart (F5). A booking is CANCELLED when it was real and the customer
+      called it off; it is VOID when it should never have existed. Both need
+      a reason and an Admin -- the old Void fired instantly, for anyone, with
+      the reason hard-coded to "Ops request".
+      Returns an error string when refused, or null on success. */
+  cancelBooking: (
+    bookingId: string,
+    reason: string,
+    by: { name: string; isAdmin: boolean },
+  ) => string | null
+  voidBooking: (
+    bookingId: string,
+    reason: string,
+    by: { name: string; isAdmin: boolean },
+  ) => string | null
   updateShipmentDates: (bookingId: string, dates: { etd?: string; eta?: string }, actor: string) => void
   /** Ports section (Shipment details O+D) — Port of Receipt, Port of
       Loading (pol), Port of Destination (pod), Final Place of Discharge,
@@ -1366,6 +1381,81 @@ interface DataState {
 
 function log(activities: ActivityEntry[], bookingId: string, actor: string, action: string): ActivityEntry[] {
   return [{ id: uid('ac'), bookingId, at: now(), actor, action }, ...activities]
+}
+
+/**
+ * The one place a booking stops, whether cancelled or voided.
+ *
+ * Both paths share the same guards -- an Admin, a real reason, and no open
+ * invoice -- so neither can drift away from the other. Returns a message when
+ * refused so the caller can show it, rather than failing silently the way the
+ * open-invoice check used to (it wrote a line to the activity log and
+ * otherwise looked like nothing had happened).
+ */
+function stopBooking(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  set: (fn: (s: DataState) => Partial<DataState>) => void,
+  get: () => DataState,
+  opts: {
+    bookingId: string
+    reason: string
+    by: { name: string; isAdmin: boolean }
+    kind: 'cancel' | 'void'
+  },
+): string | null {
+  const { bookingId, reason, by, kind } = opts
+  const word = kind === 'void' ? 'void' : 'cancel'
+
+  if (!by?.isAdmin) return `Only an Admin can ${word} a booking.`
+  if (!reason || reason.trim().length < 3) {
+    return `Give a reason for the ${word} — it is recorded against the booking.`
+  }
+
+  const state = get()
+  const booking = state.bookings.find((b) => b.id === bookingId)
+  if (!booking) return 'Booking not found.'
+  if (booking.cancelled) return 'This booking has already been stopped.'
+
+  const openInvoice = state.invoices.some(
+    (i) => i.bookingId === bookingId && !['Paid', 'Cancelled'].includes(i.status),
+  )
+  if (openInvoice) {
+    return `Cannot ${word}: an open invoice must be credited first.`
+  }
+
+  const when = now()
+  const trimmed = reason.trim()
+  const patch =
+    kind === 'void'
+      ? { cancelled: true, voided: true, workflow_status: 'Cancelled',
+          void_reason: trimmed, voided_at: when, voided_by: by.name }
+      : { cancelled: true, workflow_status: 'Cancelled',
+          cancel_reason: trimmed, cancelled_at: when, cancelled_by: by.name }
+
+  persistBookingUpdate(findDbId(state.bookings, bookingId), patch, kind === 'void' ? 'voidBooking' : 'cancelBooking')
+
+  set((s) => ({
+    bookings: s.bookings.map((x) =>
+      x.id === bookingId
+        ? {
+            ...x,
+            cancelled: true,
+            voided: kind === 'void' ? true : x.voided,
+            workflowStatus: 'Cancelled' as const,
+            ...(kind === 'void'
+              ? { voidReason: trimmed, voidedAt: when, voidedBy: by.name }
+              : { cancelReason: trimmed, cancelledAt: when, cancelledBy: by.name }),
+          }
+        : x,
+    ),
+    activities: log(
+      s.activities,
+      bookingId,
+      by.name,
+      `Booking ${kind === 'void' ? 'voided' : 'cancelled'} — reason: ${trimmed}`,
+    ),
+  }))
+  return null
 }
 
 export const useDataStore = create<DataState>((set, get) => ({
@@ -1863,25 +1953,13 @@ export const useDataStore = create<DataState>((set, get) => ({
     return id
   },
 
-  cancelBooking: (bookingId, reason) =>
-    set((s) => {
-      const open = s.invoices.some(
-        (i) => i.bookingId === bookingId && !['Paid', 'Cancelled'].includes(i.status),
-      )
-      if (open) {
-        // Doc §9: cannot void with an open, unreconciled invoice
-        return {
-          activities: log(s.activities, bookingId, 'System', 'Void blocked — open invoice requires credit note first'),
-        }
-      }
-      persistBookingUpdate(findDbId(s.bookings, bookingId), { cancelled: true, workflow_status: 'Cancelled' }, 'cancelBooking')
-      return {
-        bookings: s.bookings.map((x) =>
-          x.id === bookingId ? { ...x, cancelled: true, workflowStatus: 'Cancelled' } : x,
-        ),
-        activities: log(s.activities, bookingId, 'Ops', `Booking cancelled — reason: ${reason}`),
-      }
-    }),
+  cancelBooking: (bookingId, reason, by) => stopBooking(set, get, {
+    bookingId, reason, by, kind: 'cancel',
+  }),
+
+  voidBooking: (bookingId, reason, by) => stopBooking(set, get, {
+    bookingId, reason, by, kind: 'void',
+  }),
 
   updateShipmentDates: (bookingId, dates, actor) =>
     set((s) => {

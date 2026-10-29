@@ -575,6 +575,16 @@ export interface Booking {
   /** Master links. The legacy emptyYardId/surveyorId hold mock ids. */
   depotId?: string | null
   surveyorRefId?: string | null
+  /* Stopping a booking. `cancelled` stays the flag that halts it either way;
+     these record which of the two happened, why, and who decided (spec F5). */
+  voided?: boolean
+  voidReason?: string | null
+  voidedAt?: string | null
+  voidedBy?: string | null
+  cancelReason?: string | null
+  cancelledAt?: string | null
+  cancelledBy?: string | null
+
   /** Seeded from the historical CSV and never written to Postgres. These
       rows are shown so the list is not empty, but they are not live data:
       they carry a DEMO badge and are kept out of every KPI. */
