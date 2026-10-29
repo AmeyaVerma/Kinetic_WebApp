@@ -10,8 +10,8 @@ import { Modal } from '../components/ui/Modal'
 import { Field, Select, TextInput } from '../components/ui/Field'
 import { useDataStore } from '../store/useDataStore'
 import { ffGp, INCOTERMS } from '../lib/ff'
-import { mockVendors } from '../mocks/masters'
 import { PartySearchField } from '../components/nvocc/PartySearchField'
+import { VendorSearchField } from '../components/masters/VendorSearchField'
 import { PortSearchField } from '../components/nvocc/PortSearchField'
 import type { FfMode, FfShipment, FfStage, FfVendorRole } from '../lib/types'
 
@@ -197,6 +197,7 @@ function FfRow({
 interface DraftVendorLine {
   role: FfVendorRole
   vendorId: string
+  vendorName: string
   buyAmount: number
 }
 
@@ -244,7 +245,7 @@ function FfWizard({ open, onClose, onCreated }: { open: boolean; onClose: () => 
   const [special, setSpecial] = useState('')
   const [daysOfCredit, setDaysOfCredit] = useState(0)
   const [lines, setLines] = useState<DraftVendorLine[]>([
-    { role: 'Carrier', vendorId: '', buyAmount: 0 },
+    { role: 'Carrier', vendorId: '', vendorName: '', buyAmount: 0 },
   ])
 
   const isAir = mode === 'Air'
@@ -264,7 +265,7 @@ function FfWizard({ open, onClose, onCreated }: { open: boolean; onClose: () => 
     setCarrierBookingRef(''); setAwbNo(''); setAirline(''); setFlightNo('')
     setChargeableWeight(''); setVehicleNo(''); setLrNumber('')
     setDaysOfCredit(0)
-    setLines([{ role: 'Carrier', vendorId: '', buyAmount: 0 }])
+    setLines([{ role: 'Carrier', vendorId: '', vendorName: '', buyAmount: 0 }])
   }
 
   const submit = () => {
@@ -308,7 +309,7 @@ function FfWizard({ open, onClose, onCreated }: { open: boolean; onClose: () => 
         .map((l) => ({
           role: l.role,
           vendorId: l.vendorId,
-          vendorName: mockVendors.find((v) => v.id === l.vendorId)?.name ?? 'Vendor',
+          vendorName: l.vendorName || 'Vendor',
           buyAmount: l.buyAmount,
         })),
     )
@@ -505,13 +506,12 @@ function FfWizard({ open, onClose, onCreated }: { open: boolean; onClose: () => 
           </p>
           <div className="space-y-2">
             {lines.map((l, i) => {
-              const choices = vendorsForRole(l.role)
               return (
                 <div key={i} className="flex items-center gap-2">
                   <Select
                     value={l.role}
                     onChange={(e) =>
-                      setLines((ls) => ls.map((x, j) => (j === i ? { ...x, role: e.target.value as FfVendorRole, vendorId: '' } : x)))
+                      setLines((ls) => ls.map((x, j) => (j === i ? { ...x, role: e.target.value as FfVendorRole, vendorId: '', vendorName: '' } : x)))
                     }
                   >
                     <option>Carrier</option>
@@ -520,17 +520,17 @@ function FfWizard({ open, onClose, onCreated }: { open: boolean; onClose: () => 
                     <option>Warehousing</option>
                     <option>Insurance</option>
                   </Select>
-                  <Select
-                    value={l.vendorId}
-                    onChange={(e) => setLines((ls) => ls.map((x, j) => (j === i ? { ...x, vendorId: e.target.value } : x)))}
-                  >
-                    <option value="">
-                      {choices.length ? 'Select vendor...' : 'No ' + l.role.toLowerCase() + ' vendors on file'}
-                    </option>
-                    {choices.map((v) => (
-                      <option key={v.id} value={v.id}>{v.name}</option>
-                    ))}
-                  </Select>
+                  <div className="min-w-0 flex-1">
+                    <VendorSearchField
+                      value={l.vendorName}
+                      role={l.role}
+                      onSelect={(v) =>
+                        setLines((ls) =>
+                          ls.map((x, j) => (j === i ? { ...x, vendorId: v.id, vendorName: v.name } : x)),
+                        )
+                      }
+                    />
+                  </div>
                   <TextInput
                     type="number"
                     placeholder="Buy $"
@@ -551,7 +551,7 @@ function FfWizard({ open, onClose, onCreated }: { open: boolean; onClose: () => 
             size="sm"
             variant="secondary"
             className="mt-2"
-            onClick={() => setLines((ls) => [...ls, { role: 'Trucking', vendorId: '', buyAmount: 0 }])}
+            onClick={() => setLines((ls) => [...ls, { role: 'Trucking', vendorId: '', vendorName: '', buyAmount: 0 }])}
           >
             <Plus size={13} /> Add vendor line
           </Button>
@@ -581,22 +581,4 @@ function FormSection({ title, hint, children }: { title: string; hint?: string; 
   )
 }
 
-/**
- * Vendors that can actually fill a given buy line.
- *
- * The spec: "Vendor lines filtered by role. A Carrier line currently offers a
- * surveyor and a repair shop as options." Until the Vendors master exists this
- * maps onto the kinds the mock list already carries: still the wrong source,
- * but no longer the wrong vendors.
- */
-function vendorsForRole(role: FfVendorRole) {
-  const kinds: Record<FfVendorRole, string[]> = {
-    Carrier: ['Shipping line'],
-    Customs: ['Broker'],
-    Trucking: ['Trucker'],
-    Warehousing: ['CFS'],
-    Insurance: [],
-  }
-  return mockVendors.filter((v) => kinds[role].includes(v.kind))
-}
 
