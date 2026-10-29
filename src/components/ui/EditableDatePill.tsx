@@ -20,10 +20,12 @@ export function EditableDatePill({
   label,
   value,
   onChange,
+  disabled,
 }: {
   label: string
   value: string
   onChange: (v: string) => void
+  disabled?: boolean
 }) {
   const [draft, setDraft] = useState(toInputValue(value))
   useEffect(() => setDraft(toInputValue(value)), [value])
@@ -35,10 +37,11 @@ export function EditableDatePill({
         type="datetime-local"
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
+        disabled={disabled}
         onBlur={() => {
           if (draft && draft !== toInputValue(value)) onChange(draft)
         }}
-        className="mt-0.5 w-full bg-transparent text-[13px] text-heading focus:outline-none"
+        className="mt-0.5 w-full bg-transparent text-[13px] text-heading focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
       />
     </label>
   )
@@ -50,10 +53,12 @@ export function EditableDateOnlyPill({
   label,
   value,
   onChange,
+  disabled,
 }: {
   label: string
   value: string
   onChange: (v: string) => void
+  disabled?: boolean
 }) {
   const [draft, setDraft] = useState(value)
   useEffect(() => setDraft(value), [value])
@@ -65,10 +70,11 @@ export function EditableDateOnlyPill({
         type="date"
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
+        disabled={disabled}
         onBlur={() => {
           if (draft !== value) onChange(draft)
         }}
-        className="mt-0.5 w-full bg-transparent text-[13px] text-heading focus:outline-none"
+        className="mt-0.5 w-full bg-transparent text-[13px] text-heading focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
       />
     </label>
   )

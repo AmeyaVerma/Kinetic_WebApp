@@ -3,14 +3,16 @@ import { useParams, Link } from 'react-router-dom'
 import { ArrowLeft, Check, Container as ContainerIcon, Ban } from 'lucide-react'
 import { Card } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
-import { StatusChip } from '../components/ui/StatusChip'
+import { Badge } from '../components/ui/Badge'
 import { ProgressBar } from '../components/ui/ProgressBar'
 import { Tabs } from '../components/ui/Tabs'
 import { FieldPill, TextInput, Select } from '../components/ui/Field'
 import { DocumentsTab } from '../components/booking/DocumentsTab'
 import { DocumentFieldsSection } from '../components/booking/DocumentFieldsSection'
-import { BookingEditProvider, useFieldBinding } from '../components/booking/BookingEditContext'
+import { BookingEditProvider, useBookingEdit, useFieldBinding } from '../components/booking/BookingEditContext'
 import { BookingEditBar } from '../components/booking/BookingEditBar'
+import { BookingAuditLog } from '../components/booking/BookingAuditLog'
+import { PortSearchField } from '../components/nvocc/PortSearchField'
 // Lazy: these pull in @react-pdf/renderer, which is ~470 kB gzipped. Loading
 // it eagerly would charge every user of every module for a document engine
 // most of them never open. Split out, it arrives only when a BL or Document
@@ -32,7 +34,7 @@ import { WeightCell } from '../components/ui/WeightCell'
 import { MarkMilestoneButton } from '../components/ui/MarkMilestoneButton'
 import {
   BOOKING_WORKFLOW_STATUSES,
-  WORKFLOW_STATUS_CHIP,
+  WORKFLOW_STATUS_TONE,
   workflowStatusOf,
 } from '../lib/bookingStatus'
 import { HAZMAT_FIELD_LABELS } from '../lib/types'
@@ -141,13 +143,11 @@ export function BookingDetailPage() {
       <div className="rounded-card border border-line bg-surface p-5 shadow-card">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <Link to="/nvocc" className="mb-2 inline-flex items-center gap-1 text-xs text-muted hover:text-heading">
-              <ArrowLeft size={13} /> NVOCC bookings
-            </Link>
+            <BackToListLink />
             <div className="flex flex-wrap items-center gap-3">
               <h1 className="font-mono text-xl font-bold">{booking.bookingRef}</h1>
               <div className="flex items-center gap-2">
-                <StatusChip status={WORKFLOW_STATUS_CHIP[workflowStatus]} />
+                <Badge tone={WORKFLOW_STATUS_TONE[workflowStatus]} label={workflowStatus} />
                 <label className="flex items-center gap-1.5 text-[11px] text-muted">
                   Booking status
                   <select
@@ -215,6 +215,14 @@ export function BookingDetailPage() {
           <StageStepper stages={roadmap} currentIndex={roadmapIndex} />
         </div>
       </div>
+
+      {booking.demo && (
+        <div className="rounded-card border border-accent-orange/40 bg-accent-orange/5 px-3 py-2 text-sm">
+          <strong>Demo row.</strong> This booking was imported from the historical
+          spreadsheet and never saved to the database, so it cannot be edited or
+          have documents generated, and it is left out of every KPI.
+        </div>
+      )}
 
       <div className="mb-3">
         <BookingEditBar />
@@ -312,27 +320,69 @@ export function BookingDetailPage() {
         )}
       </Card>
 
-      {/* Activity log — append-only audit */}
+      {/* Activity log — append-only audit, read straight from Postgres */}
       <Card>
         <div className="px-5 pb-2 pt-5">
           <h3 className="text-[15px] font-semibold">Activity log</h3>
-          <p className="text-xs text-muted">Append-only — every action, actor, timestamp</p>
+          <p className="text-xs text-muted">
+            Append-only — one entry per save, with the old and new value and who made it
+          </p>
         </div>
-        <div className="space-y-0 px-5 pb-5">
-          {bookingActivities.map((a) => (
-            <div key={a.id} className="flex items-start gap-3 border-b border-line py-2.5 text-xs last:border-0">
-              <span className="w-36 shrink-0 font-mono text-muted">{new Date(a.at).toLocaleString()}</span>
-              <span className="w-32 shrink-0 font-medium text-heading">{a.actor}</span>
-              <span className="text-body">{a.action}</span>
-            </div>
-          ))}
-          {bookingActivities.length === 0 && (
-            <p className="py-4 text-center text-sm text-muted">No activity yet</p>
-          )}
+        <div className="px-5 pb-5">
+          <BookingAuditLog dbId={booking.dbId} key={booking.dbId + String(activities.length)} />
         </div>
       </Card>
     </div>
     </BookingEditProvider>
+  )
+}
+
+/** The port picker in the same pill chrome as the fields around it. */
+function PortPill({
+  label,
+  value,
+  disabled,
+  onSelect,
+}: {
+  label: string
+  value: string
+  disabled?: boolean
+  onSelect: (v: string) => void
+}) {
+  return (
+    <label className="block rounded-btn border border-line bg-surface-2/60 px-3 py-2 focus-within:border-primary">
+      <p className="font-mono text-[10px] uppercase tracking-wide text-muted">{label}</p>
+      <div className="-mx-1 mt-0.5">
+        <PortSearchField
+          value={value}
+          placeholder={disabled ? '—' : 'Search port…'}
+          disabled={disabled}
+          onSelect={onSelect}
+        />
+      </div>
+    </label>
+  )
+}
+
+/** Back to the list, but not at the cost of an unfinished edit. Leaving the
+    page throws the draft away, and the browser's own beforeunload prompt
+    never fires for an in-app link, so this one asks. */
+function BackToListLink() {
+  const { dirtyCount } = useBookingEdit()
+  return (
+    <Link
+      to="/nvocc"
+      onClick={(e) => {
+        if (dirtyCount > 0 && !window.confirm(
+          `You have ${dirtyCount} unsaved change${dirtyCount === 1 ? '' : 's'} on this booking. Leave and discard them?`,
+        )) {
+          e.preventDefault()
+        }
+      }}
+      className="mb-2 inline-flex items-center gap-1 text-xs text-muted hover:text-heading"
+    >
+      <ArrowLeft size={13} /> NVOCC bookings
+    </Link>
   )
 }
 
@@ -360,8 +410,10 @@ const cellInputCls =
   'w-full min-w-[92px] rounded-md border border-line bg-surface px-2 py-1.5 text-xs text-heading focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary'
 
 function ContainerInfoTab({ booking }: { booking: import('../lib/types').Booking }) {
-  const { updateContainerInfoField, requestBookingFieldChange, updateContainerDetails, approvals, masters, containers, fetchContainers } =
-    useDataStore()
+  const {
+    updateContainerInfoField, requestBookingFieldChange, updateContainerDetails,
+    approvals, masters, containers, fetchContainers, fetchContainerTypes,
+  } = useDataStore()
   const currentUser = useCurrentUser()
   const viewAsRole = useAuthStore((s) => s.viewAsRole)
   const isAdmin = (viewAsRole ?? currentUser?.role) === 'admin'
@@ -369,6 +421,7 @@ function ContainerInfoTab({ booking }: { booking: import('../lib/types').Booking
 
   useEffect(() => {
     if (containers.length === 0) fetchContainers()
+    fetchContainerTypes()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -376,17 +429,41 @@ function ContainerInfoTab({ booking }: { booking: import('../lib/types').Booking
     (a) => a.bookingId === booking.id && a.status === 'Pending' && a.fieldChange?.field === 'containerType',
   )
 
+  // Every field here goes through the booking's Edit session: an Admin's
+  // change collects in the draft and reaches the database only on Save, so
+  // Cancel really discards it. Non-admins keep the approval-request path.
+  const { editing, valueOf, setField } = useBookingEdit()
+  const binding = useFieldBinding(booking, (field, label, value) =>
+    isAdmin
+      ? updateContainerInfoField(
+          booking.id,
+          field as Parameters<typeof updateContainerInfoField>[1],
+          value,
+          actor,
+        )
+      : requestBookingFieldChange(booking.id, field, label, value, actor),
+  )
+  const draftEditing = editing && isAdmin
+
   // "Number of containers" drives how many rows show in the table below —
   // resizing keeps whatever's already filled in and pads/truncates rather
   // than wiping the table every time the count changes.
-  const count = Math.max(0, parseInt(booking.numberOfContainers || '0', 10) || 0)
-  const details = booking.containerDetails ?? []
+  const count = Math.max(0, parseInt(binding.value('numberOfContainers') || '0', 10) || 0)
+  const details = (draftEditing
+    ? (valueOf('containerDetails' as never) as typeof booking.containerDetails)
+    : booking.containerDetails) ?? []
+
+  // The container table is one booking column (container_details), so while
+  // an Admin is editing it belongs in the draft like any other field.
+  const commitDetails = (next: NonNullable<typeof booking.containerDetails>) =>
+    draftEditing
+      ? setField('containerDetails' as never, next as never)
+      : updateContainerDetails(booking.id, next, actor)
 
   const setCount = (v: string) => {
     const next = Math.max(0, Math.min(999, parseInt(v || '0', 10) || 0))
-    updateContainerInfoField(booking.id, 'numberOfContainers', v.trim() === '' ? '' : String(next), actor)
-    const resized = Array.from({ length: next }, (_, i) => details[i] ?? EMPTY_CONTAINER_ROW)
-    updateContainerDetails(booking.id, resized, actor)
+    binding.commit('numberOfContainers', 'Number of containers', v.trim() === '' ? '' : String(next))
+    commitDetails(Array.from({ length: next }, (_, i) => details[i] ?? EMPTY_CONTAINER_ROW))
   }
 
   const setRowField = (index: number, field: keyof import('../lib/types').ContainerLineItem) =>
@@ -395,15 +472,12 @@ function ContainerInfoTab({ booking }: { booking: import('../lib/types').Booking
       while (next.length <= index) next.push({ ...EMPTY_CONTAINER_ROW })
       const isDateField = (DATE_FIELDS as readonly string[]).includes(field)
       next[index] = { ...next[index], [field]: v === '' && isDateField ? null : v }
-      updateContainerDetails(booking.id, next, actor)
+      commitDetails(next)
     }
 
   const setFreeDays = (field: 'freeDaysOrigin' | 'freeDaysDest', label: string) => (v: string) => {
     const next = Math.max(0, Math.min(999, parseInt(v || '0', 10) || 0))
-    const value = String(next)
-    isAdmin
-      ? updateContainerInfoField(booking.id, field, value, actor)
-      : requestBookingFieldChange(booking.id, field, label, value, actor)
+    binding.commit(field, label, String(next))
   }
 
   return (
@@ -411,53 +485,30 @@ function ContainerInfoTab({ booking }: { booking: import('../lib/types').Booking
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         <EditableSelectPill
           label="Container type"
-          value={booking.containerType}
+          value={binding.value('containerType')}
           options={masters.containerTypes}
-          disabled={!!pendingContainerType}
+          disabled={!!pendingContainerType || !binding.canType}
           hint={pendingContainerType ? `Pending Admin approval → ${pendingContainerType.fieldChange!.value}` : undefined}
-          onChange={(v) =>
-            isAdmin
-              ? updateContainerInfoField(booking.id, 'containerType', v, actor)
-              : requestBookingFieldChange(booking.id, 'containerType', 'Container type', v, actor)
-          }
+          onChange={(v) => binding.commit('containerType', 'Container type', v)}
         />
-        <label className="block rounded-btn border border-line bg-surface-2/60 px-3 py-2 focus-within:border-primary">
-          <p className="font-mono text-[10px] uppercase tracking-wide text-muted">Number of containers</p>
-          <input
-            type="text"
-            inputMode="numeric"
-            value={booking.numberOfContainers ?? ''}
-            placeholder="—"
-            onChange={(e) => setCount(e.target.value)}
-            className="mt-0.5 w-full bg-transparent text-[13px] text-heading placeholder:text-muted focus:outline-none"
-          />
-        </label>
-        <label className="block rounded-btn border border-line bg-surface-2/60 px-3 py-2 focus-within:border-primary">
-          <p className="font-mono text-[10px] uppercase tracking-wide text-muted">Free days (origin)</p>
-          <div className="mt-0.5 flex items-baseline gap-1.5">
-            <input
-              type="text"
-              inputMode="numeric"
-              value={booking.freeDaysOrigin}
-              onChange={(e) => setFreeDays('freeDaysOrigin', 'Free days (origin)')(e.target.value)}
-              className="w-10 bg-transparent text-[13px] text-heading focus:outline-none"
-            />
-            <span className="text-[13px] text-heading">days</span>
-          </div>
-        </label>
-        <label className="block rounded-btn border border-line bg-surface-2/60 px-3 py-2 focus-within:border-primary">
-          <p className="font-mono text-[10px] uppercase tracking-wide text-muted">Free days (destination)</p>
-          <div className="mt-0.5 flex items-baseline gap-1.5">
-            <input
-              type="text"
-              inputMode="numeric"
-              value={booking.freeDaysDest}
-              onChange={(e) => setFreeDays('freeDaysDest', 'Free days (destination)')(e.target.value)}
-              className="w-10 bg-transparent text-[13px] text-heading focus:outline-none"
-            />
-            <span className="text-[13px] text-heading">days</span>
-          </div>
-        </label>
+        <EditableTextPill
+          label="Number of containers"
+          value={binding.value('numberOfContainers')}
+          disabled={!binding.canType}
+          onChange={setCount}
+        />
+        <EditableTextPill
+          label="Free days (origin)"
+          value={binding.value('freeDaysOrigin')}
+          disabled={!binding.canType}
+          onChange={setFreeDays('freeDaysOrigin', 'Free days (origin)')}
+        />
+        <EditableTextPill
+          label="Free days (destination)"
+          value={binding.value('freeDaysDest')}
+          disabled={!binding.canType}
+          onChange={setFreeDays('freeDaysDest', 'Free days (destination)')}
+        />
       </div>
 
       <div className="rounded-card border border-line bg-surface-2/40 p-5">
@@ -499,6 +550,7 @@ function ContainerInfoTab({ booking }: { booking: import('../lib/types').Booking
                           value={row.containerNo}
                           placeholder={`Container ${i + 1}`}
                           containers={containers}
+                          disabled={!binding.canType}
                           onChange={setRowField(i, 'containerNo')}
                         />
                       </td>
@@ -506,6 +558,7 @@ function ContainerInfoTab({ booking }: { booking: import('../lib/types').Booking
                         <select
                           value={row.containerType}
                           onChange={(e) => setRowField(i, 'containerType')(e.target.value)}
+                          disabled={!binding.canType}
                           className={cellInputCls}
                         >
                           <option value="">—</option>
@@ -518,6 +571,7 @@ function ContainerInfoTab({ booking }: { booking: import('../lib/types').Booking
                         <select
                           value={row.emptyLaden}
                           onChange={(e) => setRowField(i, 'emptyLaden')(e.target.value)}
+                          disabled={!binding.canType}
                           className={cellInputCls}
                         >
                           <option value="Laden">Laden</option>
@@ -530,6 +584,7 @@ function ContainerInfoTab({ booking }: { booking: import('../lib/types').Booking
                           inputMode="numeric"
                           value={row.noOfPkgs}
                           onChange={(e) => setRowField(i, 'noOfPkgs')(e.target.value)}
+                          disabled={!binding.canType}
                           className={cellInputCls}
                         />
                       </td>
@@ -538,14 +593,15 @@ function ContainerInfoTab({ booking }: { booking: import('../lib/types').Booking
                           type="text"
                           value={row.pkgUnit}
                           onChange={(e) => setRowField(i, 'pkgUnit')(e.target.value)}
+                          disabled={!binding.canType}
                           className={cellInputCls}
                         />
                       </td>
                       <td className="border-b border-line px-2 py-1.5">
-                        <WeightCell value={row.netWeight} onChange={setRowField(i, 'netWeight')} />
+                        <WeightCell value={row.netWeight} onChange={setRowField(i, 'netWeight')} disabled={!binding.canType} />
                       </td>
                       <td className="border-b border-line px-2 py-1.5">
-                        <WeightCell value={row.grossWeight} onChange={setRowField(i, 'grossWeight')} />
+                        <WeightCell value={row.grossWeight} onChange={setRowField(i, 'grossWeight')} disabled={!binding.canType} />
                       </td>
                       <td className="border-b border-line px-2 py-1.5">
                         <WeightCell
@@ -559,13 +615,14 @@ function ContainerInfoTab({ booking }: { booking: import('../lib/types').Booking
                         />
                       </td>
                       <td className="border-b border-line px-2 py-1.5">
-                        <WeightCell value={row.cargoWeight} onChange={setRowField(i, 'cargoWeight')} />
+                        <WeightCell value={row.cargoWeight} onChange={setRowField(i, 'cargoWeight')} disabled={!binding.canType} />
                       </td>
                       <td className="border-b border-line px-2 py-1.5">
                         <input
                           type="text"
                           value={row.sealNo}
                           onChange={(e) => setRowField(i, 'sealNo')(e.target.value)}
+                          disabled={!binding.canType}
                           className={cellInputCls}
                         />
                       </td>
@@ -574,6 +631,7 @@ function ContainerInfoTab({ booking }: { booking: import('../lib/types').Booking
                           type="text"
                           value={row.customSealNo}
                           onChange={(e) => setRowField(i, 'customSealNo')(e.target.value)}
+                          disabled={!binding.canType}
                           className={cellInputCls}
                         />
                       </td>
@@ -596,11 +654,13 @@ function ContainerNoCell({
   placeholder,
   containers,
   onChange,
+  disabled,
 }: {
   value: string
   placeholder: string
   containers: import('../lib/types').ContainerRecord[]
   onChange: (v: string) => void
+  disabled?: boolean
 }) {
   const [query, setQuery] = useState('')
   const [open, setOpen] = useState(false)
@@ -626,7 +686,8 @@ function ContainerNoCell({
           setOpen(true)
         }}
         onBlur={() => setTimeout(() => setOpen(false), 150)}
-        className={cellInputCls}
+        disabled={disabled}
+        className={`${cellInputCls} disabled:cursor-not-allowed disabled:opacity-60`}
       />
       {open && results.length > 0 && (
         <div className="absolute z-10 mt-1 w-full min-w-[160px] overflow-hidden rounded-btn border border-line bg-surface shadow-lg">
@@ -664,8 +725,33 @@ function ProductInfoTab({ booking }: { booking: import('../lib/types').Booking }
   const viewAsRole = useAuthStore((s) => s.viewAsRole)
   const isAdmin = (viewAsRole ?? currentUser?.role) === 'admin'
   const actor = currentUser?.name ?? 'Ops'
-  const hazStatus: HazmatStatus = booking.hazmatStatus ?? 'Non-Haz'
-  const details = booking.hazmatDetails ?? {}
+
+  // Same Edit session as the rest of the booking: an Admin's change lives in
+  // the draft until Save, so Cancel discards it. Non-admins keep the
+  // approval-request path they had.
+  const { editing, valueOf, setField } = useBookingEdit()
+  const binding = useFieldBinding(booking, (field, label, v) =>
+    isAdmin
+      ? updateContainerInfoField(
+          booking.id,
+          field as Parameters<typeof updateContainerInfoField>[1],
+          v,
+          actor,
+        )
+      : requestBookingFieldChange(booking.id, field, label, v, actor),
+  )
+  const draftEditing = editing && isAdmin
+
+  const hazStatus: HazmatStatus = (binding.value('hazmatStatus') || 'Non-Haz') as HazmatStatus
+  const details =
+    (draftEditing
+      ? (valueOf('hazmatDetails' as never) as HazmatDetails | undefined)
+      : booking.hazmatDetails) ?? {}
+
+  const setHaz = (field: keyof HazmatDetails, v: string) =>
+    draftEditing
+      ? setField('hazmatDetails' as never, { ...details, [field]: v } as never)
+      : updateHazmatDetail(booking.id, field, v, actor)
 
   const [packageTypeOptions, setPackageTypeOptions] = useState<string[]>([])
   useEffect(() => {
@@ -679,16 +765,12 @@ function ProductInfoTab({ booking }: { booking: import('../lib/types').Booking }
   const pendingFor = (field: string) =>
     approvals.find((a) => a.bookingId === booking.id && a.status === 'Pending' && a.fieldChange?.field === field)
 
-  // Admin edits apply immediately; anyone else's edit raises an Admin-
-  // approval request instead — same pattern as Container type.
   const editField = (
     field: 'commodity' | 'hsCode' | 'principal' | 'freightTerms' | 'packages' | 'packageType' | 'grossWeightKg',
     label: string,
   ) =>
     (v: string) =>
-      isAdmin
-        ? updateContainerInfoField(booking.id, field, v, actor)
-        : requestBookingFieldChange(booking.id, field, label, v, actor)
+      binding.commit(field, label, v)
 
   const hintFor = (field: string) => {
     const p = pendingFor(field)
@@ -700,15 +782,15 @@ function ProductInfoTab({ booking }: { booking: import('../lib/types').Booking }
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         <EditableTextPill
           label="Commodity"
-          value={booking.commodity}
-          disabled={!!pendingFor('commodity')}
+          value={binding.value('commodity')}
+          disabled={!!pendingFor('commodity') || !binding.canType}
           hint={hintFor('commodity')}
           onChange={editField('commodity', 'Commodity')}
         />
         <EditableTextPill
           label="HS code"
-          value={booking.hsCode}
-          disabled={!!pendingFor('hsCode')}
+          value={binding.value('hsCode')}
+          disabled={!!pendingFor('hsCode') || !binding.canType}
           hint={hintFor('hsCode')}
           onChange={editField('hsCode', 'HS code')}
         />
@@ -718,23 +800,25 @@ function ProductInfoTab({ booking }: { booking: import('../lib/types').Booking }
             <input
               type="text"
               inputMode="numeric"
-              defaultValue={String(booking.packages)}
-              disabled={!!pendingFor('packages')}
-              key={booking.packages}
+              defaultValue={binding.value('packages')}
+              disabled={!!pendingFor('packages') || !binding.canType}
+              key={`${editing}-${binding.value('packages')}`}
               onBlur={(e) => {
-                if (e.target.value !== String(booking.packages)) editField('packages', 'Packages')(e.target.value)
+                if (e.target.value !== binding.value('packages')) editField('packages', 'Packages')(e.target.value)
               }}
               className="w-12 shrink-0 bg-transparent text-[13px] text-heading focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
             />
             <span className="text-muted">/</span>
             <select
-              value={booking.packageType}
-              disabled={!!pendingFor('packageType')}
+              value={binding.value('packageType')}
+              disabled={!!pendingFor('packageType') || !binding.canType}
               onChange={(e) => editField('packageType', 'Package type')(e.target.value)}
               className="min-w-0 flex-1 bg-transparent text-[13px] text-heading focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {!packageTypeOptions.includes(booking.packageType) && booking.packageType && (
-                <option value={booking.packageType} className="bg-white text-[#0F172A]">{booking.packageType}</option>
+              {!packageTypeOptions.includes(binding.value('packageType')) && binding.value('packageType') && (
+                <option value={binding.value('packageType')} className="bg-white text-[#0F172A]">
+                  {binding.value('packageType')}
+                </option>
               )}
               {packageTypeOptions.map((t) => (
                 <option key={t} value={t} className="bg-white text-[#0F172A]">{t}</option>
@@ -748,9 +832,9 @@ function ProductInfoTab({ booking }: { booking: import('../lib/types').Booking }
         <label className="block rounded-btn border border-line bg-surface-2/60 px-3 py-2 focus-within:border-primary">
           <p className="font-mono text-[10px] uppercase tracking-wide text-muted">Cargo weight</p>
           <WeightCell
-            value={booking.grossWeightKg ? booking.grossWeightKg.toFixed(2) : ''}
+            value={binding.value('grossWeightKg') ? Number(binding.value('grossWeightKg')).toFixed(2) : ''}
             onChange={editField('grossWeightKg', 'Cargo weight')}
-            disabled={!!pendingFor('grossWeightKg')}
+            disabled={!!pendingFor('grossWeightKg') || !binding.canType}
             bare
           />
           {hintFor('grossWeightKg') && <p className="mt-1 text-[11px] text-accent-orange">{hintFor('grossWeightKg')}</p>}
@@ -758,8 +842,8 @@ function ProductInfoTab({ booking }: { booking: import('../lib/types').Booking }
         <label className="block rounded-btn border border-line bg-surface-2/60 px-3 py-2 focus-within:border-primary">
           <p className="font-mono text-[10px] uppercase tracking-wide text-muted">Freight terms</p>
           <select
-            value={booking.freightTerms}
-            disabled={!!pendingFor('freightTerms')}
+            value={binding.value('freightTerms')}
+            disabled={!!pendingFor('freightTerms') || !binding.canType}
             onChange={(e) => editField('freightTerms', 'Freight terms')(e.target.value)}
             className="mt-0.5 w-full bg-transparent text-[13px] text-heading focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
           >
@@ -770,8 +854,8 @@ function ProductInfoTab({ booking }: { booking: import('../lib/types').Booking }
         </label>
         <EditableTextPill
           label="Principal"
-          value={booking.principal}
-          disabled={!!pendingFor('principal')}
+          value={binding.value('principal')}
+          disabled={!!pendingFor('principal') || !binding.canType}
           hint={hintFor('principal')}
           onChange={editField('principal', 'Principal')}
         />
@@ -779,8 +863,13 @@ function ProductInfoTab({ booking }: { booking: import('../lib/types').Booking }
           <p className="font-mono text-[10px] uppercase tracking-wide text-muted">Haz / Non-Haz</p>
           <select
             value={hazStatus}
-            onChange={(e) => setHazmatStatus(booking.id, e.target.value as HazmatStatus, actor)}
-            className="mt-0.5 w-full bg-transparent text-[13px] text-heading focus:outline-none"
+            disabled={!binding.canType}
+            onChange={(e) =>
+              draftEditing
+                ? binding.commit('hazmatStatus', 'Haz / Non-Haz', e.target.value)
+                : setHazmatStatus(booking.id, e.target.value as HazmatStatus, actor)
+            }
+            className="mt-0.5 w-full bg-transparent text-[13px] text-heading focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
           >
             <option value="Non-Haz" className="bg-surface text-heading">Non-Haz</option>
             <option value="Haz" className="bg-surface text-heading">Haz</option>
@@ -789,7 +878,8 @@ function ProductInfoTab({ booking }: { booking: import('../lib/types').Booking }
         <EditableTextPill
           label={HAZMAT_FIELD_LABELS.specialProductText}
           value={details.specialProductText ?? ''}
-          onChange={(v) => updateHazmatDetail(booking.id, 'specialProductText', v, 'Ops')}
+          disabled={!binding.canType}
+          onChange={(v) => setHaz('specialProductText', v)}
         />
       </div>
 
@@ -806,7 +896,8 @@ function ProductInfoTab({ booking }: { booking: import('../lib/types').Booking }
                 key={field}
                 label={HAZMAT_FIELD_LABELS[field]}
                 value={details[field] ?? ''}
-                onChange={(v) => updateHazmatDetail(booking.id, field, v, 'Ops')}
+                disabled={!binding.canType}
+                onChange={(v) => setHaz(field, v)}
               />
             ))}
           </div>
@@ -833,44 +924,67 @@ function ShipmentDetailsTab({
   }) => void
   onVesselLegsChange: (legs: import('../lib/types').VesselLeg[]) => void
 }) {
+  // Ports and vessel legs are booking columns, so an Admin's change belongs
+  // in the Edit draft like every other field -- otherwise Cancel would leave
+  // a changed lane behind. Outside an Edit session the handlers passed in by
+  // the page still apply (Freight Forwarding shares this component).
+  const { editing, valueOf, setField } = useBookingEdit()
+  const binding = useFieldBinding(booking, (field, _label, value) =>
+    onPortsChange({ [field]: value } as Parameters<typeof onPortsChange>[0]),
+  )
+  const draftEditing = editing && binding.canType
+
+  const legs =
+    (draftEditing
+      ? (valueOf('vesselLegs' as never) as import('../lib/types').VesselLeg[] | undefined)
+      : booking.vesselLegs) ?? []
+  const commitLegs = (next: import('../lib/types').VesselLeg[]) =>
+    draftEditing ? setField('vesselLegs' as never, next as never) : onVesselLegsChange(next)
+
   return (
     <div className="space-y-6">
       <div>
         <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted">Ports</p>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-          <EditableTextPill
+          {/* Ports come from the Sea Ports master, never free text (spec M7).
+              Typing a lane by hand is how production ended up holding
+              "jjjjj to j" and "ffffffffff to JAW". */}
+          <PortPill
             label="Port of Receipt"
-            value={booking.portOfReceipt ?? ''}
-            onChange={(v) => onPortsChange({ portOfReceipt: v })}
+            value={binding.value('portOfReceipt')}
+            disabled={!binding.canType}
+            onSelect={(v) => binding.commit('portOfReceipt', 'Port of Receipt', v)}
           />
-          <EditableTextPill
+          <PortPill
             label="Port of Loading"
-            value={booking.pol}
-            onChange={(v) => onPortsChange({ pol: v })}
+            value={binding.value('pol')}
+            disabled={!binding.canType}
+            onSelect={(v) => binding.commit('pol', 'Port of Loading', v)}
           />
-          <EditableTextPill
+          <PortPill
             label="Port of Destination"
-            value={booking.pod}
-            onChange={(v) => onPortsChange({ pod: v })}
+            value={binding.value('pod')}
+            disabled={!binding.canType}
+            onSelect={(v) => binding.commit('pod', 'Port of Destination', v)}
           />
-          <EditableTextPill
+          <PortPill
             label="Final Place of Discharge"
-            value={booking.finalPlaceOfDischarge ?? ''}
-            onChange={(v) => onPortsChange({ finalPlaceOfDischarge: v })}
+            value={binding.value('finalPlaceOfDischarge')}
+            disabled={!binding.canType}
+            onSelect={(v) => binding.commit('finalPlaceOfDischarge', 'Final Place of Discharge', v)}
           />
           <label className="block rounded-btn border border-line bg-surface-2/60 px-3 py-2 focus-within:border-primary">
             <p className="font-mono text-[10px] uppercase tracking-wide text-muted">Transhipment</p>
             <select
-              value={booking.transhipment ?? 'No'}
+              value={binding.value('transhipment') || 'No'}
+              disabled={!binding.canType}
               onChange={(e) => {
                 const next = e.target.value as 'Yes' | 'No'
-                onPortsChange({ transhipment: next })
+                binding.commit('transhipment', 'Transhipment', next)
                 // Dropping back to No collapses to a single vessel leg.
-                if (next === 'No' && (booking.vesselLegs?.length ?? 0) > 1) {
-                  onVesselLegsChange(booking.vesselLegs!.slice(0, 1))
-                }
+                if (next === 'No' && legs.length > 1) commitLegs(legs.slice(0, 1))
               }}
-              className="mt-0.5 w-full bg-transparent text-[13px] text-heading focus:outline-none"
+              className="mt-0.5 w-full bg-transparent text-[13px] text-heading focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
             >
               <option value="No" className="bg-surface text-heading">No</option>
               <option value="Yes" className="bg-surface text-heading">Yes</option>
@@ -884,7 +998,12 @@ function ShipmentDetailsTab({
         <FieldPill label="HBL No." value={booking.hblNo ?? ''} />
       </div>
 
-      <VesselLegsSection booking={booking} onChange={onVesselLegsChange} />
+      <VesselLegsSection
+        booking={booking}
+        legs={legs}
+        readOnly={!binding.canType}
+        onChange={commitLegs}
+      />
     </div>
   )
 }

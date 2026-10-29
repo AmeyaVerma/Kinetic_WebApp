@@ -52,12 +52,18 @@ function legsFromBooking(booking: Booking): VesselLeg[] {
     and terminal from that voyage's schedule. */
 export function VesselLegsSection({
   booking,
+  legs: legsIn,
+  readOnly,
   onChange,
 }: {
   booking: Booking
+  /** The legs to show. The booking page passes the Edit draft's copy while
+      an Admin is editing, so Cancel discards vessel changes with the rest. */
+  legs?: VesselLeg[]
+  readOnly?: boolean
   onChange: (legs: VesselLeg[]) => void
 }) {
-  const legs = legsFromBooking(booking)
+  const legs = legsIn && legsIn.length > 0 ? legsIn : legsFromBooking(booking)
   // Transhipment = No means a single-leg voyage — only one vessel allowed.
   // Yes opens it up to multiple legs (one per transhipment port).
   const multipleAllowed = booking.transhipment === 'Yes'
@@ -81,7 +87,7 @@ export function VesselLegsSection({
         <button
           type="button"
           onClick={addLeg}
-          disabled={!multipleAllowed}
+          disabled={!multipleAllowed || readOnly}
           title={multipleAllowed ? undefined : 'Set Transhipment to Yes to add more than one vessel'}
           className="flex items-center gap-1 text-xs font-medium text-link hover:underline disabled:cursor-not-allowed disabled:text-muted disabled:no-underline"
         >
@@ -94,7 +100,8 @@ export function VesselLegsSection({
             key={leg.id}
             leg={leg}
             index={i}
-            removable={legs.length > 1}
+            removable={legs.length > 1 && !readOnly}
+            readOnly={readOnly}
             onChange={(patch) => updateLeg(leg.id, patch)}
             onRemove={() => removeLeg(leg.id)}
           />
@@ -123,12 +130,14 @@ function VesselLegCard({
   leg,
   index,
   removable,
+  readOnly,
   onChange,
   onRemove,
 }: {
   leg: VesselLeg
   index: number
   removable: boolean
+  readOnly?: boolean
   onChange: (patch: Partial<VesselLeg>) => void
   onRemove: () => void
 }) {
@@ -290,7 +299,8 @@ function VesselLegCard({
               }}
               onFocus={() => setOpen(true)}
               onBlur={() => setTimeout(() => setOpen(false), 150)}
-              className="mt-0.5 w-full bg-transparent text-[13px] text-heading focus:outline-none"
+              disabled={readOnly}
+              className="mt-0.5 w-full bg-transparent text-[13px] text-heading focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
             />
           </label>
           {open && results.length > 0 && (
@@ -315,6 +325,7 @@ function VesselLegCard({
             <select
               value={leg.voyageNo}
               onChange={(e) => pickVoyage(e.target.value)}
+              disabled={readOnly}
               className="mt-0.5 w-full bg-transparent text-[13px] text-heading focus:outline-none"
             >
               <option value="" className="bg-white text-[#0F172A]">—</option>
@@ -330,19 +341,27 @@ function VesselLegCard({
               value={leg.voyageNo}
               placeholder={leg.vesselId ? 'No voyages on file' : 'Pick a vessel first'}
               onChange={(e) => onChange({ voyageNo: e.target.value })}
+              disabled={readOnly}
               className="mt-0.5 w-full bg-transparent text-[13px] text-heading placeholder:text-muted focus:outline-none"
             />
           )}
         </label>
-        <EditableDatePill label="ETA Origin" value={leg.etaOrigin ?? ''} onChange={(v) => onChange({ etaOrigin: v })} />
+        <EditableDatePill
+          label="ETA Origin"
+          value={leg.etaOrigin ?? ''}
+          disabled={readOnly}
+          onChange={(v) => onChange({ etaOrigin: v })}
+        />
         <EditableDatePill
           label="ETD / SOB Origin"
           value={leg.etdOrigin ?? ''}
+          disabled={readOnly}
           onChange={(v) => onChange({ etdOrigin: v })}
         />
         <EditableDatePill
           label="ETA Destination"
           value={leg.etaDestination ?? ''}
+          disabled={readOnly}
           onChange={(v) => onChange({ etaDestination: v })}
         />
         <div className="relative sm:col-span-2">
@@ -361,7 +380,8 @@ function VesselLegCard({
                 setPortOpen(true)
               }}
               onBlur={() => setTimeout(() => setPortOpen(false), 150)}
-              className="mt-0.5 w-full bg-transparent text-[13px] text-heading focus:outline-none"
+              disabled={readOnly}
+              className="mt-0.5 w-full bg-transparent text-[13px] text-heading focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
             />
           </label>
           {portOpen && portResults.length > 0 && (
@@ -384,26 +404,31 @@ function VesselLegCard({
         <EditableDatePill
           label="Gate open (planned)"
           value={leg.plannedGateOpen ?? ''}
+          disabled={readOnly}
           onChange={(v) => onChange({ plannedGateOpen: v })}
         />
         <EditableDatePill
           label="Gate close (planned)"
           value={leg.plannedGateClose ?? ''}
+          disabled={readOnly}
           onChange={(v) => onChange({ plannedGateClose: v })}
         />
         <EditableDatePill
           label="SI cut-off (planned)"
           value={leg.plannedSiCutoff ?? ''}
+          disabled={readOnly}
           onChange={(v) => onChange({ plannedSiCutoff: v })}
         />
         <EditableDatePill
           label="Dock Cutoff"
           value={leg.plannedVgmCutoff ?? ''}
+          disabled={readOnly}
           onChange={(v) => onChange({ plannedVgmCutoff: v })}
         />
         <EditableDatePill
           label="CY cut-off (planned)"
           value={leg.plannedCyCutoff ?? ''}
+          disabled={readOnly}
           onChange={(v) => onChange({ plannedCyCutoff: v })}
         />
       </div>

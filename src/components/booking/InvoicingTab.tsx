@@ -1,24 +1,24 @@
 import { useMemo, useState } from 'react'
 import { Plus, Trash2 } from 'lucide-react'
 import { Button } from '../ui/Button'
-import { StatusChip } from '../ui/StatusChip'
+import { Badge, type BadgeTone } from '../ui/Badge'
 import { Select, TextInput } from '../ui/Field'
 import { AddableSelect } from '../ui/AddableSelect'
 import { BookingMilestonesSection } from './BookingMilestonesSection'
 import { useDataStore } from '../../store/useDataStore'
 import { useAuthStore, useCurrentUser } from '../../store/useAuthStore'
-import type { Booking, ChipStatus, InvoiceStatus, MilestoneDef, MilestoneEntry } from '../../lib/types'
+import type { Booking, InvoiceStatus, MilestoneDef, MilestoneEntry } from '../../lib/types'
 
-const INVOICE_CHIP: Record<InvoiceStatus, ChipStatus> = {
-  Draft: 'Draft',
-  'Pending approval': 'Pending',
-  Approved: 'Booked',
-  'Zoho synced': 'In Transit',
-  Emailed: 'Documentation',
-  'Partially paid': 'Pending',
-  Paid: 'Delivered',
-  Overdue: 'Overdue',
-  Cancelled: 'Cancelled',
+const INVOICE_TONE: Record<InvoiceStatus, BadgeTone> = {
+  Draft: 'neutral',
+  'Pending approval': 'attention',
+  Approved: 'success',
+  'Zoho synced': 'info',
+  Emailed: 'info',
+  'Partially paid': 'warn',
+  Paid: 'done',
+  Overdue: 'critical',
+  Cancelled: 'danger',
 }
 
 const NEXT_LABEL: Partial<Record<InvoiceStatus, string>> = {
@@ -233,7 +233,7 @@ export function InvoicingTab({
                   <span className="rounded-badge bg-surface-2 px-2 py-0.5 text-[11px] font-semibold text-heading">
                     {inv.type}
                   </span>
-                  <StatusChip status={INVOICE_CHIP[inv.status]} />
+                  <Badge tone={INVOICE_TONE[inv.status]} label={inv.status} />
                   {inv.zohoInvoiceId && (
                     <span className="rounded-badge bg-[#DBEAFE] px-2 py-0.5 font-mono text-[10px] font-semibold text-[#1D4ED8]">
                       Zoho {inv.zohoInvoiceId}

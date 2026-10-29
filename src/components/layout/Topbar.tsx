@@ -1,15 +1,21 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Search, Bell, Menu, ChevronDown, LogOut, Eye, EyeOff, Settings } from 'lucide-react'
+import { Menu, ChevronDown, LogOut, Eye, EyeOff, Settings, Building2, ArrowLeftRight } from 'lucide-react'
+import { GlobalSearch } from './GlobalSearch'
+import { NotificationBell } from './NotificationBell'
 import { useUiStore } from '../../store/useUiStore'
 import { useAuthStore } from '../../store/useAuthStore'
 import { INTERNAL_ROLES, ROLE_LABELS, effectiveAccess } from '../../lib/rbac'
 import type { AppUser } from '../../store/useAuthStore'
 import type { Role } from '../../lib/types'
 
-export function Topbar({ user, notifications = 0 }: { user: AppUser; notifications?: number }) {
+export function Topbar({ user }: { user: AppUser }) {
   const { toggleSidebar } = useUiStore()
   const { signOut, viewAsRole, setViewAs } = useAuthStore()
+  const companies = useAuthStore((s) => s.companies)
+  const activeCompanyId = useAuthStore((s) => s.activeCompanyId)
+  const setActiveCompany = useAuthStore((s) => s.setActiveCompany)
+  const activeCompany = companies.find((c) => c.id === activeCompanyId)
   const navigate = useNavigate()
   const [menuOpen, setMenuOpen] = useState(false)
   const role = viewAsRole ?? user.role
@@ -27,14 +33,16 @@ export function Topbar({ user, notifications = 0 }: { user: AppUser; notificatio
         <Menu size={20} />
       </button>
 
-      <div className="relative flex-1 max-w-md">
-        <Search size={16} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-muted" />
-        <input
-          type="text"
-          placeholder="Search booking, BL, container, invoice..."
-          className="w-full rounded-input border border-[#E5E7EB] dark:border-line bg-surface py-2.5 pl-10 pr-4 text-sm text-heading placeholder:text-muted focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-        />
-      </div>
+      {activeCompany && (
+        <span
+          title="The company everything you do belongs to"
+          className="hidden shrink-0 items-center gap-1.5 rounded-badge border border-primary/30 bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary md:inline-flex"
+        >
+          <Building2 size={12} /> {activeCompany.name}
+        </span>
+      )}
+
+      <GlobalSearch />
 
       <div className="ml-auto flex items-center gap-2 sm:gap-3">
         {/* Admin-only: preview the app as another role (never escalates) */}
@@ -82,14 +90,7 @@ export function Topbar({ user, notifications = 0 }: { user: AppUser; notificatio
           </div>
         )}
 
-        <button className="relative flex h-9 w-9 items-center justify-center rounded-full text-[var(--icon)] hover:bg-surface-2 hover:text-[var(--icon-hover)]">
-          <Bell size={18} />
-          {notifications > 0 && (
-            <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-badge bg-accent-coral px-1 text-[10px] font-bold text-white">
-              {notifications}
-            </span>
-          )}
-        </button>
+        <NotificationBell />
 
         {/* User menu */}
         <div className="relative border-l border-line pl-2.5 sm:pl-3">
@@ -112,6 +113,30 @@ export function Topbar({ user, notifications = 0 }: { user: AppUser; notificatio
                   <p className="font-mono text-[11px] text-muted">{user.email}</p>
                   <p className="mt-1 text-[11px] text-muted">Role: {ROLE_LABELS[user.role]}</p>
                 </div>
+                {companies.length > 1 && (
+                  <>
+                    <p className="px-3 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wide text-muted">
+                      Switch company
+                    </p>
+                    {companies.map((c) => (
+                      <button
+                        key={c.id}
+                        onClick={async () => {
+                          setMenuOpen(false)
+                          if (c.id !== activeCompanyId) await setActiveCompany(c.id)
+                        }}
+                        className={`flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-medium hover:bg-surface-2 ${
+                          c.id === activeCompanyId ? 'text-primary' : 'text-body'
+                        }`}
+                      >
+                        <ArrowLeftRight size={13} />
+                        <span className="flex-1">{c.name}</span>
+                        <span className="text-[10px] text-muted">{ROLE_LABELS[c.role] ?? c.role}</span>
+                      </button>
+                    ))}
+                    <div className="my-1 border-t border-line" />
+                  </>
+                )}
                 {canSeeSettings && (
                   <button
                     onClick={() => { setMenuOpen(false); navigate('/settings') }}

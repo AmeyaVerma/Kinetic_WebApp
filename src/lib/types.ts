@@ -575,6 +575,10 @@ export interface Booking {
   /** Master links. The legacy emptyYardId/surveyorId hold mock ids. */
   depotId?: string | null
   surveyorRefId?: string | null
+  /** Seeded from the historical CSV and never written to Postgres. These
+      rows are shown so the list is not empty, but they are not live data:
+      they carry a DEMO badge and are kept out of every KPI. */
+  demo?: boolean
 
   // System
   hblNo: string | null
@@ -624,6 +628,12 @@ export interface MilestoneEntry {
 /* ── Documents tab (doc §5, booking_documents) ───────────────── */
 
 export type DocType =
+  // Carrier paperwork a forwarder receives rather than issues. RKS has no BL
+  // system of its own, so these are the documents its shipments actually
+  // carry.
+  | 'Master BL'
+  | 'AWB'
+  | 'LR'
   | 'CRO'
   | 'SI'
   | 'VGM'
@@ -998,7 +1008,7 @@ export type HouseDocStatus = 'None' | 'Draft' | 'Awaiting approval' | 'Released'
 
 export interface FfShipment {
   id: string
-  ref: string // KINFF-XXXX (children: KINFF-XXXX/H1…)
+  ref: string // RKSF2627NNNNNN (children: RKSF2627NNNNNN/H1…); older rows hold KINFF-NNNN
   mode: FfMode
   customerId: string | null
   customerName: string
@@ -1093,6 +1103,27 @@ export interface FfShipment {
   destinationAgentName?: string
   transshipmentAgent?: string
   surveyorName?: string
+  /* Forwarding fields (phase 4). Parties and lanes carry an id into the
+     shared master as well as the display name, so a shipment stops depending
+     on someone typing the same firm the same way twice. */
+  bookingPartyId?: string | null
+  shipperPartyId?: string | null
+  consigneePartyId?: string | null
+  notifyPartyId?: string | null
+  originPortId?: string | null
+  destinationPortId?: string | null
+  volumeM3?: number | null
+  /** Sea: the carrier's own booking reference. */
+  carrierBookingRef?: string | null
+  /** Air. */
+  awbNo?: string | null
+  airline?: string | null
+  flightNo?: string | null
+  chargeableWeightKg?: number | null
+  /** Road. */
+  vehicleNo?: string | null
+  lrNumber?: string | null
+
   // Container yard tab
   emptyContainerYardOrigin?: string
   croValidTill?: string

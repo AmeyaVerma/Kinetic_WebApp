@@ -1,3 +1,4 @@
+import type { BadgeTone } from '../components/ui/Badge'
 import type { FfShipment, FfStage } from './types'
 
 export const FF_STAGES: FfStage[] = [
@@ -35,3 +36,43 @@ export function overTolerance(buy: number, billed: number): boolean {
 
 /** Demo credit limits per customer (Customer Master carries this in production) */
 export const CREDIT_LIMIT_USD = 10000
+
+/**
+ * Operational status for a freight-forwarding shipment.
+ *
+ * It used to borrow the NVOCC list, which carries container-yard language:
+ * "Back to Town" means an empty container returning to the yard and says
+ * nothing at all about an air or road shipment (spec, RKS booking notes).
+ */
+export const FF_WORKFLOW_STATUSES = [
+  'Booked',
+  'In Progress',
+  'On Hold',
+  'Returned',
+  'Cancelled',
+] as const
+
+export type FfWorkflowStatus = (typeof FF_WORKFLOW_STATUSES)[number]
+
+export const FF_WORKFLOW_TONE: Record<FfWorkflowStatus, BadgeTone> = {
+  Booked: 'success',
+  'In Progress': 'info',
+  'On Hold': 'attention',
+  Returned: 'critical',
+  Cancelled: 'danger',
+}
+
+/**
+ * Progress through the lifecycle, as a percentage.
+ *
+ * Spec F14: a cancelled Freight shipment kept 17% while a cancelled NVOCC
+ * booking dropped to 0, so the same event read two different ways depending
+ * which module you were in. One rule for both -- a shipment that is not going
+ * anywhere has made no progress.
+ */
+export function ffCyclePct(stage: FfStage, cancelled: boolean): number {
+  if (cancelled) return 0
+  const index = FF_STAGES.indexOf(stage)
+  if (index < 0) return 0
+  return Math.round((index / (FF_STAGES.length - 1)) * 100)
+}

@@ -4,7 +4,8 @@
    code change — same intent as the RBAC matrix. Distinct from the
    milestone-computed lifecycle status in lib/milestones.ts.          */
 
-import type { Booking, BookingWorkflowStatus, ChipStatus } from './types'
+import type { BadgeTone } from '../components/ui/Badge'
+import type { Booking, BookingWorkflowStatus } from './types'
 
 export const BOOKING_WORKFLOW_STATUSES: BookingWorkflowStatus[] = [
   'Booked',
@@ -14,13 +15,15 @@ export const BOOKING_WORKFLOW_STATUSES: BookingWorkflowStatus[] = [
   'Hold',
 ]
 
-/** Map each manual status onto the shared chip palette for colour. */
-export const WORKFLOW_STATUS_CHIP: Record<BookingWorkflowStatus, ChipStatus> = {
-  Booked: 'Booked',
-  'In Progress': 'In Transit',
-  Cancelled: 'Cancelled',
-  'Back to Town': 'Overdue',
-  Hold: 'Pending',
+/** The colour each manual status wears. The badge shows the status's own
+    word -- "Back to Town" used to be displayed as "Overdue" because it
+    borrowed that chip to get the colour. */
+export const WORKFLOW_STATUS_TONE: Record<BookingWorkflowStatus, BadgeTone> = {
+  Booked: 'success',
+  'In Progress': 'info',
+  Cancelled: 'danger',
+  'Back to Town': 'critical',
+  Hold: 'attention',
 }
 
 /** Effective status for a booking — respects the manual field, falls back for

@@ -3,22 +3,27 @@ import { Users2, CheckCircle2, Globe2, AlertTriangle, ShieldAlert } from 'lucide
 import { Card } from '../components/ui/Card'
 import { StatKpi } from '../components/ui/StatKpi'
 import { CsvButton } from '../components/ui/CsvButton'
-import { StatusChip } from '../components/ui/StatusChip'
+import { Badge, type BadgeTone } from '../components/ui/Badge'
 import { CustomerDetail } from '../components/customers/CustomerDetail'
 import { useDataStore } from '../store/useDataStore'
-import type { ChipStatus, CustomerStatus } from '../lib/types'
+import type { CustomerStatus } from '../lib/types'
 
-const STATUS_CHIP: Record<CustomerStatus, ChipStatus> = {
-  Prospect: 'Draft',
-  Active: 'Delivered',
-  'On Hold': 'Pending',
-  Inactive: 'Draft',
-  Blacklisted: 'Cancelled',
+const STATUS_TONE: Record<CustomerStatus, BadgeTone> = {
+  Prospect: 'neutral',
+  Active: 'success',
+  'On Hold': 'attention',
+  Inactive: 'neutral',
+  Blacklisted: 'danger',
 }
 
 export function CustomersPage() {
-  const { customers } = useDataStore()
+  const { customers, fetchCustomers } = useDataStore()
   const [selectedId, setSelectedId] = useState<string | null>(null)
+
+  useEffect(() => {
+    fetchCustomers()
+  }, [fetchCustomers])
+
   const selected = customers.find((c) => c.id === selectedId) ?? null
   const detailRef = useRef<HTMLDivElement>(null)
 
@@ -53,11 +58,12 @@ export function CustomersPage() {
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="text-2xl font-bold">Customer Portal</h1>
+        <h1 className="text-2xl font-bold">Customers</h1>
         <p className="mt-1 text-sm text-muted">
-          Customer management — company details, commercial terms, credit, portal access, notifications,
-          compliance, and the full lifecycle. Settings here drive bookings, invoicing and what each customer's
-          portal users can see and do.
+          Every party in the shared Parties master that we deal with as a customer, with the
+          commercial terms this company has agreed with them. Credit, portal access and terms are
+          held per company; the firm's legal identity is shared. Terms drive bookings, invoicing
+          and what each customer's portal users can see and do.
         </p>
       </div>
 
@@ -119,8 +125,7 @@ export function CustomersPage() {
                   </td>
                   <td className="px-3 py-3 text-xs text-body">{c.salesOwner}</td>
                   <td className="px-5 py-3">
-                    <StatusChip status={STATUS_CHIP[c.status]} />
-                    <span className="ml-2 text-[11px] text-muted">{c.status}</span>
+                    <Badge tone={STATUS_TONE[c.status]} label={c.status} />
                   </td>
                 </tr>
               ))}

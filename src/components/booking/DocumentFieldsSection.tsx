@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { FileText } from 'lucide-react'
+import { FileText, Plus } from 'lucide-react'
 import { Card } from '../ui/Card'
 import { TextInput, Textarea, Select } from '../ui/Field'
 import { supabase } from '../../lib/supabaseClient'
@@ -94,15 +94,24 @@ export function DocumentFieldsSection({
   const masterNameFor = (f: BookingDocumentFieldSpec) =>
     f.widget === 'depot' ? 'depots' : f.widget === 'surveyor' ? 'surveyors' : 'CHAs'
 
-  const masterLinkFor = (f: BookingDocumentFieldSpec) =>
-    f.widget === 'depot'
-      ? '/master/containers/empty-depots'
-      : f.widget === 'surveyor'
-        ? '/master/surveyors'
-        : '/master/chas'
-
   const isMasterWidget = (f: BookingDocumentFieldSpec) =>
     f.widget === 'depot' || f.widget === 'surveyor' || f.widget === 'cha'
+
+  const tableFor = (f: BookingDocumentFieldSpec) =>
+    f.widget === 'depot' ? 'empty_depots' : f.widget === 'surveyor' ? 'surveyors' : 'chas'
+
+  const masterKeyFor = (f: BookingDocumentFieldSpec) =>
+    f.widget === 'depot' ? 'depots' : f.widget === 'surveyor' ? 'surveyors' : 'chas'
+
+  /** A record created from inside the booking joins the list immediately,
+      so the person can carry on rather than losing their place. */
+  const addMaster = (f: BookingDocumentFieldSpec, rec: { id: string; name: string }) => {
+    const key = masterKeyFor(f) as 'depots' | 'surveyors' | 'chas'
+    setMasters((m) => ({
+      ...m,
+      [key]: [...m[key], rec].sort((a, b) => a.name.localeCompare(b.name)),
+    }))
+  }
 
   return (
     <Card className="space-y-3 p-4">
@@ -125,28 +134,15 @@ export function DocumentFieldsSection({
             </span>
 
             {isMasterWidget(f) ? (
-              optionsFor(f).length === 0 ? (
-                <p className="rounded border border-amber-300 bg-amber-50 px-2 py-1.5 text-xs text-amber-900">
-                  No {masterNameFor(f)} added yet —{' '}
-                  <Link to={masterLinkFor(f)} className="underline">
-                    add them in Master Data
-                  </Link>
-                  , then pick one here.
-                </p>
-              ) : (
-                <Select
-                  value={valueOf(f)}
-                  disabled={!canEdit || !binding.canType}
-                  onChange={(e) => commit(f, e.target.value)}
-                >
-                  <option value="">— not set —</option>
-                  {optionsFor(f).map((o) => (
-                    <option key={o.id} value={o.id}>
-                      {o.name}
-                    </option>
-                  ))}
-                </Select>
-              )
+              <MasterPicker
+                value={valueOf(f)}
+                options={optionsFor(f)}
+                table={tableFor(f)}
+                noun={masterNameFor(f)}
+                disabled={!canEdit || !binding.canType}
+                onChange={(v) => commit(f, v)}
+                onCreated={(rec) => addMaster(f, rec)}
+              />
             ) : f.widget === 'select' ? (
               <Select
                 value={valueOf(f)}
@@ -209,4 +205,140 @@ export function DocumentFieldsSection({
 
     </Card>
   )
+}
+
+/**
+ * A master-data picker that can also create the record it is missing.
+ *
+ * Siddharth's instruction for CHAs was "add while making an import booking" —
+ * these lists get filled as the work happens, not in a setup phase before it.
+ * Sending someone to Master Data mid-booking loses their place, and an empty
+ * list used to be a dead end with nothing but a link away from the page.
+ */
+function MasterPicker({
+  value,
+  options,
+  table,
+  noun,
+  disabled,
+  onChange,
+  onCreated,
+}: {
+  value: string
+  options: { id: string; name: string }[]
+  table: 'empty_depots' | 'surveyors' | 'chas'
+  noun: string
+  disabled?: boolean
+  onChange: (v: string) => void
+  onCreated: (rec: { id: string; name: string }) => void
+}) {
+  const [adding, setAdding] = useState(false)
+  const [name, setName] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const save = async () => {
+    const trimmed = name.trim()
+    if (!trimmed) return
+    setSaving(true)
+    setError(null)
+    const { data, error: err } = await supabase
+      .from(table)
+      .insert({ name: trimmed })
+      .select('id, name')
+      .single()
+    setSaving(false)
+    if (err || !data) {
+      setError(err?.message ?? 'Could not save')
+      return
+    }
+    const rec = data as { id: string; name: string }
+    onCreated(rec)
+    onChange(rec.id)
+    setName('')
+    setAdding(false)
+  }
+
+  if (adding) {
+    return (
+      <div className="space-y-1">
+        <TextInput
+          autoFocus
+          value={name}
+          placeholder={`New ${noun.replace(/s$/, '')} name`}
+          onChange={(e) => setName(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault()
+              save()
+            }
+            if (e.key === 'Escape') {
+              setAdding(false)
+              setName('')
+              setError(null)
+            }
+          }}
+        />
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={save}
+            disabled={saving || !name.trim()}
+            className="text-xs font-medium text-link hover:underline disabled:text-muted disabled:no-underline"
+          >
+            {saving ? 'Saving…' : 'Save'}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setAdding(false)
+              setName('')
+              setError(null)
+            }}
+            className="text-xs text-muted hover:text-heading"
+          >
+            Cancel
+          </button>
+        </div>
+        {error && <p className="text-[11px] text-red-600">{error}</p>}
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-1">
+      <Select value={value} disabled={disabled} onChange={(e) => onChange(e.target.value)}>
+        <option value="">— not set —</option>
+        {options.map((o) => (
+          <option key={o.id} value={o.id}>
+            {o.name}
+          </option>
+        ))}
+      </Select>
+      {!disabled && (
+        <button
+          type="button"
+          onClick={() => setAdding(true)}
+          className="flex items-center gap-1 text-[11px] font-medium text-link hover:underline"
+        >
+          <Plus size={11} /> Add {noun.replace(/s$/, '')}
+        </button>
+      )}
+      {options.length === 0 && (
+        <p className="text-[11px] text-muted">
+          No {noun} yet — add one here, or in{' '}
+          <Link to={MASTER_LINKS[table]} className="underline">
+            Master Data
+          </Link>
+          .
+        </p>
+      )}
+    </div>
+  )
+}
+
+const MASTER_LINKS: Record<'empty_depots' | 'surveyors' | 'chas', string> = {
+  empty_depots: '/master/containers/empty-depots',
+  surveyors: '/master/surveyors',
+  chas: '/master/chas',
 }

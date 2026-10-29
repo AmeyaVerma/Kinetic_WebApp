@@ -6,6 +6,7 @@ import { useAuthStore, useCurrentUser } from '../store/useAuthStore'
 import { useUiStore } from '../store/useUiStore'
 import { useOrgStore } from '../store/useOrgStore'
 import { ROLE_LABELS } from '../lib/rbac'
+import { TwoFactorSection } from '../components/settings/TwoFactorSection'
 
 const inputCls =
   'w-full rounded-input border border-[#E5E7EB] dark:border-line bg-surface px-3.5 py-2.5 text-sm text-heading placeholder:text-muted focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary'
@@ -80,6 +81,15 @@ function Field({ label, value }: { label: string; value: string }) {
 }
 
 function SecuritySection() {
+  return (
+    <div className="space-y-5">
+      <TwoFactorSection />
+      <PasswordSection />
+    </div>
+  )
+}
+
+function PasswordSection() {
   const user = useCurrentUser()
   const { updatePassword, sendPasswordReset } = useAuthStore()
   const [password, setPassword] = useState('')

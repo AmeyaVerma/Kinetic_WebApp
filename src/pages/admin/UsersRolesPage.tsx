@@ -4,7 +4,7 @@ import { Card } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'
 import { CsvButton } from '../../components/ui/CsvButton'
 import { AuditTrailTab } from '../../components/admin/AuditTrailTab'
-import { StatusChip } from '../../components/ui/StatusChip'
+import { Badge, type BadgeTone } from '../../components/ui/Badge'
 import { Tabs } from '../../components/ui/Tabs'
 import { Modal } from '../../components/ui/Modal'
 import { Field, Select, TextInput } from '../../components/ui/Field'
@@ -18,14 +18,14 @@ import {
   effectiveAccess,
 } from '../../lib/rbac'
 import type { Access } from '../../lib/rbac'
-import type { ChipStatus, Role } from '../../lib/types'
+import type { Role } from '../../lib/types'
 import type { AppUser, UserStatus } from '../../store/useAuthStore'
 
-const STATUS_CHIP: Record<UserStatus, ChipStatus> = {
-  Active: 'Delivered',
-  Pending: 'Pending',
-  Invited: 'Pending',
-  Suspended: 'Cancelled',
+const STATUS_TONE: Record<UserStatus, BadgeTone> = {
+  Active: 'success',
+  Pending: 'attention',
+  Invited: 'info',
+  Suspended: 'danger',
 }
 
 const ALL_ROLES: Role[] = [...INTERNAL_ROLES, 'customer', 'agent']
@@ -128,7 +128,11 @@ function PendingApprovalsTab() {
 /* ── Users tab ───────────────────────────────────────────────── */
 
 function UsersTab() {
-  const { users } = useAuthStore()
+  const { users, usersLoading, fetchUsers } = useAuthStore()
+
+  useEffect(() => {
+    fetchUsers()
+  }, [fetchUsers])
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [inviteOpen, setInviteOpen] = useState(false)
   const selected = users.find((u) => u.id === selectedId) ?? null
@@ -138,7 +142,7 @@ function UsersTab() {
     Email: u.email,
     Role: ROLE_LABELS[u.role],
     MFA: u.mfaEnabled ? 'On' : 'Off',
-    'Last Login': u.lastLogin ?? '',
+    Companies: (u.memberships ?? []).map((m) => `${m.tenantName} (${m.role})`).join('; '),
     Status: u.status,
   }))
 
@@ -151,6 +155,13 @@ function UsersTab() {
         </Button>
       </div>
 
+      {usersLoading && (
+        <p className="text-sm text-muted">Loading accounts…</p>
+      )}
+      {!usersLoading && users.length === 0 && (
+        <p className="text-sm text-muted">No accounts found.</p>
+      )}
+
       <Card className="overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
@@ -160,7 +171,7 @@ function UsersTab() {
                 <th className="px-3 py-3 font-medium">Email</th>
                 <th className="px-3 py-3 font-medium">Role</th>
                 <th className="px-3 py-3 font-medium">MFA</th>
-                <th className="px-3 py-3 font-medium">Last login</th>
+                <th className="px-3 py-3 font-medium">Companies</th>
                 <th className="px-5 py-3 font-medium">Status</th>
               </tr>
             </thead>
@@ -193,12 +204,17 @@ function UsersTab() {
                     <td className="px-3 py-3 text-xs">
                       {u.mfaEnabled ? <span className="text-primary">On</span> : <span className="text-muted">Off</span>}
                     </td>
-                    <td className="px-3 py-3 font-mono text-xs text-body">
-                      {u.lastLogin ? new Date(u.lastLogin).toLocaleDateString() : '—'}
+                    <td className="px-3 py-3 text-xs">
+                      {(u.memberships?.length ?? 0) === 0 ? (
+                        <span className="text-accent-orange">No access</span>
+                      ) : (
+                        <span className="text-body">
+                          {u.memberships!.map((m) => m.tenantName).join(' · ')}
+                        </span>
+                      )}
                     </td>
                     <td className="px-5 py-3">
-                      <StatusChip status={STATUS_CHIP[u.status]} />
-                      <span className="ml-2 text-[11px] text-muted">{u.status}</span>
+                      <Badge tone={STATUS_TONE[u.status]} label={u.status} />
                     </td>
                   </tr>
                 )
@@ -241,6 +257,8 @@ function UserDetail({ user: u }: { user: AppUser }) {
           </Button>
         </div>
       </div>
+
+      <CompanyAccess user={u} isSelf={isSelf} />
 
       {isSelf && (
         <p className="mt-3 rounded-btn border border-[#FDE68A] bg-[#FEF3C7]/50 px-3 py-2 text-xs text-[#B45309]">
@@ -426,5 +444,75 @@ function RolesTab() {
         of only their own shipments.
       </p>
     </Card>
+  )
+}
+
+/**
+ * Which companies this person may open, and as what.
+ *
+ * Siddharth: "Yes admin can also choose who can login to which company."
+ * Access is a membership row, which is also what row-level security reads —
+ * so revoking here genuinely stops the data reaching them, rather than just
+ * hiding a menu.
+ */
+function CompanyAccess({ user: u, isSelf }: { user: AppUser; isSelf: boolean }) {
+  const companies = useAuthStore((s) => s.companies)
+  const setMembership = useAuthStore((s) => s.setMembership)
+  const [busy, setBusy] = useState<string | null>(null)
+
+  const roleIn = (tenantId: string) =>
+    u.memberships?.find((m) => m.tenantId === tenantId)?.role ?? null
+
+  const change = async (tenantId: string, role: Role | null) => {
+    setBusy(tenantId)
+    await setMembership(u.id, tenantId, role)
+    setBusy(null)
+  }
+
+  if (companies.length === 0) return null
+
+  return (
+    <div className="mt-5 border-t border-line pt-4">
+      <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted">Company access</p>
+      <p className="mb-3 text-xs text-muted">
+        A person can hold a different role in each company. Removing access here stops their
+        data reaching them, not just the menu item.
+      </p>
+      <div className="space-y-2">
+        {companies.map((c) => {
+          const role = roleIn(c.id)
+          // Taking your own last company away would lock you out of the app
+          // with no way back in, so that one choice is blocked.
+          const lastOwn = isSelf && (u.memberships?.length ?? 0) <= 1 && role !== null
+          return (
+            <div
+              key={c.id}
+              className="flex flex-wrap items-center gap-3 rounded-btn border border-line bg-surface-2/40 px-3 py-2"
+            >
+              <span className="text-[13px] font-medium text-heading">{c.name}</span>
+              <div className="ml-auto flex items-center gap-2">
+                <select
+                  value={role ?? ''}
+                  disabled={busy === c.id || lastOwn}
+                  onChange={(e) => change(c.id, (e.target.value || null) as Role | null)}
+                  className="rounded-btn border border-line bg-surface px-2.5 py-1 text-xs font-medium text-heading focus:border-primary focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <option value="">No access</option>
+                  {INTERNAL_ROLES.map((r) => (
+                    <option key={r} value={r}>{ROLE_LABELS[r]}</option>
+                  ))}
+                </select>
+                {busy === c.id && <span className="text-[11px] text-muted">Saving…</span>}
+              </div>
+              {lastOwn && (
+                <p className="w-full text-[11px] text-accent-orange">
+                  This is your only company — removing it would lock you out.
+                </p>
+              )}
+            </div>
+          )
+        })}
+      </div>
+    </div>
   )
 }

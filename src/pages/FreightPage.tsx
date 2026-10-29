@@ -5,22 +5,24 @@ import { Card } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { StatKpi } from '../components/ui/StatKpi'
 import { CsvButton } from '../components/ui/CsvButton'
-import { StatusChip } from '../components/ui/StatusChip'
+import { Badge, type BadgeTone } from '../components/ui/Badge'
 import { Modal } from '../components/ui/Modal'
 import { Field, Select, TextInput } from '../components/ui/Field'
 import { useDataStore } from '../store/useDataStore'
-import { ffGp, INCOTERMS, CREDIT_LIMIT_USD } from '../lib/ff'
-import { mockCustomers, mockVendors } from '../mocks/masters'
-import type { ChipStatus, FfMode, FfShipment, FfStage, FfVendorRole } from '../lib/types'
+import { ffGp, INCOTERMS } from '../lib/ff'
+import { mockVendors } from '../mocks/masters'
+import { PartySearchField } from '../components/nvocc/PartySearchField'
+import { PortSearchField } from '../components/nvocc/PortSearchField'
+import type { FfMode, FfShipment, FfStage, FfVendorRole } from '../lib/types'
 
-const STAGE_CHIP: Record<FfStage, ChipStatus> = {
-  Booking: 'Draft',
-  'Carrier & Pickup': 'Booked',
-  Documentation: 'Documentation',
-  'Export & Transit': 'In Transit',
-  'Arrival & Delivery': 'Arrived',
-  'Financial Close': 'BL Draft',
-  Closed: 'Delivered',
+const STAGE_TONE: Record<FfStage, BadgeTone> = {
+  Booking: 'neutral',
+  'Carrier & Pickup': 'success',
+  Documentation: 'warn',
+  'Export & Transit': 'info',
+  'Arrival & Delivery': 'success',
+  'Financial Close': 'warn',
+  Closed: 'done',
 }
 
 export function FreightPage() {
@@ -184,8 +186,7 @@ function FfRow({
         )}
       </td>
       <td className="px-3 py-3">
-        <StatusChip status={STAGE_CHIP[f.stage]} />
-        <span className="ml-2 text-[11px] text-muted">{f.stage}</span>
+        <Badge tone={STAGE_TONE[f.stage]} label={f.stage} />
       </td>
     </tr>
   )
@@ -202,186 +203,400 @@ interface DraftVendorLine {
 function FfWizard({ open, onClose, onCreated }: { open: boolean; onClose: () => void; onCreated: (id: string) => void }) {
   const createFfShipment = useDataStore((s) => s.createFfShipment)
   const [mode, setMode] = useState<FfMode>('Sea FCL')
-  const [customerId, setCustomerId] = useState('')
+  const [isConsol, setIsConsol] = useState(false)
+
+  // Parties -- from the shared Parties master, not a list of eight mock names.
+  const [customerId, setCustomerId] = useState<string | null>(null)
+  const [customerName, setCustomerName] = useState('')
+  const [shipperId, setShipperId] = useState<string | null>(null)
+  const [shipper, setShipper] = useState('')
+  const [consigneeId, setConsigneeId] = useState<string | null>(null)
+  const [consignee, setConsignee] = useState('')
+  const [notifyId, setNotifyId] = useState<string | null>(null)
+  const [notify, setNotify] = useState('')
+
+  // Lane -- ports, never free text. Production holds "jjjjj to j" because this
+  // used to be two open text boxes.
   const [origin, setOrigin] = useState('')
   const [destination, setDestination] = useState('')
+
+  // Cargo
   const [incoterm, setIncoterm] = useState('FOB')
+  const [commodity, setCommodity] = useState('')
+  const [hsCode, setHsCode] = useState('')
+  const [packages, setPackages] = useState('')
+  const [grossWeight, setGrossWeight] = useState('')
+  const [volume, setVolume] = useState('')
+  const [hazardous, setHazardous] = useState(false)
+  const [etd, setEtd] = useState('')
+  const [eta, setEta] = useState('')
+
+  // Mode-specific
+  const [carrierBookingRef, setCarrierBookingRef] = useState('')
+  const [awbNo, setAwbNo] = useState('')
+  const [airline, setAirline] = useState('')
+  const [flightNo, setFlightNo] = useState('')
+  const [chargeableWeight, setChargeableWeight] = useState('')
+  const [vehicleNo, setVehicleNo] = useState('')
+  const [lrNumber, setLrNumber] = useState('')
+
   const [sell, setSell] = useState(0)
-  const [isConsol, setIsConsol] = useState(false)
   const [special, setSpecial] = useState('')
   const [daysOfCredit, setDaysOfCredit] = useState(0)
   const [lines, setLines] = useState<DraftVendorLine[]>([
-    { role: 'Carrier', vendorId: 'vn1', buyAmount: 0 },
+    { role: 'Carrier', vendorId: '', buyAmount: 0 },
   ])
 
-  const customer = mockCustomers.find((c) => c.id === customerId)
+  const isAir = mode === 'Air'
+  const isRoad = mode === 'Road'
+  const isSea = !isAir && !isRoad
+
   const buy = lines.reduce((a, l) => a + l.buyAmount, 0)
   const margin = sell > 0 ? ((sell - buy) / sell) * 100 : 0
-  const valid = (customer || isConsol) && origin && destination && (isConsol || sell > 0)
+  const valid = (!!customerId || isConsol) && !!origin && !!destination && (isConsol || sell > 0)
 
   const reset = () => {
-    setCustomerId(''); setOrigin(''); setDestination(''); setSell(0); setIsConsol(false); setSpecial('')
+    setCustomerId(null); setCustomerName(''); setShipperId(null); setShipper('')
+    setConsigneeId(null); setConsignee(''); setNotifyId(null); setNotify('')
+    setOrigin(''); setDestination(''); setSell(0); setIsConsol(false); setSpecial('')
+    setCommodity(''); setHsCode(''); setPackages(''); setGrossWeight(''); setVolume('')
+    setHazardous(false); setEtd(''); setEta('')
+    setCarrierBookingRef(''); setAwbNo(''); setAirline(''); setFlightNo('')
+    setChargeableWeight(''); setVehicleNo(''); setLrNumber('')
     setDaysOfCredit(0)
-    setLines([{ role: 'Carrier', vendorId: 'vn1', buyAmount: 0 }])
+    setLines([{ role: 'Carrier', vendorId: '', buyAmount: 0 }])
+  }
+
+  const submit = () => {
+    const id = createFfShipment(
+      {
+        mode,
+        customerId,
+        customerName: isConsol ? 'Consolidation (multiple shippers)' : customerName,
+        bookingPartyId: customerId,
+        shipper, shipperPartyId: shipperId,
+        consignee, consigneePartyId: consigneeId,
+        notifyParty: notify, notifyPartyId: notifyId,
+        origin,
+        destination,
+        incoterm,
+        sellAmount: isConsol ? 0 : sell,
+        isConsolParent: isConsol,
+        specialHandling: special || null,
+        daysOfCredit,
+        commodity,
+        hsCode,
+        packages,
+        grossWeightKg: grossWeight,
+        volumeM3: volume ? Number(volume) : null,
+        hazmatStatus: hazardous ? 'Haz' : 'Non-Haz',
+        etd,
+        eta,
+        // Only the block belonging to this mode is sent; the rest stay null
+        // rather than carrying a stale value from a mode the user changed
+        // away from mid-form.
+        carrierBookingRef: isSea ? carrierBookingRef : null,
+        awbNo: isAir ? awbNo : null,
+        airline: isAir ? airline : null,
+        flightNo: isAir ? flightNo : null,
+        chargeableWeightKg: isAir && chargeableWeight ? Number(chargeableWeight) : null,
+        vehicleNo: isRoad ? vehicleNo : null,
+        lrNumber: isRoad ? lrNumber : null,
+      },
+      lines
+        .filter((l) => l.buyAmount > 0 && l.vendorId)
+        .map((l) => ({
+          role: l.role,
+          vendorId: l.vendorId,
+          vendorName: mockVendors.find((v) => v.id === l.vendorId)?.name ?? 'Vendor',
+          buyAmount: l.buyAmount,
+        })),
+    )
+    reset()
+    onCreated(id)
   }
 
   return (
     <Modal
       open={open}
       onClose={() => { reset(); onClose() }}
-      title="New FF booking"
-      subtitle="Multi-vendor buy estimate + single consolidated client sell (flow 1)"
+      title="New RKS shipment"
+      subtitle="Parties and lane from the shared masters, buy lines per vendor role, one consolidated sell"
       wide
       footer={
-        <Button
-          disabled={!valid}
-          className="disabled:opacity-50"
-          onClick={() => {
-            const id = createFfShipment(
-              {
-                mode,
-                customerId: customer?.id ?? null,
-                customerName: isConsol ? '— consolidation (multiple shippers)' : customer?.name ?? '',
-                origin,
-                destination,
-                incoterm,
-                sellAmount: isConsol ? 0 : sell,
-                isConsolParent: isConsol,
-                specialHandling: special || null,
-                daysOfCredit,
-              },
-              lines
-                .filter((l) => l.buyAmount > 0)
-                .map((l) => ({
-                  role: l.role,
-                  vendorId: l.vendorId,
-                  vendorName: mockVendors.find((v) => v.id === l.vendorId)?.name ?? 'Vendor',
-                  buyAmount: l.buyAmount,
-                })),
-            )
-            reset()
-            onCreated(id)
-          }}
-        >
-          Confirm booking (KINFF ref)
+        <Button disabled={!valid} className="disabled:opacity-50" onClick={submit}>
+          Confirm booking (RKSF ref)
         </Button>
       }
     >
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <Field label="Mode">
-          <Select value={mode} onChange={(e) => setMode(e.target.value as FfMode)}>
-            <option>Sea FCL</option>
-            <option>Sea LCL</option>
-            <option>Air</option>
-            <option>Road</option>
-            <option>Multimodal</option>
-          </Select>
-        </Field>
-        <Field label="LCL consolidation (parent/child structure)">
-          <Select value={isConsol ? 'yes' : 'no'} onChange={(e) => setIsConsol(e.target.value === 'yes')}>
-            <option value="no">No — single unit</option>
-            <option value="yes">Yes — parent booking, child HBLs added later</option>
-          </Select>
-        </Field>
-        {!isConsol && (
-          <Field label="Customer">
-            <Select value={customerId} onChange={(e) => setCustomerId(e.target.value)}>
-              <option value="">Select…</option>
-              {mockCustomers.map((c) => (
-                <option key={c.id} value={c.id}>{c.name}</option>
-              ))}
+      <div className="space-y-5">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <Field label="Mode">
+            <Select value={mode} onChange={(e) => setMode(e.target.value as FfMode)}>
+              <option>Sea FCL</option>
+              <option>Sea LCL</option>
+              <option>Air</option>
+              <option>Road</option>
+              <option>Multimodal</option>
             </Select>
           </Field>
-        )}
-        <Field label="Incoterm">
-          <Select value={incoterm} onChange={(e) => setIncoterm(e.target.value)}>
-            {INCOTERMS.map((i) => <option key={i}>{i}</option>)}
-          </Select>
-        </Field>
-        <Field label="Origin">
-          <TextInput value={origin} onChange={(e) => setOrigin(e.target.value)} placeholder="e.g. NHAVA SHEVA" />
-        </Field>
-        <Field label="Destination">
-          <TextInput value={destination} onChange={(e) => setDestination(e.target.value)} placeholder="e.g. JEBEL ALI" />
-        </Field>
-        <Field label="Special handling (hazardous / temp-controlled / oversized)">
-          <TextInput value={special} onChange={(e) => setSpecial(e.target.value)} placeholder="None" />
-        </Field>
-        {!isConsol && (
-          <Field label="Consolidated client sell (USD)">
-            <TextInput type="number" value={sell || ''} onChange={(e) => setSell(+e.target.value)} />
+          <Field label="LCL consolidation (parent/child structure)">
+            <Select value={isConsol ? 'yes' : 'no'} onChange={(e) => setIsConsol(e.target.value === 'yes')}>
+              <option value="no">No, single unit</option>
+              <option value="yes">Yes, parent booking with child HBLs added later</option>
+            </Select>
           </Field>
-        )}
-      </div>
+        </div>
 
-      <div className="mt-5">
-        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">
-          Buy side — one line per vendor role
-        </p>
-        <div className="space-y-2">
-          {lines.map((l, i) => (
-            <div key={i} className="flex items-center gap-2">
-              <Select value={l.role} onChange={(e) => setLines((ls) => ls.map((x, j) => (j === i ? { ...x, role: e.target.value as FfVendorRole } : x)))}>
-                <option>Carrier</option>
-                <option>Customs</option>
-                <option>Trucking</option>
-                <option>Warehousing</option>
-                <option>Insurance</option>
+        <FormSection title="Parties" hint="All from the shared Parties master, the same firms Kinetic books.">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            {!isConsol && (
+              <Field label="Booking party (customer)" required>
+                <PartySearchField
+                  value={customerName}
+                  roles={['Importer', 'Exporter']}
+                  commercialRole="Customer"
+                  placeholder="Search customer..."
+                  onSelect={(p) => { setCustomerId(p.id); setCustomerName(p.name) }}
+                />
+              </Field>
+            )}
+            <Field label="Shipper">
+              <PartySearchField
+                value={shipper}
+                roles={['Exporter']}
+                commercialRole="Customer"
+                placeholder="Search shipper..."
+                onSelect={(p) => { setShipperId(p.id); setShipper(p.name) }}
+              />
+            </Field>
+            <Field label="Consignee">
+              <PartySearchField
+                value={consignee}
+                roles={['Importer']}
+                commercialRole="Customer"
+                placeholder="Search consignee..."
+                onSelect={(p) => { setConsigneeId(p.id); setConsignee(p.name) }}
+              />
+            </Field>
+            <Field label="Notify party">
+              <PartySearchField
+                value={notify}
+                roles={['Importer', 'Exporter']}
+                commercialRole="Customer"
+                placeholder="Search notify party..."
+                onSelect={(p) => { setNotifyId(p.id); setNotify(p.name) }}
+              />
+            </Field>
+          </div>
+        </FormSection>
+
+        <FormSection title="Lane" hint="From the port master. Typing these by hand is how production ended up holding a lane called jjjjj to j.">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Field label="Origin" required>
+              <PortSearchField value={origin} placeholder="Search port..." onSelect={setOrigin} />
+            </Field>
+            <Field label="Destination" required>
+              <PortSearchField value={destination} placeholder="Search port..." onSelect={setDestination} />
+            </Field>
+          </div>
+        </FormSection>
+
+        <FormSection title="Cargo">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <Field label="Commodity">
+              <TextInput value={commodity} onChange={(e) => setCommodity(e.target.value)} placeholder="e.g. General cargo" />
+            </Field>
+            <Field label="HS code">
+              <TextInput value={hsCode} onChange={(e) => setHsCode(e.target.value)} />
+            </Field>
+            <Field label="Incoterm">
+              <Select value={incoterm} onChange={(e) => setIncoterm(e.target.value)}>
+                {INCOTERMS.map((i) => <option key={i}>{i}</option>)}
               </Select>
-              <Select value={l.vendorId} onChange={(e) => setLines((ls) => ls.map((x, j) => (j === i ? { ...x, vendorId: e.target.value } : x)))}>
-                {mockVendors.map((v) => (
-                  <option key={v.id} value={v.id}>{v.name}</option>
-                ))}
+            </Field>
+            <Field label="Packages">
+              <TextInput value={packages} onChange={(e) => setPackages(e.target.value)} inputMode="numeric" />
+            </Field>
+            <Field label="Gross weight (kg)">
+              <TextInput value={grossWeight} onChange={(e) => setGrossWeight(e.target.value)} inputMode="decimal" />
+            </Field>
+            <Field label="Volume (cbm)">
+              <TextInput value={volume} onChange={(e) => setVolume(e.target.value)} inputMode="decimal" />
+            </Field>
+            <Field label="ETD">
+              <TextInput type="date" value={etd} onChange={(e) => setEtd(e.target.value)} />
+            </Field>
+            <Field label="ETA">
+              <TextInput type="date" value={eta} onChange={(e) => setEta(e.target.value)} />
+            </Field>
+            <Field label="Hazardous">
+              <Select value={hazardous ? 'yes' : 'no'} onChange={(e) => setHazardous(e.target.value === 'yes')}>
+                <option value="no">Non-hazardous</option>
+                <option value="yes">Hazardous, MSDS required</option>
               </Select>
+            </Field>
+          </div>
+        </FormSection>
+
+        {/* Only the block that belongs to this mode. An air shipment has no
+            container and a road shipment has no vessel, so asking for them
+            was noise the desk had to ignore. */}
+        <FormSection title={isAir ? 'Air' : isRoad ? 'Road' : 'Sea'}>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            {isSea && (
+              <Field label="Carrier booking reference">
+                <TextInput value={carrierBookingRef} onChange={(e) => setCarrierBookingRef(e.target.value)} />
+              </Field>
+            )}
+            {isAir && (
+              <>
+                <Field label="AWB number">
+                  <TextInput value={awbNo} onChange={(e) => setAwbNo(e.target.value)} />
+                </Field>
+                <Field label="Airline">
+                  <TextInput value={airline} onChange={(e) => setAirline(e.target.value)} />
+                </Field>
+                <Field label="Flight number">
+                  <TextInput value={flightNo} onChange={(e) => setFlightNo(e.target.value)} />
+                </Field>
+                <Field label="Chargeable weight (kg)">
+                  <TextInput value={chargeableWeight} onChange={(e) => setChargeableWeight(e.target.value)} inputMode="decimal" />
+                </Field>
+              </>
+            )}
+            {isRoad && (
+              <>
+                <Field label="Vehicle number">
+                  <TextInput value={vehicleNo} onChange={(e) => setVehicleNo(e.target.value)} />
+                </Field>
+                <Field label="LR number">
+                  <TextInput value={lrNumber} onChange={(e) => setLrNumber(e.target.value)} />
+                </Field>
+              </>
+            )}
+            <Field label="Special handling">
+              <TextInput value={special} onChange={(e) => setSpecial(e.target.value)} placeholder="None" />
+            </Field>
+          </div>
+        </FormSection>
+
+        <FormSection title="Commercials">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            {!isConsol && (
+              <Field label="Consolidated client sell (USD)" required>
+                <TextInput type="number" value={sell || ''} onChange={(e) => setSell(+e.target.value)} />
+              </Field>
+            )}
+            <Field label="Days of credit">
               <TextInput
                 type="number"
-                placeholder="Buy $"
-                value={l.buyAmount || ''}
-                onChange={(e) => setLines((ls) => ls.map((x, j) => (j === i ? { ...x, buyAmount: +e.target.value } : x)))}
+                min={0}
+                max={75}
+                value={daysOfCredit || ''}
+                onChange={(e) => setDaysOfCredit(Math.max(0, Math.min(75, +e.target.value || 0)))}
+                placeholder="0"
               />
-              <button onClick={() => setLines((ls) => ls.filter((_, j) => j !== i))} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-btn text-accent-coral hover:bg-surface-2">
-                <Trash2 size={15} />
-              </button>
-            </div>
-          ))}
-        </div>
-        <Button size="sm" variant="secondary" className="mt-2" onClick={() => setLines((ls) => [...ls, { role: 'Trucking', vendorId: 'vn5', buyAmount: 0 }])}>
-          <Plus size={13} /> Add vendor line
-        </Button>
-      </div>
+            </Field>
+          </div>
 
-      <div className="mt-4 max-w-[200px]">
-        <Field label="Days of credit">
-          <TextInput
-            type="number"
-            min={0}
-            max={75}
-            value={daysOfCredit || ''}
-            onChange={(e) => setDaysOfCredit(Math.max(0, Math.min(75, +e.target.value || 0)))}
-            placeholder="0"
-          />
-        </Field>
-        {daysOfCredit > 0 && (
-          <p className="mt-1.5 text-[11px] font-medium text-accent-orange">
-            Requires Admin approval — booking will hold until cleared.
+          <p className="mb-2 mt-4 text-xs font-semibold uppercase tracking-wide text-muted">
+            Buy side, one line per vendor role
           </p>
-        )}
-      </div>
+          <div className="space-y-2">
+            {lines.map((l, i) => {
+              const choices = vendorsForRole(l.role)
+              return (
+                <div key={i} className="flex items-center gap-2">
+                  <Select
+                    value={l.role}
+                    onChange={(e) =>
+                      setLines((ls) => ls.map((x, j) => (j === i ? { ...x, role: e.target.value as FfVendorRole, vendorId: '' } : x)))
+                    }
+                  >
+                    <option>Carrier</option>
+                    <option>Customs</option>
+                    <option>Trucking</option>
+                    <option>Warehousing</option>
+                    <option>Insurance</option>
+                  </Select>
+                  <Select
+                    value={l.vendorId}
+                    onChange={(e) => setLines((ls) => ls.map((x, j) => (j === i ? { ...x, vendorId: e.target.value } : x)))}
+                  >
+                    <option value="">
+                      {choices.length ? 'Select vendor...' : 'No ' + l.role.toLowerCase() + ' vendors on file'}
+                    </option>
+                    {choices.map((v) => (
+                      <option key={v.id} value={v.id}>{v.name}</option>
+                    ))}
+                  </Select>
+                  <TextInput
+                    type="number"
+                    placeholder="Buy $"
+                    value={l.buyAmount || ''}
+                    onChange={(e) => setLines((ls) => ls.map((x, j) => (j === i ? { ...x, buyAmount: +e.target.value } : x)))}
+                  />
+                  <button
+                    onClick={() => setLines((ls) => ls.filter((_, j) => j !== i))}
+                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-btn text-accent-coral hover:bg-surface-2"
+                  >
+                    <Trash2 size={15} />
+                  </button>
+                </div>
+              )
+            })}
+          </div>
+          <Button
+            size="sm"
+            variant="secondary"
+            className="mt-2"
+            onClick={() => setLines((ls) => [...ls, { role: 'Trucking', vendorId: '', buyAmount: 0 }])}
+          >
+            <Plus size={13} /> Add vendor line
+          </Button>
 
-      {!isConsol && (
-        <div className="mt-4 rounded-btn border border-line bg-surface-2/60 p-3 text-xs text-body">
-          Buy total <span className="font-mono font-semibold">${buy.toLocaleString()}</span> · Estimated GP{' '}
-          <span className={`font-mono font-semibold ${sell - buy >= 0 ? 'text-primary' : 'text-accent-coral'}`}>
-            ${(sell - buy).toLocaleString()}
-          </span>{' '}
-          ({margin.toFixed(1)}%)
-          {sell > CREDIT_LIMIT_USD && (
-            <span className="ml-2 rounded-badge bg-[#FEE2E2] px-2 py-0.5 text-[10px] font-semibold text-[#DC2626]">
-              over ${CREDIT_LIMIT_USD.toLocaleString()} credit limit — will hold for Finance sign-off
-            </span>
+          {!isConsol && sell > 0 && (
+            <div className="mt-4 rounded-btn border border-line bg-surface-2/60 p-3 text-sm">
+              <span className="text-body">Estimated GP: </span>
+              <span className="font-mono font-semibold text-primary">
+                ${(sell - buy).toLocaleString()} ({margin.toFixed(0)}%)
+              </span>
+            </div>
           )}
-        </div>
-      )}
+        </FormSection>
+      </div>
     </Modal>
   )
 }
+
+/** A titled group inside the booking form. */
+function FormSection({ title, hint, children }: { title: string; hint?: string; children: React.ReactNode }) {
+  return (
+    <div className="rounded-card border border-line bg-surface-2/30 p-4">
+      <p className="text-xs font-semibold uppercase tracking-wide text-muted">{title}</p>
+      {hint && <p className="mb-3 mt-0.5 text-[11px] text-muted">{hint}</p>}
+      <div className={hint ? '' : 'mt-3'}>{children}</div>
+    </div>
+  )
+}
+
+/**
+ * Vendors that can actually fill a given buy line.
+ *
+ * The spec: "Vendor lines filtered by role. A Carrier line currently offers a
+ * surveyor and a repair shop as options." Until the Vendors master exists this
+ * maps onto the kinds the mock list already carries: still the wrong source,
+ * but no longer the wrong vendors.
+ */
+function vendorsForRole(role: FfVendorRole) {
+  const kinds: Record<FfVendorRole, string[]> = {
+    Carrier: ['Shipping line'],
+    Customs: ['Broker'],
+    Trucking: ['Trucker'],
+    Warehousing: ['CFS'],
+    Insurance: [],
+  }
+  return mockVendors.filter((v) => kinds[role].includes(v.kind))
+}
+

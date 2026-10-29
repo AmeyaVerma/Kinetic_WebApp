@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
 import { Card } from '../components/ui/Card'
-import { StatusChip } from '../components/ui/StatusChip'
+import { Badge } from '../components/ui/Badge'
 import { ProgressBar } from '../components/ui/ProgressBar'
 import { Tabs } from '../components/ui/Tabs'
 import { FieldPill } from '../components/ui/Field'
@@ -15,8 +15,13 @@ import { FfDocumentsTab } from '../components/booking/FfDocumentsTab'
 import { FfDetail } from '../components/ff/FfDetail'
 import { useDataStore } from '../store/useDataStore'
 import { useAuthStore, useCurrentUser } from '../store/useAuthStore'
-import { FF_STAGES } from '../lib/ff'
-import { BOOKING_WORKFLOW_STATUSES, WORKFLOW_STATUS_CHIP } from '../lib/bookingStatus'
+import {
+  FF_STAGES,
+  FF_WORKFLOW_STATUSES,
+  FF_WORKFLOW_TONE,
+  ffCyclePct,
+  type FfWorkflowStatus,
+} from '../lib/ff'
 import { HAZMAT_FIELD_LABELS } from '../lib/types'
 import { mockAgents } from '../mocks/masters'
 import type { BookingWorkflowStatus, FfShipment, HazmatDetails, HazmatStatus } from '../lib/types'
@@ -57,9 +62,17 @@ export function FfDetailPage() {
   const latestActivity = [...shipmentActivities].sort(
     (a, b) => new Date(b.at).getTime() - new Date(a.at).getTime(),
   )[0]
-  const workflowStatus: BookingWorkflowStatus = shipment.workflowStatus ?? 'Booked'
+  /* A forwarding shipment carries its own status words. "Back to Town" is a
+     container coming back to the yard and means nothing on an air or road
+     shipment, so the NVOCC list is no longer borrowed here. A legacy row
+     holding one of the old values still displays it rather than vanishing. */
+  const stored = shipment.workflowStatus ?? 'Booked'
+  const workflowStatus = (FF_WORKFLOW_STATUSES as readonly string[]).includes(stored)
+    ? (stored as FfWorkflowStatus)
+    : 'Booked'
+  const cancelled = workflowStatus === 'Cancelled'
   const stageIndex = FF_STAGES.indexOf(shipment.stage)
-  const pct = Math.round((stageIndex / (FF_STAGES.length - 1)) * 100)
+  const pct = ffCyclePct(shipment.stage, cancelled)
 
   return (
     <div className="space-y-5">
@@ -73,7 +86,7 @@ export function FfDetailPage() {
             <div className="flex flex-wrap items-center gap-3">
               <h1 className="font-mono text-xl font-bold">{shipment.ref}</h1>
               <div className="flex items-center gap-2">
-                <StatusChip status={WORKFLOW_STATUS_CHIP[workflowStatus]} />
+                <Badge tone={FF_WORKFLOW_TONE[workflowStatus]} label={workflowStatus} />
                 <label className="flex items-center gap-1.5 text-[11px] text-muted">
                   Shipment status
                   <select
@@ -83,7 +96,7 @@ export function FfDetailPage() {
                     }
                     className="rounded-btn border border-line bg-surface px-2.5 py-1 text-xs font-medium text-heading focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
                   >
-                    {BOOKING_WORKFLOW_STATUSES.map((s) => (
+                    {FF_WORKFLOW_STATUSES.map((s) => (
                       <option key={s} value={s}>{s}</option>
                     ))}
                   </select>

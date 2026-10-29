@@ -3,16 +3,16 @@ import { UserCog, CheckCircle2, DollarSign, AlertTriangle, ShieldAlert } from 'l
 import { Card } from '../components/ui/Card'
 import { StatKpi } from '../components/ui/StatKpi'
 import { CsvButton } from '../components/ui/CsvButton'
-import { StatusChip } from '../components/ui/StatusChip'
+import { Badge, type BadgeTone } from '../components/ui/Badge'
 import { AgentDetail } from '../components/agents/AgentDetail'
 import { useDataStore } from '../store/useDataStore'
-import type { AgentStatus, ChipStatus } from '../lib/types'
+import type { AgentStatus } from '../lib/types'
 
-const STATUS_CHIP: Record<AgentStatus, ChipStatus> = {
-  Prospect: 'Draft',
-  Active: 'Delivered',
-  Suspended: 'Overdue',
-  Terminated: 'Cancelled',
+const STATUS_TONE: Record<AgentStatus, BadgeTone> = {
+  Prospect: 'neutral',
+  Active: 'success',
+  Suspended: 'attention',
+  Terminated: 'danger',
 }
 
 export function AgentsPage() {
@@ -114,8 +114,7 @@ export function AgentsPage() {
                     </span>
                   </td>
                   <td className="px-5 py-3">
-                    <StatusChip status={STATUS_CHIP[a.status]} />
-                    <span className="ml-2 text-[11px] text-muted">{a.status}</span>
+                    <Badge tone={STATUS_TONE[a.status]} label={a.status} />
                     {a.performanceFlagged && (
                       <span className="ml-1.5 rounded-badge bg-[#FEE2E2] px-1.5 py-0.5 text-[10px] font-semibold text-[#DC2626]">perf flag</span>
                     )}

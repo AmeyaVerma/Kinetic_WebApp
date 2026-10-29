@@ -1,278 +1,97 @@
-import { useEffect, useState } from 'react'
-import { FileText, Lock, ShieldAlert } from 'lucide-react'
-import { Button } from '../ui/Button'
-import { Field, Select, TextInput, Textarea } from '../ui/Field'
+import { useEffect } from 'react'
 import { useDataStore } from '../../store/useDataStore'
-import { useAuthStore, useCurrentUser } from '../../store/useAuthStore'
-import { BL_FIELD_LABELS, DOC_SEQUENCE, DocumentRow } from './DocumentsTab'
-import type { BlFields, FfShipment } from '../../lib/types'
+import { useCurrentUser } from '../../store/useAuthStore'
+import { DocumentRow } from './DocumentsTab'
+import type { DocType, FfShipment } from '../../lib/types'
 
-/** Same BL panel + document sequence as NVOCC's DocumentsTab, adapted to an
-    FfShipment record (no vessel-booking-specific fields like hblNo/pol/pod).
-    Note: saveBl/approveBl/releaseBl below still only persist for NVOCC —
-    bl_versions/bl_state are FK'd to `bookings`, not `ff_shipments`, so the
-    BL panel here stays local-only for now (documents below are real). */
+/**
+ * Documents on an RKS freight-forwarding shipment.
+ *
+ * This tab used to carry a copy of the NVOCC BL panel, including a "Create BL
+ * draft" button that allocated a real BL number. RKS is a forwarder, not a
+ * carrier of record: it never issues a Bill of Lading, so that panel promised
+ * a document the business does not produce -- and the draft it made could not
+ * be saved anyway, since bl_state is keyed to bookings rather than shipments.
+ *
+ * What a forwarder has instead is the carrier's paperwork, received and filed.
+ * So the BL panel is gone, along with the BL, SOB and CRO rows that came with
+ * it, and the carrier's own master document takes their place.
+ */
+
+/** Mode decides which carrier document the shipment should carry. */
+const CARRIER_DOC: Record<string, DocType> = {
+  Air: 'AWB',
+  Road: 'LR',
+}
+
+function sequenceFor(mode: string | null | undefined): { type: DocType; trigger: string }[] {
+  const carrier = CARRIER_DOC[mode ?? ''] ?? 'Master BL'
+  const carrierTrigger =
+    carrier === 'AWB'
+      ? 'Air waybill from the airline, once the booking is confirmed'
+      : carrier === 'LR'
+        ? 'Lorry receipt from the trucker at pickup'
+        : "Carrier's master Bill of Lading, received after the vessel sails"
+
+  const containerised = mode !== 'Air' && mode !== 'Road'
+  return [
+    { type: carrier, trigger: carrierTrigger },
+    // The VGM and the container load plan only exist where there is a
+    // container, so an air or road shipment never asks for them.
+    ...(containerised
+      ? ([
+          { type: 'VGM', trigger: 'Filed before cut-off' },
+          { type: 'CLP', trigger: 'Submitted at gate-in / stuffing confirmation' },
+        ] as { type: DocType; trigger: string }[])
+      : []),
+    { type: 'Shipping Bill', trigger: 'Filed with customs before departure' },
+    { type: 'DO', trigger: 'Import only — issued after arrival and payment' },
+    { type: 'CAN', trigger: 'Import only — sent to consignee on arrival' },
+    { type: 'Commercial Invoice + Packing List', trigger: 'Customer uploads for customs compliance' },
+    { type: 'Certificate of Origin', trigger: 'Customer uploads where required' },
+    { type: 'MSDS', trigger: 'Required for hazardous cargo' },
+    { type: 'Non-Haz Declaration', trigger: 'Required to declare cargo as non-hazardous' },
+  ]
+}
+
 export function FfDocumentsTab({ shipment }: { shipment: FfShipment }) {
-  const {
-    documents,
-    blStates,
-    blVersions,
-    saveBl,
-    submitCustomerBlEdit,
-    approveBl,
-    releaseBl,
-    fetchFfDocuments,
-    uploadFfDocumentFile,
-    getFfDocumentUrl,
-  } = useDataStore()
+  const { documents, fetchFfDocuments, uploadFfDocumentFile, getFfDocumentUrl } = useDataStore()
   const currentUser = useCurrentUser()
-  const viewAsRole = useAuthStore((s) => s.viewAsRole)
-  const effectiveRole = viewAsRole ?? currentUser?.role
-  const isAdmin = effectiveRole === 'admin'
 
   useEffect(() => {
     fetchFfDocuments(shipment.id)
   }, [fetchFfDocuments, shipment.id])
 
   const docs = documents.filter((d) => d.bookingId === shipment.id)
-  const bl = blStates.find((b) => b.bookingId === shipment.id)
-  const versions = blVersions.filter((v) => v.bookingId === shipment.id)
-
-  const [editing, setEditing] = useState(false)
-  const [draft, setDraft] = useState<BlFields | null>(null)
-
-  const startEdit = () => {
-    setDraft(
-      bl?.currentFields ?? {
-        shipper: shipment.shipper ?? '',
-        consignee: shipment.consignee ?? '',
-        notifyParty: shipment.notifyParty ?? '',
-        overseasAgent: '',
-        vessel: shipment.vesselName ?? '',
-        voyage: shipment.voyageNo ?? '',
-        placeOfReceipt: shipment.origin,
-        portOfLoading: shipment.origin,
-        placeOfDischarge: shipment.destination,
-        finalPlaceOfDelivery: shipment.destination,
-        blDate: '',
-        shippedOnBoard: '',
-        placeOfIssue: '',
-        numberOfOriginals: '',
-        blNumber: '',
-        blNumberManual: '',
-        movementType: '',
-        blType: '',
-        shipmentReference: shipment.ref,
-        containers: '',
-        packagesAndDescription: shipment.commodity ?? '',
-        weight: shipment.grossWeightKg ? `GROSS WEIGHT\n${shipment.grossWeightKg} KGS` : '',
-        measurement: '',
-        otherParticulars: '',
-        freight: shipment.freightTerms ?? '',
-        freightPayableAt: '',
-        collectCharges: '',
-        releaseType: '',
-        annexure: '',
-        signingAgent: '',
-        lockBlForClient: '0',
-        destinationAgentAccess: '',
-        transhipmentAgentAccess: '',
-      },
-    )
-    setEditing(true)
-  }
-
-  const locked = bl?.lifecycle === 'Approved' || bl?.lifecycle === 'Released'
+  const sequence = sequenceFor(shipment.mode)
 
   return (
-    <div className="space-y-6">
-      {/* ── BL panel ── */}
-      <div className="rounded-card border border-line bg-surface-2/40 p-5">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <FileText size={17} className="text-primary" />
-            <h3 className="text-[15px] font-semibold">BL panel</h3>
-            {bl && (
-              <span className="rounded-badge bg-surface-2 px-2.5 py-1 text-xs font-medium text-heading">
-                {bl.lifecycle}
-                {bl.releaseType ? ` — ${bl.releaseType}` : ''}
-              </span>
-            )}
-            {locked && <Lock size={13} className="text-muted" />}
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {!editing && !locked && (
-              <Button size="sm" variant="secondary" onClick={startEdit}>
-                {bl ? 'Edit BL draft' : 'Create BL draft'}
-              </Button>
-            )}
-            {bl && !locked && bl.lifecycle !== 'Awaiting approval' && (
-              isAdmin ? (
-                <Button size="sm" onClick={() => approveBl(shipment.id, currentUser?.name ?? 'Admin')}>
-                  Approve & lock
-                </Button>
-              ) : (
-                <span className="flex items-center gap-1.5 rounded-badge bg-[#FEF3C7] px-2.5 py-1 text-xs font-medium text-[#B45309]">
-                  <ShieldAlert size={13} /> Awaiting Admin approval
-                </span>
-              )
-            )}
-            {bl?.lifecycle === 'Approved' && (
-              <>
-                {(['Original', 'Telex', 'Seaway'] as const).map((t) => (
-                  <Button key={t} size="sm" variant="secondary" onClick={() => releaseBl(shipment.id, t)}>
-                    Release {t}
-                  </Button>
-                ))}
-              </>
-            )}
-            {locked && !editing && (
-              <Button size="sm" variant="ghost" onClick={startEdit}>
-                Amendment (revision cycle)
-              </Button>
-            )}
-          </div>
-        </div>
-
-        <p className="mt-1.5 text-xs text-muted">
-          Lifecycle: Draft → Agent/customer edited → Awaiting ops approval → Approved (locked) → Released
-          (Original / Telex / Seaway).
+    <div>
+      <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted">
+        Documents — sequence and trigger
+      </p>
+      {!shipment.dbId && (
+        <p className="mb-3 rounded-btn border border-line bg-surface-2 px-3 py-2 text-xs text-muted">
+          This is demo data, not a saved shipment — real file upload is unavailable here.
+          Create a new FF shipment to try it.
         </p>
-
-        {editing && draft ? (
-          <div className="mt-4">
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              {BL_FIELD_LABELS.map(({ key, label, widget, options }) => (
-                <Field key={key} label={label}>
-                  {widget === 'textarea' ? (
-                    <Textarea
-                      value={draft[key]}
-                      onChange={(e) => setDraft((d) => (d ? { ...d, [key]: e.target.value } : d))}
-                    />
-                  ) : widget === 'select' ? (
-                    <Select
-                      value={draft[key]}
-                      onChange={(e) => setDraft((d) => (d ? { ...d, [key]: e.target.value } : d))}
-                    >
-                      {options!.map((o) => (
-                        <option key={o} value={o}>{o || '—'}</option>
-                      ))}
-                    </Select>
-                  ) : (
-                    <TextInput
-                      value={draft[key]}
-                      onChange={(e) => setDraft((d) => (d ? { ...d, [key]: e.target.value } : d))}
-                    />
-                  )}
-                </Field>
-              ))}
-            </div>
-            <div className="mt-4 flex flex-wrap gap-2">
-              <Button
-                size="sm"
-                onClick={() => {
-                  saveBl(shipment.id, draft, 'S. Singh', 'ops')
-                  setEditing(false)
-                }}
-              >
-                Save — Ops (direct, versioned)
-              </Button>
-              <Button
-                size="sm"
-                variant="secondary"
-                onClick={() => {
-                  saveBl(shipment.id, draft, 'Destination agent', 'agent')
-                  setEditing(false)
-                }}
-              >
-                Save — Agent (live, versioned)
-              </Button>
-              <Button
-                size="sm"
-                variant="secondary"
-                onClick={() => {
-                  const changes: Partial<BlFields> = {}
-                  const baseline = bl?.currentFields
-                  for (const { key } of BL_FIELD_LABELS) {
-                    if (!baseline || baseline[key] !== draft[key]) changes[key] = draft[key]
-                  }
-                  submitCustomerBlEdit(shipment.id, changes, shipment.customerName)
-                  setEditing(false)
-                }}
-              >
-                Submit — Customer (approval-gated)
-              </Button>
-              <Button size="sm" variant="ghost" onClick={() => setEditing(false)}>
-                Cancel
-              </Button>
-            </div>
-          </div>
-        ) : bl ? (
-          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-            {BL_FIELD_LABELS.map(({ key, label }) => (
-              <div key={key} className="rounded-btn border border-line bg-surface px-3 py-2">
-                <p className="font-mono text-[10px] uppercase tracking-wide text-muted">{label}</p>
-                <p className="mt-0.5 whitespace-pre-line text-[13px] text-heading">{bl.currentFields[key] || '—'}</p>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className="mt-4 text-sm text-muted">No BL draft yet.</p>
-        )}
-
-        {versions.length > 0 && (
-          <div className="mt-5 border-t border-line pt-4">
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">
-              Version history (bl_versions — append-only)
-            </p>
-            <div className="space-y-1.5">
-              {versions
-                .slice()
-                .reverse()
-                .map((v) => (
-                  <div key={v.id} className="flex items-center gap-3 text-xs text-body">
-                    <span className="font-mono font-semibold text-heading">v{v.version}</span>
-                    <span>{v.editedBy} ({v.editedByRole})</span>
-                    <span className="text-muted">{new Date(v.editedAt).toLocaleString()}</span>
-                    {v.amendment && (
-                      <span className="rounded-badge bg-[#FEF3C7] px-2 py-0.5 text-[10px] font-semibold text-[#B45309]">
-                        amendment
-                      </span>
-                    )}
-                  </div>
-                ))}
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* ── Documents sequence ── */}
-      <div>
-        <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted">
-          Documents — sequence and trigger
-        </p>
-        {!shipment.dbId && (
-          <p className="mb-3 rounded-btn border border-line bg-surface-2 px-3 py-2 text-xs text-muted">
-            This is demo data, not a saved shipment — real file upload is unavailable here. Create a new FF shipment to try it.
-          </p>
-        )}
-        <div className="space-y-2">
-          {DOC_SEQUENCE.map((d, i) => {
-            const uploaded = docs.find((x) => x.docType === d.type)
-            return (
-              <DocumentRow
-                key={d.type}
-                index={i}
-                docType={d.type}
-                trigger={d.trigger}
-                uploaded={uploaded}
-                canUpload={!!shipment.dbId}
-                onUpload={(file) => uploadFfDocumentFile(shipment.id, d.type, currentUser?.name ?? 'Ops', file)}
-                onView={uploaded?.storagePath ? () => getFfDocumentUrl(uploaded.storagePath!) : undefined}
-              />
-            )
-          })}
-        </div>
+      )}
+      <div className="space-y-2">
+        {sequence.map((d, i) => {
+          const uploaded = docs.find((x) => x.docType === d.type)
+          return (
+            <DocumentRow
+              key={d.type}
+              index={i}
+              docType={d.type}
+              trigger={d.trigger}
+              uploaded={uploaded}
+              canUpload={!!shipment.dbId}
+              onUpload={(file) => uploadFfDocumentFile(shipment.id, d.type, currentUser?.name ?? 'Ops', file)}
+              onView={uploaded?.storagePath ? () => getFfDocumentUrl(uploaded.storagePath!) : undefined}
+            />
+          )
+        })}
       </div>
     </div>
   )

@@ -30,6 +30,11 @@ import type {
   ContainerLineItem,
   CroDocument,
   CustomerRecord,
+  CustomerRole,
+  CustomerStatus,
+  CreditHoldPolicy,
+  BlEditPermission,
+  ScreeningStatus,
   DamagePoint,
   Employee,
   FfShipment,
@@ -64,7 +69,6 @@ import { INSPECTION_CHECKLIST, approverBand, latestEstimate } from '../lib/mnr'
 import { mockFleet, mockMnrJobs } from '../mocks/mnrSeed'
 import { CREDIT_LIMIT_USD, buyTotal, overTolerance } from '../lib/ff'
 import { mockFfShipments } from '../mocks/ffSeed'
-import { mockCustomerRecords } from '../mocks/customerSeed'
 import { mockAgentRecords } from '../mocks/agentSeed'
 import { balanceFor, daysBetween } from '../lib/hr'
 import { mockEmployees, mockLeaveRequests, mockPayrollRuns } from '../mocks/hrSeed'
@@ -149,6 +153,102 @@ function rowToParty(row: any): Party {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
+/* ── Customers: one Parties master, plus a per-company account ──────
+   Spec M3. A customer is not a separate record from a party -- it IS a
+   party, with commercial terms agreed by one company. So the list is built
+   by joining the two, and a party with no account yet simply shows the
+   defaults rather than disappearing from the screen. */
+
+/** A party's shipment role, in the vocabulary the Customers screen uses. */
+function customerRolesOf(partyRole: string | null): CustomerRole[] {
+  if (partyRole === 'Exporter') return ['Shipper']
+  if (partyRole === 'Importer') return ['Consignee']
+  return ['Shipper']
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function toCustomerRecord(party: any, acct: any | undefined): CustomerRecord {
+  const a = acct ?? {}
+  return {
+    id: party.id,
+    code: party.code ?? party.party_code_legacy ?? '',
+    legalName: party.legal_name ?? '',
+    displayName: party.display_name ?? party.legal_name ?? '',
+    roles: customerRolesOf(party.party_role ?? null),
+    industry: a.industry ?? '',
+    parentId: null,
+    taxId: party.gstin ?? party.tax_id ?? '',
+    website: '',
+    billingAddress: party.address_line ?? party.address_raw ?? '',
+    /* The relationship's own status, which is not the same thing as the
+       party's Active/Inactive flag: a live firm can be On Hold as a customer
+       of one company and fine with the other. Until terms are agreed there is
+       no account row, and an existing trading party is not a "Prospect" --
+       they are a customer nobody has recorded terms for yet -- so the party's
+       own status stands in. */
+    status: (a.status ?? (party.status === 'Active' ? 'Active' : 'Inactive')) as CustomerStatus,
+    salesOwner: a.sales_owner ?? party.sales_person ?? '',
+    csRep: a.cs_rep ?? '',
+    source: a.source ?? '',
+    contacts: [],
+    defaultIncoterm: a.default_incoterm ?? '',
+    paymentTerms: a.payment_terms ?? '',
+    creditLimit: Number(a.credit_limit ?? 0),
+    creditCurrency: (a.credit_currency ?? 'USD') as 'USD' | 'INR',
+    creditHoldPolicy: (a.credit_hold_policy ?? 'Hard-block') as CreditHoldPolicy,
+    laneRates: [],
+    discountPct: Number(a.discount_pct ?? 0),
+    invoicingCurrency: (a.invoicing_currency ?? 'USD') as 'USD' | 'INR',
+    consolidatedInvoicing: false,
+    autoInvoice: 'Immediate on milestone',
+    sharedCreditPool: false,
+    portalEnabled: a.portal_enabled ?? false,
+    visNvocc: a.vis_nvocc ?? true,
+    visFf: a.vis_ff ?? true,
+    blEditPermission: (a.bl_edit_permission ?? 'Can request edits') as BlEditPermission,
+    docDownload: (a.doc_download ?? 'All') as 'All' | 'Invoice' | 'BL' | 'None',
+    bookingCreation: a.booking_creation ?? false,
+    quoteRequest: a.quote_request ?? false,
+    ipRestriction: false,
+    mfaMandated: a.mfa_mandated ?? false,
+    portalUsers: [],
+    notificationPrefs: [],
+    kycDocs: [],
+    screening: (a.screening ?? 'Clear') as ScreeningStatus,
+    creditApproved: a.credit_approved ?? false,
+    cashInAdvanceOnly: a.cash_in_advance_only ?? false,
+    salesSignoff: a.sales_signoff ?? false,
+    pendingCreditRequest: a.pending_credit_request != null ? Number(a.pending_credit_request) : null,
+    blacklistReason: a.blacklist_reason ?? null,
+    createdAt: party.created_at ?? now(),
+  }
+}
+
+/** CustomerRecord -> customer_accounts columns, for the fields the table
+    actually holds. Anything the UI keeps but the table does not is dropped
+    rather than silently half-saved. */
+function customerPatchToColumns(patch: Partial<CustomerRecord>): Record<string, unknown> {
+  const map: [keyof CustomerRecord, string][] = [
+    ['status', 'status'], ['industry', 'industry'], ['salesOwner', 'sales_owner'],
+    ['csRep', 'cs_rep'], ['source', 'source'], ['defaultIncoterm', 'default_incoterm'],
+    ['paymentTerms', 'payment_terms'], ['creditLimit', 'credit_limit'],
+    ['creditCurrency', 'credit_currency'], ['creditHoldPolicy', 'credit_hold_policy'],
+    ['discountPct', 'discount_pct'], ['invoicingCurrency', 'invoicing_currency'],
+    ['cashInAdvanceOnly', 'cash_in_advance_only'],
+    ['pendingCreditRequest', 'pending_credit_request'], ['blacklistReason', 'blacklist_reason'],
+    ['portalEnabled', 'portal_enabled'], ['visNvocc', 'vis_nvocc'], ['visFf', 'vis_ff'],
+    ['bookingCreation', 'booking_creation'], ['quoteRequest', 'quote_request'],
+    ['blEditPermission', 'bl_edit_permission'], ['docDownload', 'doc_download'],
+    ['mfaMandated', 'mfa_mandated'], ['screening', 'screening'],
+    ['creditApproved', 'credit_approved'], ['salesSignoff', 'sales_signoff'],
+  ]
+  const cols: Record<string, unknown> = {}
+  for (const [field, column] of map) {
+    if (field in patch) cols[column] = patch[field]
+  }
+  return cols
+}
+
 function rowToPartyBranch(row: any): PartyBranch {
   return {
     id: row.id,
@@ -342,8 +442,10 @@ function bookingToInsertRow(b: Booking) {
     vessel_id: b.vesselId,
     vessel_name: b.vesselName,
     voyage_no: b.voyageNo,
+    port_of_receipt: b.portOfReceipt ?? null,
     pol: b.pol,
     pod: b.pod,
+    final_place_of_discharge: b.finalPlaceOfDischarge ?? null,
     etd: b.etd || null,
     eta: b.eta || null,
     freight_terms: b.freightTerms,
@@ -566,6 +668,20 @@ function persistDocumentInsert(dbId: string | undefined, docType: string, upload
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function rowToFfShipment(row: any): FfShipment {
   return {
+    bookingPartyId: row.booking_party_id ?? null,
+    shipperPartyId: row.shipper_party_id ?? null,
+    consigneePartyId: row.consignee_party_id ?? null,
+    notifyPartyId: row.notify_party_id ?? null,
+    originPortId: row.origin_port_id ?? null,
+    destinationPortId: row.destination_port_id ?? null,
+    volumeM3: row.volume_m3 ?? null,
+    carrierBookingRef: row.carrier_booking_ref ?? null,
+    awbNo: row.awb_no ?? null,
+    airline: row.airline ?? null,
+    flightNo: row.flight_no ?? null,
+    chargeableWeightKg: row.chargeable_weight_kg ?? null,
+    vehicleNo: row.vehicle_no ?? null,
+    lrNumber: row.lr_number ?? null,
     id: row.ref,
     dbId: row.id,
     ref: row.ref,
@@ -650,6 +766,22 @@ function rowToFfShipment(row: any): FfShipment {
 }
 
 function ffShipmentToInsertRow(s: FfShipment) {
+  const forwarding = {
+    booking_party_id: s.bookingPartyId ?? null,
+    shipper_party_id: s.shipperPartyId ?? null,
+    consignee_party_id: s.consigneePartyId ?? null,
+    notify_party_id: s.notifyPartyId ?? null,
+    origin_port_id: s.originPortId ?? null,
+    destination_port_id: s.destinationPortId ?? null,
+    volume_m3: s.volumeM3 ?? null,
+    carrier_booking_ref: s.carrierBookingRef ?? null,
+    awb_no: s.awbNo ?? null,
+    airline: s.airline ?? null,
+    flight_no: s.flightNo ?? null,
+    chargeable_weight_kg: s.chargeableWeightKg ?? null,
+    vehicle_no: s.vehicleNo ?? null,
+    lr_number: s.lrNumber ?? null,
+  }
   return {
     ref: s.ref,
     mode: s.mode,
@@ -692,6 +824,7 @@ function ffShipmentToInsertRow(s: FfShipment) {
     days_of_credit: s.daysOfCredit ?? 0,
     client_invoiced: s.clientInvoiced,
     paid: s.paid,
+    ...forwarding,
   }
 }
 
@@ -718,8 +851,15 @@ function persistFfVendorLineUpdate(dbId: string | undefined, patch: Record<strin
   })()
 }
 
-/** Readable names for the activity line written by saveBookingEdits. */
-const BOOKING_FIELD_LABEL: Record<string, string> = {
+/** RKS shipment numbering: RKSF + the Indian financial year (2026-27 -> 2627)
+    + a six-digit serial. One series per company, as the spec's numbering rule
+    requires -- Kinetic's bookings use KLNVO2627NNNNNN. */
+export const FF_REF_PREFIX = 'RKSF2627'
+
+/** Readable names for the activity line written by saveBookingEdits, and
+    for the booking's audit log, which reads the same fields back out of
+    Postgres by their snake_case column names. */
+export const BOOKING_FIELD_LABEL: Record<string, string> = {
   ...BOOKING_DOCUMENT_LABELS,
   bookingPartyName: 'Booking party',
   shipper: 'Shipper',
@@ -872,6 +1012,10 @@ interface DataState {
   /** Pulls real bookings from Supabase (NVOCC pilot table) and merges them
       into local state — additive, never removes the existing demo bookings.
       Safe to call repeatedly (e.g. on every NVOCC page mount). */
+  /** Container types now live in Master Data rather than an array inside the
+      booking form, so an addition is seen by every screen and survives a
+      refresh. */
+  fetchContainerTypes: () => Promise<void>
   fetchBookings: () => Promise<void>
   /** Pulls real container_activities rows (keyed by dbId) and merges them
       into containerActivities, keyed back to the local booking id — same
@@ -1054,7 +1198,16 @@ interface DataState {
   advanceInvoice: (invoiceId: string) => void
 
   // Approvals (doc §11)
-  decideApproval: (approvalId: string, decision: 'Approved' | 'Rejected') => void
+  /** `decidedBy` is the person pressing Approve or Reject. It is required
+      because the one rule this queue has to keep -- nobody approves their own
+      request -- cannot be enforced without knowing who is deciding. The call
+      is refused rather than silently ignored, so a caller that skips the UI
+      gate still cannot get through. */
+  decideApproval: (
+    approvalId: string,
+    decision: 'Approved' | 'Rejected',
+    decidedBy: { name: string; isAdmin: boolean },
+  ) => void
 
   // ── MNR (Requirements v2 + flowchart) ──
   fleet: FleetContainer[]
@@ -1123,7 +1276,13 @@ interface DataState {
       state — additive, same pattern as fetchBookings. */
   fetchFfShipments: () => Promise<void>
   createFfShipment: (
-    s: Pick<FfShipment, 'mode' | 'customerId' | 'customerName' | 'origin' | 'destination' | 'incoterm' | 'sellAmount' | 'isConsolParent' | 'specialHandling' | 'daysOfCredit'>,
+    s: Pick<FfShipment, 'mode' | 'customerId' | 'customerName' | 'origin' | 'destination' | 'incoterm' | 'sellAmount' | 'isConsolParent' | 'specialHandling' | 'daysOfCredit'> &
+       Partial<Pick<FfShipment,
+         'bookingPartyId' | 'shipper' | 'shipperPartyId' | 'consignee' | 'consigneePartyId' |
+         'notifyParty' | 'notifyPartyId' | 'originPortId' | 'destinationPortId' |
+         'commodity' | 'hsCode' | 'packages' | 'packageType' | 'grossWeightKg' | 'volumeM3' |
+         'hazmatStatus' | 'etd' | 'eta' | 'carrierBookingRef' |
+         'awbNo' | 'airline' | 'flightNo' | 'chargeableWeightKg' | 'vehicleNo' | 'lrNumber'>>,
     vendorLines: Omit<FfVendorLine, 'id' | 'billedAmount' | 'varianceFlag'>[],
   ) => string
   addChildHbl: (parentId: string, child: { customerId: string | null; customerName: string; sellAmount: number }) => void
@@ -1167,6 +1326,10 @@ interface DataState {
 
   // ── Customer Management (CM Requirements v1) ──
   customers: CustomerRecord[]
+  /** Builds the customer list from the single Parties master joined to each
+      party's commercial account for this company (spec M3). Replaces the
+      separate eight-record customer list that used to disagree with it. */
+  fetchCustomers: () => Promise<void>
   updateCustomer: (id: string, patch: Partial<CustomerRecord>, auditNote: string) => void
   requestCreditLimit: (id: string, amount: number) => void
   requestBlacklist: (id: string, reason: string) => void
@@ -1242,6 +1405,15 @@ export const useDataStore = create<DataState>((set, get) => ({
         if (list.includes(trimmed)) return s
         return { masters: { ...s.masters, [kind]: [...list, trimmed] } }
       })
+      // Persist it too, so the next person to open a booking sees it. A
+      // duplicate name is refused by the unique index, which is the wanted
+      // outcome rather than an error worth surfacing.
+      ;(async () => {
+        const { error } = await supabase.from('container_types').insert({ name: trimmed })
+        if (error && error.code !== '23505') {
+          console.error('addMasterOption: could not save container type', error)
+        }
+      })()
       return trimmed
     }
     if (kind === 'customers') {
@@ -1305,6 +1477,19 @@ export const useDataStore = create<DataState>((set, get) => ({
     if (error || !data) return
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     set({ containers: (data as any[]).map(rowToContainer) })
+  },
+
+  fetchContainerTypes: async () => {
+    const { data, error } = await supabase
+      .from('container_types')
+      .select('name')
+      .eq('active', true)
+      .order('size_ft', { ascending: true })
+      .order('name', { ascending: true })
+    if (error || !data) return
+    const names = (data as { name: string }[]).map((r) => r.name)
+    if (names.length === 0) return
+    set((s) => ({ masters: { ...s.masters, containerTypes: names } }))
   },
 
   fetchContainerActivities: async () => {
@@ -1768,10 +1953,14 @@ export const useDataStore = create<DataState>((set, get) => ({
       labels.push(BOOKING_FIELD_LABEL[field] ?? field)
     }
 
-    if (booking.dbId) {
-      const { error } = await supabase.from('bookings').update(columns).eq('id', booking.dbId)
-      if (error) throw new Error(error.message)
+    // No database row means nothing can be saved. Updating local state alone
+    // would show a change that vanishes on the next load, which is how edits
+    // came to look saved when they were not.
+    if (!booking.dbId) {
+      throw new Error('This booking is not in the database, so it cannot be edited.')
     }
+    const { error } = await supabase.from('bookings').update(columns).eq('id', booking.dbId)
+    if (error) throw new Error(error.message)
 
     set((st) => ({
       bookings: st.bookings.map((b) =>
@@ -2999,11 +3188,18 @@ export const useDataStore = create<DataState>((set, get) => ({
 
   createFfShipment: (s, vendorLines) => {
     const st = get()
+    // RKS numbering, per Siddharth: RKSF + financial year + six digits,
+    // mirroring Kinetic's KLNVO2627NNNNNN, and starting at 000001.
+    //
+    // The older KINFF-00NN refs are a separate, retired series and are NOT
+    // counted here: a different prefix cannot collide, so carrying their
+    // maximum across would only skip the first thirty-six numbers of a brand
+    // new series for no reason.
     const maxSeq = st.ffShipments.reduce((max, x) => {
-      const m = x.ref.match(/^KINFF-(\d{4})/)
+      const m = x.ref.match(/^RKSF\d{4}(\d{6})/)
       return m ? Math.max(max, +m[1]) : max
-    }, 30)
-    const ref = `KINFF-${String(maxSeq + 1).padStart(4, '0')}`
+    }, 0)
+    const ref = `${FF_REF_PREFIX}${String(maxSeq + 1).padStart(6, '0')}`
     const id = ref
     // Flow 1 credit gate: over the sell-amount limit → held for Finance
     // sign-off. Any Days of Credit at all is a second, separate trigger for
@@ -3590,7 +3786,27 @@ export const useDataStore = create<DataState>((set, get) => ({
 
   /* ── Customer Management actions ─────────────────────────── */
 
-  customers: mockCustomerRecords,
+  customers: [],
+
+  fetchCustomers: async () => {
+    const [parties, accounts] = await Promise.all([
+      supabase
+        .from('parties')
+        .select('*')
+        .contains('roles', ['Customer'])
+        .order('legal_name', { ascending: true }),
+      supabase.from('customer_accounts').select('*'),
+    ])
+    if (parties.error || !parties.data) return
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const byParty = new Map<string, any>()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    for (const a of ((accounts.data as any[]) ?? [])) byParty.set(a.party_id, a)
+    set({
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      customers: (parties.data as any[]).map((p) => toCustomerRecord(p, byParty.get(p.id))),
+    })
+  },
 
   updateCustomer: (id, patch, auditNote) =>
     set((s) => {
@@ -3615,6 +3831,20 @@ export const useDataStore = create<DataState>((set, get) => ({
         next.find((c) => c.id === id)?.status === 'Active'
       let acts = log(s.activities, id, 'Admin', auditNote)
       if (flipped) acts = log(acts, id, 'System', 'All four onboarding conditions met — status auto-flipped Prospect → Active')
+
+      /* Commercial terms belong to the company, not the browser. The account
+         row may not exist yet -- most parties have never had terms agreed --
+         so this upserts rather than updating, and the status flip above is
+         written with the rest. */
+      const columns = customerPatchToColumns(flipped ? { ...patch, status: 'Active' } : patch)
+      if (Object.keys(columns).length > 0) {
+        ;(async () => {
+          const { error } = await supabase
+            .from('customer_accounts')
+            .upsert({ party_id: id, ...columns }, { onConflict: 'tenant_id,party_id' })
+          if (error) console.error('updateCustomer: failed to persist', error)
+        })()
+      }
       return { customers: next, activities: acts }
     }),
 
@@ -3896,10 +4126,27 @@ export const useDataStore = create<DataState>((set, get) => ({
       }
     }),
 
-  decideApproval: (approvalId, decision) =>
+  decideApproval: (approvalId, decision, decidedBy) =>
     set((s) => {
       const ap = s.approvals.find((a) => a.id === approvalId)
       if (!ap || ap.status !== 'Pending') return s
+
+      // Hiding the buttons is not the control; this is.
+      if (!decidedBy?.isAdmin) {
+        return {
+          activities: log(s.activities, ap.bookingId ?? '', decidedBy?.name ?? 'Unknown',
+            `Approval refused — only an Admin can decide "${ap.summary}"`),
+        }
+      }
+      const samePerson =
+        !!decidedBy.name &&
+        ap.requestedBy.trim().toLowerCase() === decidedBy.name.trim().toLowerCase()
+      if (samePerson) {
+        return {
+          activities: log(s.activities, ap.bookingId ?? '', decidedBy.name,
+            `Approval refused — ${decidedBy.name} cannot decide their own request "${ap.summary}"`),
+        }
+      }
       let patch: Partial<DataState> = {}
       const done = () => ({
         ...patch,

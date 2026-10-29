@@ -10,7 +10,6 @@ import { PortSearchField } from './PortSearchField'
 import { useDataStore } from '../../store/useDataStore'
 import { useAuthStore, useCurrentUser } from '../../store/useAuthStore'
 import { supabase } from '../../lib/supabaseClient'
-import { mockDepots, mockVendors } from '../../mocks/masters'
 import type { ChargeLine, Direction, FreightTerms } from '../../lib/types'
 
 interface DraftCharge {
@@ -37,6 +36,7 @@ export function NewBookingWizard({ open, onClose, onCreated }: Props) {
   const createBooking = useDataStore((s) => s.createBooking)
   const masters = useDataStore((s) => s.masters)
   const addMasterOption = useDataStore((s) => s.addMasterOption)
+  const fetchContainerTypes = useDataStore((s) => s.fetchContainerTypes)
   const currentUser = useCurrentUser()
   const viewAsRole = useAuthStore((s) => s.viewAsRole)
   const isAdmin = (viewAsRole ?? currentUser?.role) === 'admin'
@@ -79,13 +79,31 @@ export function NewBookingWizard({ open, onClose, onCreated }: Props) {
   const [packageTypeOptions, setPackageTypeOptions] = useState<string[]>([])
   const [grossWeightKg, setGrossWeightKg] = useState(0)
 
+  /* Depots and surveyors come from Master Data, never from a list kept in
+     this form. The form used to hold its own 13 depots and 1 surveyor, so a
+     booking stored an id that Master Data had never heard of and the Parties
+     tab reported "No depots added yet" for a booking that plainly had one. */
+  const [depotOptions, setDepotOptions] = useState<{ id: string; name: string }[]>([])
+  const [surveyorOptions, setSurveyorOptions] = useState<{ id: string; name: string }[]>([])
+
   useEffect(() => {
     supabase
       .from('package_types')
       .select('code')
       .order('code', { ascending: true })
       .then(({ data }) => setPackageTypeOptions((data ?? []).map((r) => r.code as string)))
-  }, [])
+    supabase
+      .from('empty_depots')
+      .select('id,name')
+      .order('name', { ascending: true })
+      .then(({ data }) => setDepotOptions((data as { id: string; name: string }[]) ?? []))
+    supabase
+      .from('surveyors')
+      .select('id,name')
+      .order('name', { ascending: true })
+      .then(({ data }) => setSurveyorOptions((data as { id: string; name: string }[]) ?? []))
+    fetchContainerTypes()
+  }, [fetchContainerTypes])
 
   // Step 2 — costing (doc §2)
   const [chargeLines, setChargeLines] = useState<DraftCharge[]>([
@@ -189,8 +207,13 @@ export function NewBookingWizard({ open, onClose, onCreated }: Props) {
         etd,
         eta,
         freightTerms,
+        // The documents read depotId / surveyorRefId; the older
+        // emptyYardId / surveyorId are kept in step so both sides of the
+        // booking agree rather than a CRO printing a blank depot.
         surveyorId: surveyorId || null,
         emptyYardId: emptyYardId || null,
+        depotId: emptyYardId || null,
+        surveyorRefId: surveyorId || null,
         containerType,
         containerQty,
         containerNos: [],
@@ -241,6 +264,7 @@ export function NewBookingWizard({ open, onClose, onCreated }: Props) {
             <PartySearchField
               value={customerName}
               roles={['Importer', 'Exporter']}
+              commercialRole="Customer"
               placeholder="Search customer…"
               onSelect={(p) => {
                 setCustomerId(p.id)
@@ -280,6 +304,7 @@ export function NewBookingWizard({ open, onClose, onCreated }: Props) {
             <PartySearchField
               value={originAgentName}
               roles={['Forwarder']}
+              commercialRole="Agent"
               placeholder="Search agent…"
               onSelect={(p) => {
                 setOriginAgentId(p.id)
@@ -291,6 +316,7 @@ export function NewBookingWizard({ open, onClose, onCreated }: Props) {
             <PartySearchField
               value={destAgentName}
               roles={['Forwarder']}
+              commercialRole="Agent"
               placeholder="Search agent…"
               onSelect={(p) => {
                 setDestAgentId(p.id)
@@ -367,18 +393,18 @@ export function NewBookingWizard({ open, onClose, onCreated }: Props) {
           <Field label="Transit time (days)" required>
             <TextInput type="number" value={transitTime} onChange={(e) => setTransitTime(+e.target.value)} />
           </Field>
-          <Field label="Surveyor (vendor master)" required>
+          <Field label="Surveyor (Surveyors master)" required>
             <Select value={surveyorId} onChange={(e) => setSurveyorId(e.target.value)}>
               <option value="">—</option>
-              {mockVendors.filter((v) => v.kind === 'Surveyor').map((v) => (
+              {surveyorOptions.map((v) => (
                 <option key={v.id} value={v.id}>{v.name}</option>
               ))}
             </Select>
           </Field>
-          <Field label="Empty container yard (depot master)" required>
+          <Field label="Empty container yard (Depots master)" required>
             <Select value={emptyYardId} onChange={(e) => setEmptyYardId(e.target.value)}>
               <option value="">—</option>
-              {mockDepots.map((d) => (
+              {depotOptions.map((d) => (
                 <option key={d.id} value={d.id}>{d.name}</option>
               ))}
             </Select>

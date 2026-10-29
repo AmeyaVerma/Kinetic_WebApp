@@ -21,7 +21,11 @@ import type {
 
 import { nvoccBookings, nvoccMilestones } from './nvoccSeed'
 
-export const mockBookings: Booking[] = nvoccBookings
+/* These never reached the database, so they are flagged rather than passed
+   off as live bookings -- a KPI that counts them tells the business
+   something untrue. Loading them into Postgres for real is a separate,
+   deliberate migration. */
+export const mockBookings: Booking[] = nvoccBookings.map((b) => ({ ...b, demo: true }))
 export const mockMilestones: MilestoneEntry[] = nvoccMilestones
 
 

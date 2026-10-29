@@ -26,6 +26,8 @@ export interface AppUser {
   overrides: Override
   employeeId?: string // ties to HR record for internal staff
   scopeName?: string // for external users — the customer/agent they belong to
+  /** Which companies this person may open, and their role in each. */
+  memberships?: { tenantId: string; tenantName: string; role: Role }[]
 }
 
 export interface AuditEntry {
@@ -39,19 +41,11 @@ let seq = 0
 const uid = () => `au${++seq}`
 const now = () => new Date().toISOString()
 
-const seedUsers: AppUser[] = [
-  { id: 'u1', name: 'Siddharth Singh', email: 'siddharth@kintlog.com', role: 'admin', status: 'Active', mfaEnabled: true, lastLogin: '2026-07-15T08:30:00Z', overrides: {}, employeeId: 'e1' },
-  { id: 'u2', name: 'Kavita Mehta', email: 'kavita@kintlog.com', role: 'ops', status: 'Active', mfaEnabled: true, lastLogin: '2026-07-14T17:10:00Z', overrides: {}, employeeId: 'e2' },
-  { id: 'u3', name: 'Rohan Kulkarni', email: 'rohan@kintlog.com', role: 'ops', status: 'Active', mfaEnabled: false, lastLogin: '2026-07-13T09:45:00Z', overrides: {}, employeeId: 'e3' },
-  { id: 'u4', name: 'Neha Sharma', email: 'neha@kintlog.com', role: 'finance', status: 'Active', mfaEnabled: true, lastLogin: '2026-07-15T07:55:00Z', overrides: {}, employeeId: 'e4' },
-  { id: 'u5', name: 'Imtiaz Shaikh', email: 'imtiaz@kintlog.com', role: 'mnr', status: 'Active', mfaEnabled: false, lastLogin: '2026-07-12T14:20:00Z', overrides: {}, employeeId: 'e5' },
-  { id: 'u6', name: 'Arjun Rao', email: 'arjun.rao@kintlog.com', role: 'sales', status: 'Active', mfaEnabled: false, lastLogin: '2026-07-11T11:00:00Z', overrides: {} },
-  { id: 'u7', name: 'Priya Desai', email: 'priya@kintlog.com', role: 'hr', status: 'Active', mfaEnabled: false, lastLogin: '2026-07-10T10:30:00Z', overrides: {} },
-  { id: 'u8', name: 'Deepak Nair', email: 'deepak@kintlog.com', role: 'ops', status: 'Suspended', mfaEnabled: false, lastLogin: '2026-06-28T16:00:00Z', overrides: { accounts: 'view' }, employeeId: 'e7' },
-  // External demo logins (managed in their own records; shown here for the demo picker only)
-  { id: 'u9', name: 'Rajesh Nair (ABC Exports)', email: 'rajesh@abcexports.in', role: 'customer', status: 'Active', mfaEnabled: false, lastLogin: '2026-07-14T08:40:00Z', overrides: {}, scopeName: 'ABC Exports Pvt. Ltd.' },
-  { id: 'u10', name: 'Khalid Mansoor (Gulf Star)', email: 'ops@gulfstar.ae', role: 'agent', status: 'Active', mfaEnabled: true, lastLogin: '2026-07-13T07:55:00Z', overrides: {}, scopeName: 'Gulf Star Shipping LLC' },
-]
+/* The Users screen used to list ten invented accounts with last-logins in
+   July 2026, and omitted whoever was actually signed in (spec F12). The real
+   roster now comes from `profiles` via fetchUsers(), so the seed list is
+   gone rather than kept as a fallback -- a fallback here would just be the
+   same fiction, shown when a query failed. */
 
 interface ProfileRow {
   id: string
@@ -87,8 +81,35 @@ export interface PendingSignup {
   createdAt: string
 }
 
+/** A company the signed-in person belongs to, and their role there. A person
+    can hold a different role in each — an Admin at Kinetic may be Finance at
+    RKS — so the role travels with the membership, not the profile. */
+export interface Company {
+  id: string
+  name: string
+  role: Role
+}
+
 interface AuthState {
   users: AppUser[]
+  /** Every company this person may open. Empty until the profile loads. */
+  companies: Company[]
+  /** The company whose data the whole session is scoped to. Null means the
+      chooser has not been answered yet. */
+  activeCompanyId: string | null
+  companiesLoading: boolean
+  loadCompanies: () => Promise<void>
+  /** The real signed-up accounts, read from `profiles` with each person's
+      company memberships. Replaces the ten invented rows the Users screen
+      used to show (spec F12). */
+  fetchUsers: () => Promise<void>
+  usersLoading: boolean
+  /** Grants or revokes a person's access to a company, with their role there.
+      Siddharth: "admin can also choose who can login to which company." */
+  setMembership: (userId: string, tenantId: string, role: Role | null) => Promise<void>
+  /** Switches company for the session. Row-level security reads the same
+      value from the database, so this is the real scope change, not a filter. */
+  setActiveCompany: (companyId: string) => Promise<void>
   viewAsRole: Role | null // admin-only "preview as" — never escalates
   audit: AuditEntry[]
 
@@ -148,7 +169,7 @@ async function fetchProfileRow(userId: string): Promise<ProfileRow | null> {
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
-  users: seedUsers,
+  users: [],
   viewAsRole: null,
   audit: [
     { id: 'a0', at: '2026-07-01T09:00:00Z', actor: 'System', action: 'RBAC initialised — 8 roles, 10 staff/external logins seeded' },
@@ -162,6 +183,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   recoveryMode: false,
   pendingSignups: [],
   accountCount: null,
+  companies: [],
+  activeCompanyId: null,
+  companiesLoading: true,
+  usersLoading: true,
 
   initAuth: () => {
     const applyRow = (row: ProfileRow | null) =>
@@ -171,6 +196,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const row = session ? await fetchProfileRow(session.user.id) : null
       applyRow(row)
       set({ session, authLoading: false })
+      if (session) void get().loadCompanies()
+      else set({ companies: [], activeCompanyId: null, companiesLoading: false })
     })
 
     supabase.auth.onAuthStateChange((event, session) => {
@@ -180,10 +207,126 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       set({ session, authLoading: false })
       if (session) {
         fetchProfileRow(session.user.id).then(applyRow)
+        void get().loadCompanies()
       } else {
-        set({ profile: null, profileStatus: null, viewAsRole: null })
+        set({
+          profile: null, profileStatus: null, viewAsRole: null,
+          companies: [], activeCompanyId: null, companiesLoading: false,
+        })
       }
     })
+  },
+
+  fetchUsers: async () => {
+    const [profiles, memberships, tenants] = await Promise.all([
+      supabase.from('profiles').select('*').order('created_at', { ascending: true }),
+      supabase.from('memberships').select('user_id, tenant_id, role'),
+      supabase.from('tenants').select('id, name'),
+    ])
+    if (profiles.error || !profiles.data) {
+      set({ usersLoading: false })
+      return
+    }
+    const tenantName = new Map(
+      ((tenants.data as { id: string; name: string }[]) ?? []).map((t) => [t.id, t.name]),
+    )
+    const byUser = new Map<string, { tenantId: string; tenantName: string; role: Role }[]>()
+    for (const m of ((memberships.data as { user_id: string; tenant_id: string; role: Role }[]) ?? [])) {
+      const list = byUser.get(m.user_id) ?? []
+      list.push({ tenantId: m.tenant_id, tenantName: tenantName.get(m.tenant_id) ?? '—', role: m.role })
+      byUser.set(m.user_id, list)
+    }
+    const rows = (profiles.data as ProfileRow[]).map((r) => ({
+      id: r.id,
+      name: r.name,
+      email: r.email,
+      // A Pending account has no role yet; show it rather than hiding the row.
+      role: (r.role ?? 'ops') as Role,
+      status: r.status,
+      mfaEnabled: r.mfa_enabled,
+      lastLogin: null,
+      overrides: {} as Override,
+      memberships: (byUser.get(r.id) ?? []).sort((a, b) => a.tenantName.localeCompare(b.tenantName)),
+    }))
+    set({ users: rows, usersLoading: false })
+  },
+
+  setMembership: async (userId, tenantId, role) => {
+    if (role === null) {
+      const { error } = await supabase
+        .from('memberships')
+        .delete()
+        .eq('user_id', userId)
+        .eq('tenant_id', tenantId)
+      if (error) {
+        set({ authError: error.message })
+        return
+      }
+    } else {
+      const { error } = await supabase
+        .from('memberships')
+        .upsert({ user_id: userId, tenant_id: tenantId, role }, { onConflict: 'user_id,tenant_id' })
+      if (error) {
+        set({ authError: error.message })
+        return
+      }
+    }
+    await get().fetchUsers()
+  },
+
+  loadCompanies: async () => {
+    const { data: auth } = await supabase.auth.getUser()
+    const uid = auth.user?.id
+    if (!uid) {
+      set({ companies: [], activeCompanyId: null, companiesLoading: false })
+      return
+    }
+    const [memberships, profile] = await Promise.all([
+      supabase.from('memberships').select('tenant_id, role, tenants(id, name)').eq('user_id', uid),
+      supabase.from('profiles').select('active_tenant_id').eq('id', uid).single(),
+    ])
+    const rows = (memberships.data ?? []) as unknown as {
+      tenant_id: string
+      role: Role
+      tenants: { id: string; name: string } | null
+    }[]
+    const companies: Company[] = rows
+      .filter((r) => r.tenants)
+      .map((r) => ({ id: r.tenant_id, name: r.tenants!.name, role: r.role }))
+      .sort((a, b) => a.name.localeCompare(b.name))
+
+    const stored = (profile.data as { active_tenant_id: string | null } | null)?.active_tenant_id
+    // Only one company means there is nothing to choose: go straight in.
+    const active =
+      companies.length === 1
+        ? companies[0].id
+        : companies.some((c) => c.id === stored)
+          ? stored!
+          : null
+    set({ companies, activeCompanyId: active, companiesLoading: false })
+  },
+
+  setActiveCompany: async (companyId) => {
+    const { data: auth } = await supabase.auth.getUser()
+    const uid = auth.user?.id
+    if (!uid) return
+    // The database is the one that matters: auth_tenant_id() reads this
+    // column, and refuses a company the person is not a member of.
+    const { error } = await supabase
+      .from('profiles')
+      .update({ active_tenant_id: companyId })
+      .eq('id', uid)
+    if (error) {
+      set({ authError: error.message })
+      return
+    }
+    set({ activeCompanyId: companyId, viewAsRole: null })
+
+    /* Every store slice was loaded under the previous company. Clearing them
+       one by one would be a list someone forgets to update, and a single
+       stale booking shown under the wrong company is a GST problem, not a
+       cosmetic one. So the session restarts outright. */
+    if (typeof window !== 'undefined') window.location.assign('/')
   },
 
   signIn: async (email, password) => {

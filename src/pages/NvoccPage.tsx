@@ -30,20 +30,26 @@ export function NvoccPage() {
     [bookings],
   )
 
+  // KPIs count live bookings only. The seeded CSV rows are shown in the
+  // list so the history is visible, but counting them would overstate the
+  // business by every row that was never actually placed in this system.
+  const liveBookings = useMemo(() => nvoccBookings.filter((b) => !b.demo), [nvoccBookings])
+  const demoCount = nvoccBookings.length - liveBookings.length
+
   const kpis = useMemo(() => {
-    const statuses = nvoccBookings.map((b) => {
+    const statuses = liveBookings.map((b) => {
       const entries = milestones.filter((m) => m.bookingId === b.id)
       return toChipStatus(deriveStatus(b.direction, entries, b.cancelled))
     })
     return {
-      total: nvoccBookings.length,
-      exports: nvoccBookings.filter((b) => b.direction === 'Export').length,
-      imports: nvoccBookings.filter((b) => b.direction === 'Import').length,
+      total: liveBookings.length,
+      exports: liveBookings.filter((b) => b.direction === 'Export').length,
+      imports: liveBookings.filter((b) => b.direction === 'Import').length,
       inTransit: statuses.filter((s) => s === 'In Transit').length,
       delivered: statuses.filter((s) => s === 'Delivered' || s === 'Arrived').length,
       blDrafts: statuses.filter((s) => s === 'BL Draft').length,
     }
-  }, [nvoccBookings, milestones])
+  }, [liveBookings, milestones])
 
   const bookingRows = useMemo(
     () =>
@@ -90,6 +96,16 @@ export function NvoccPage() {
         <StatKpi label="BL Drafts" value={kpis.blDrafts} icon={<FileText size={17} />} tint="#FEFCE8" color="#F59E0B" />
       </div>
 
+      {demoCount > 0 && (
+        <p className="text-xs text-muted">
+          The figures above count the {liveBookings.length} live booking
+          {liveBookings.length === 1 ? '' : 's'}. {demoCount} older row
+          {demoCount === 1 ? '' : 's'} imported from the historical spreadsheet
+          {demoCount === 1 ? ' is' : ' are'} listed below marked{' '}
+          <span className="font-semibold">DEMO</span> and left out of the counts.
+        </p>
+      )}
+
       <Card className="overflow-hidden">
         <div className="flex items-center justify-end border-b border-line px-4 py-2.5">
           <CsvButton filename="nvocc-bookings" rows={bookingRows} />
@@ -120,7 +136,14 @@ export function NvoccPage() {
                     onClick={() => navigate(`/nvocc/${b.id}`)}
                     className="cursor-pointer border-b border-line last:border-0 hover:bg-surface-2/60"
                   >
-                    <td className="px-5 py-3 font-mono text-xs font-medium text-link">{b.bookingRef}</td>
+                    <td className="px-5 py-3 font-mono text-xs font-medium text-link">
+                      {b.bookingRef}
+                      {b.demo && (
+                        <span className="ml-2 rounded-badge bg-surface-2 px-1.5 py-0.5 font-sans text-[9px] font-bold uppercase tracking-wide text-muted">
+                          Demo
+                        </span>
+                      )}
+                    </td>
                     <td className="px-3 py-3 text-xs text-body">{b.direction}</td>
                     <td className="px-3 py-3 text-xs text-body">{b.pol} → {b.pod}</td>
                     <td className="px-3 py-3 text-xs text-body">{b.vesselName} / {b.voyageNo}</td>

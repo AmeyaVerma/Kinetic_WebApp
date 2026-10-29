@@ -1,4 +1,12 @@
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react'
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from 'react'
 import { useDataStore } from '../../store/useDataStore'
 import { useAuthStore, useCurrentUser } from '../../store/useAuthStore'
 import type { Booking } from '../../lib/types'
@@ -29,6 +37,10 @@ interface BookingEditValue {
   /** Fields may be typed into right now. */
   canType: boolean
   isAdmin: boolean
+  /** False for a booking that only exists in the seeded list -- there is no
+      database row to save into, so offering Edit would promise a save that
+      cannot happen. */
+  editable: boolean
   dirtyCount: number
   saving: boolean
   error: string | null
@@ -54,6 +66,7 @@ export function BookingEditProvider({
   const viewAsRole = useAuthStore((s) => s.viewAsRole)
   const isAdmin = (viewAsRole ?? user?.role) === 'admin'
 
+  const editable = !!booking.dbId
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState<Draft>({})
   const [saving, setSaving] = useState(false)
@@ -110,12 +123,25 @@ export function BookingEditProvider({
     setSaving(false)
   }, [draft, booking.id, saveBookingEdits, user])
 
+  const dirtyCount = Object.keys(draft).length
+
+  /* Unsaved changes must not disappear silently. Reloading, closing the tab
+     or following a link away from the booking all discard the draft, so the
+     browser asks first while anything is uncommitted. */
+  useEffect(() => {
+    if (dirtyCount === 0) return
+    const warn = (e: BeforeUnloadEvent) => e.preventDefault()
+    window.addEventListener('beforeunload', warn)
+    return () => window.removeEventListener('beforeunload', warn)
+  }, [dirtyCount])
+
   const value = useMemo<BookingEditValue>(
     () => ({
       editing,
       canType: editing && isAdmin,
       isAdmin,
-      dirtyCount: Object.keys(draft).length,
+      editable,
+      dirtyCount,
       saving,
       error,
       begin,
@@ -124,7 +150,7 @@ export function BookingEditProvider({
       valueOf,
       setField,
     }),
-    [editing, isAdmin, draft, saving, error, begin, cancel, save, valueOf, setField],
+    [editing, isAdmin, editable, dirtyCount, saving, error, begin, cancel, save, valueOf, setField],
   )
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
@@ -142,6 +168,7 @@ export function useBookingEdit(): BookingEditValue {
     editing: false,
     canType: false,
     isAdmin: false,
+    editable: false,
     dirtyCount: 0,
     saving: false,
     error: null,

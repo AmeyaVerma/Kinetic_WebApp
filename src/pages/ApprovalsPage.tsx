@@ -4,7 +4,7 @@ import { Check, X, Lock } from 'lucide-react'
 import { Card } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { CsvButton } from '../components/ui/CsvButton'
-import { StatusChip } from '../components/ui/StatusChip'
+import { Badge } from '../components/ui/Badge'
 import { Tabs } from '../components/ui/Tabs'
 import { useDataStore } from '../store/useDataStore'
 import { useAuthStore, useCurrentUser } from '../store/useAuthStore'
@@ -115,7 +115,10 @@ export function ApprovalsPage() {
             entityRef={entityFor(a).ref}
             entityPath={entityFor(a).path}
             isAdmin={isAdmin}
-            onDecide={(d) => decideApproval(a.id, d)}
+            currentUserName={currentUser?.name ?? ''}
+            onDecide={(d) =>
+              decideApproval(a.id, d, { name: currentUser?.name ?? '', isAdmin })
+            }
           />
         ))}
         {filtered.length === 0 && (
@@ -133,19 +136,27 @@ function ApprovalRow({
   entityRef,
   entityPath,
   isAdmin,
+  currentUserName,
   onDecide,
 }: {
   approval: Approval
   entityRef: string | null
   entityPath: string | null
   isAdmin: boolean
+  currentUserName: string
   onDecide: (d: 'Approved' | 'Rejected') => void
 }) {
-  // Days-of-credit holds and costing/charge approvals are Admin-only to
-  // decide — everything else in this queue stays open to anyone with
-  // Approvals access, matching the existing per-role module access.
-  const adminOnly = a.fieldChange?.field === 'daysOfCredit' || a.entityType === 'booking_costing'
-  const locked = adminOnly && !isAdmin
+  /* Siddharth's rule: "No approval by yourself, only by admin." Two separate
+     gates, and the second one binds an Admin as much as anyone else -- an
+     Admin approving their own request is exactly the hole the spec's H4
+     named, so it needs a second pair of eyes rather than a trusted role. */
+  const ownRequest =
+    !!currentUserName &&
+    a.requestedBy.trim().toLowerCase() === currentUserName.trim().toLowerCase()
+  const locked = !isAdmin || ownRequest
+  const lockReason = ownRequest
+    ? 'You raised this — another Admin has to decide it'
+    : 'Only an Admin can decide this'
 
   return (
     <Card className="p-4">
@@ -155,9 +166,9 @@ function ApprovalRow({
             <span className="rounded-badge bg-surface-2 px-2.5 py-0.5 text-[11px] font-semibold text-heading">
               {TYPE_LABEL[a.entityType]}
             </span>
-            {adminOnly && (
+            {ownRequest && (
               <span className="flex items-center gap-1 rounded-badge bg-[#FEF3C7] px-2 py-0.5 text-[10px] font-semibold text-[#B45309]">
-                <Lock size={10} /> Admin only
+                <Lock size={10} /> Your request
               </span>
             )}
             {entityRef && entityPath && (
@@ -168,8 +179,9 @@ function ApprovalRow({
                 {entityRef}
               </Link>
             )}
-            <StatusChip
-              status={a.status === 'Pending' ? 'Pending' : a.status === 'Approved' ? 'Delivered' : 'Cancelled'}
+            <Badge
+              tone={a.status === 'Pending' ? 'attention' : a.status === 'Approved' ? 'success' : 'danger'}
+              label={a.status}
             />
           </div>
           <p className="mt-1.5 text-[13px] text-heading">{a.summary}</p>
@@ -200,7 +212,7 @@ function ApprovalRow({
         {a.status === 'Pending' && (
           locked ? (
             <span className="flex shrink-0 items-center gap-1.5 text-xs text-muted">
-              <Lock size={13} /> Only an Admin can decide this
+              <Lock size={13} /> {lockReason}
             </span>
           ) : (
             <div className="flex shrink-0 gap-2">

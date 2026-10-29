@@ -16,7 +16,7 @@ import { Card } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { StatKpi } from '../components/ui/StatKpi'
 import { CsvButton } from '../components/ui/CsvButton'
-import { StatusChip } from '../components/ui/StatusChip'
+import { Badge, type BadgeTone } from '../components/ui/Badge'
 import { Tabs } from '../components/ui/Tabs'
 import { Modal } from '../components/ui/Modal'
 import { Field, Select, TextInput } from '../components/ui/Field'
@@ -27,7 +27,7 @@ import { latestEstimate } from '../lib/mnr'
 import { deriveBookingLocation } from '../lib/fleetLocation'
 import { mockDepots } from '../mocks/masters'
 import { CONTAINER_REPORT_LOCATIONS } from '../lib/types'
-import type { Booking, ChipStatus, ContainerActivity, ContainerStatus, FleetContainer, MnrJob } from '../lib/types'
+import type { Booking, ContainerActivity, ContainerStatus, FleetContainer, MnrJob } from '../lib/types'
 
 const DAY_MS = 86400000
 const cscExpiringSoon = (f: FleetContainer) => new Date(f.cscExpiry).getTime() - Date.now() < 90 * DAY_MS
@@ -52,25 +52,25 @@ function fleetLocation(
   return { code, label: codeLabel ? `${codeLabel} · ${f.custodianBookingRef}` : f.custodianBookingRef }
 }
 
-const CONTAINER_CHIP: Record<ContainerStatus, ChipStatus> = {
-  Available: 'Delivered',
-  'On Hire': 'In Transit',
-  'Under Repair': 'Documentation',
-  'Off Hire': 'Draft',
-  Hold: 'Pending',
-  Scrapped: 'Cancelled',
-  Lost: 'Overdue',
+const CONTAINER_TONE: Record<ContainerStatus, BadgeTone> = {
+  Available: 'success',
+  'On Hire': 'info',
+  'Under Repair': 'warn',
+  'Off Hire': 'neutral',
+  Hold: 'attention',
+  Scrapped: 'danger',
+  Lost: 'critical',
 }
 
-const STAGE_CHIP: Record<MnrJob['stage'], ChipStatus> = {
-  'Initial Inspection': 'Pending',
-  'Damage Survey': 'Documentation',
-  Estimate: 'Draft',
-  Approval: 'Pending',
-  'Repair Execution': 'In Transit',
-  'Quality Control': 'Documentation',
-  'Finance Posting': 'BL Draft',
-  Closed: 'Delivered',
+const STAGE_TONE: Record<MnrJob['stage'], BadgeTone> = {
+  'Initial Inspection': 'attention',
+  'Damage Survey': 'warn',
+  Estimate: 'neutral',
+  Approval: 'attention',
+  'Repair Execution': 'info',
+  'Quality Control': 'warn',
+  'Finance Posting': 'warn',
+  Closed: 'done',
 }
 
 export function MnrPage() {
@@ -205,8 +205,7 @@ export function MnrPage() {
                           {est ? `$${est.total.toLocaleString()} (v${est.version})` : '—'}
                         </td>
                         <td className="px-3 py-3">
-                          <StatusChip status={STAGE_CHIP[j.stage]} />
-                          <span className="ml-2 text-[11px] text-muted">{j.stage}</span>
+                          <Badge tone={STAGE_TONE[j.stage]} label={j.stage} />
                         </td>
                       </tr>
                     )
@@ -318,7 +317,7 @@ function FleetTable() {
                     mockDepots.find((d) => d.id === f.depotId)?.name ?? '—'
                   )}
                 </td>
-                <td className="px-5 py-3"><StatusChip status={CONTAINER_CHIP[f.status]} /><span className="ml-2 text-[11px] text-muted">{f.status}</span></td>
+                <td className="px-5 py-3"><Badge tone={CONTAINER_TONE[f.status]} label={f.status} /></td>
               </tr>
             ))}
             {shown.length === 0 && (
@@ -448,7 +447,7 @@ function AlertsTable() {
                 <tr key={f.id} className="border-b border-line last:border-0 hover:bg-surface-2/60">
                   <td className="px-5 py-3 font-mono text-xs font-medium text-heading">{f.containerNo}</td>
                   <td className="px-3 py-3 text-xs text-body">{f.isoType}</td>
-                  <td className="px-3 py-3"><StatusChip status={CONTAINER_CHIP[f.status]} /></td>
+                  <td className="px-3 py-3"><Badge tone={CONTAINER_TONE[f.status]} label={f.status} /></td>
                   <td className="px-3 py-3 font-mono text-xs">
                     <span className="text-body">{f.lastUsedDate}</span>
                     <span className="ml-1.5 rounded-badge bg-[#FFF7ED] px-1.5 py-0.5 text-[10px] font-semibold text-[#EA580C]">

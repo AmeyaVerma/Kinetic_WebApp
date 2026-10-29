@@ -4,28 +4,28 @@ import { Card } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { StatKpi } from '../components/ui/StatKpi'
 import { CsvButton } from '../components/ui/CsvButton'
-import { StatusChip } from '../components/ui/StatusChip'
 import { Tabs } from '../components/ui/Tabs'
 import { Modal } from '../components/ui/Modal'
 import { Field, Select, TextInput } from '../components/ui/Field'
 import { EmployeeDetail } from '../components/hr/EmployeeDetail'
 import { useDataStore } from '../store/useDataStore'
 import { balanceFor, daysBetween, HOLIDAYS_2026, SICK_CERT_THRESHOLD_DAYS } from '../lib/hr'
-import type { ChipStatus, EmployeeStatus, LeaveStatus, LeaveType } from '../lib/types'
+import { Badge, type BadgeTone } from '../components/ui/Badge'
+import type { EmployeeStatus, LeaveStatus, LeaveType } from '../lib/types'
 
-const EMP_CHIP: Record<EmployeeStatus, ChipStatus> = {
-  Onboarding: 'Draft',
-  Probation: 'Documentation',
-  Active: 'Delivered',
-  'On Notice': 'Pending',
-  Exited: 'Cancelled',
+const EMP_TONE: Record<EmployeeStatus, BadgeTone> = {
+  Onboarding: 'neutral',
+  Probation: 'warn',
+  Active: 'success',
+  'On Notice': 'attention',
+  Exited: 'danger',
 }
 
-const LEAVE_CHIP: Record<LeaveStatus, ChipStatus> = {
-  Pending: 'Pending',
-  Approved: 'Delivered',
-  Rejected: 'Cancelled',
-  Cancelled: 'Draft',
+const LEAVE_TONE: Record<LeaveStatus, BadgeTone> = {
+  Pending: 'attention',
+  Approved: 'success',
+  Rejected: 'danger',
+  Cancelled: 'neutral',
 }
 
 export function HrPage() {
@@ -167,8 +167,7 @@ export function HrPage() {
                         {balanceFor(e, 'Casual')} / {balanceFor(e, 'Sick')} / {balanceFor(e, 'Earned')}
                       </td>
                       <td className="px-5 py-3">
-                        <StatusChip status={EMP_CHIP[e.status]} />
-                        <span className="ml-2 text-[11px] text-muted">{e.status}</span>
+                        <Badge tone={EMP_TONE[e.status]} label={e.status} />
                       </td>
                     </tr>
                   ))}
@@ -210,7 +209,7 @@ export function HrPage() {
                     <td className="px-3 py-3 font-mono text-xs text-body">{r.from} → {r.to}</td>
                     <td className="px-3 py-3 font-mono text-xs text-body">{r.days}</td>
                     <td className="px-3 py-3 text-xs text-body">{r.reason}</td>
-                    <td className="px-3 py-3"><StatusChip status={LEAVE_CHIP[r.status]} /></td>
+                    <td className="px-3 py-3"><Badge tone={LEAVE_TONE[r.status]} label={r.status} /></td>
                     <td className="px-5 py-3 text-right">
                       {r.status === 'Pending' && (
                         <Button size="sm" variant="ghost" onClick={() => cancelLeave(r.id)}>Cancel</Button>
@@ -270,7 +269,7 @@ export function HrPage() {
                     <td className="px-3 py-3 font-mono text-xs text-body">
                       {p.lopDeductionsInr > 0 ? `−₹${p.lopDeductionsInr.toLocaleString('en-IN')}` : '—'}
                     </td>
-                    <td className="px-5 py-3"><StatusChip status={p.status === 'Paid' ? 'Delivered' : 'Pending'} /></td>
+                    <td className="px-5 py-3"><Badge tone={p.status === 'Paid' ? 'success' : 'attention'} label={p.status} /></td>
                   </tr>
                 ))}
               </tbody>

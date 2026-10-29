@@ -11,9 +11,9 @@ import { useBookingEdit } from './BookingEditContext'
  * updated if someone stopped partway.
  */
 export function BookingEditBar() {
-  const { editing, isAdmin, dirtyCount, saving, error, begin, cancel, save } = useBookingEdit()
+  const { editing, isAdmin, editable, dirtyCount, saving, error, begin, cancel, save } = useBookingEdit()
 
-  if (!isAdmin) return null
+  if (!isAdmin || !editable) return null
 
   if (!editing) {
     return (

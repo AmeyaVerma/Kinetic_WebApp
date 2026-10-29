@@ -46,6 +46,7 @@ import { AgentsPage } from './pages/AgentsPage'
 import { HrPage } from './pages/HrPage'
 import { LoginPage } from './pages/LoginPage'
 import { ResetPasswordPage } from './pages/ResetPasswordPage'
+import { CompanyChooserPage } from './pages/CompanyChooserPage'
 import { SettingsPage } from './pages/SettingsPage'
 import { ExternalPortal } from './pages/ExternalPortal'
 import { UsersRolesPage } from './pages/admin/UsersRolesPage'
@@ -82,6 +83,8 @@ export default function App() {
   const recoveryMode = useAuthStore((s) => s.recoveryMode)
   const initAuth = useAuthStore((s) => s.initAuth)
   const signOut = useAuthStore((s) => s.signOut)
+  const activeCompanyId = useAuthStore((s) => s.activeCompanyId)
+  const companiesLoading = useAuthStore((s) => s.companiesLoading)
 
   useEffect(() => {
     initAuth()
@@ -128,6 +131,22 @@ export default function App() {
     // Shouldn't happen given the checks above, but keep TypeScript honest
     // and avoid ever rendering the shell without a resolved profile.
     return <AccountStatusScreen onSignOut={signOut} kind="pending" />
+  }
+
+  /* Internal staff who belong to more than one company pick one before the
+     shell loads. Customers and agents skip it entirely — their portal is
+     scoped to their own shipments, not to a company workspace. */
+  if (!isExternal(user.role)) {
+    if (companiesLoading) {
+      return (
+        <div className="flex min-h-screen items-center justify-center bg-bg">
+          <p className="text-sm text-muted">Loading your companies…</p>
+        </div>
+      )
+    }
+    if (!activeCompanyId) {
+      return <CompanyChooserPage />
+    }
   }
 
   // External roles → scoped portal, no internal shell
