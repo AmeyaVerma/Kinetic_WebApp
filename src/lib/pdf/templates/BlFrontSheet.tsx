@@ -219,11 +219,12 @@ export function BlFrontSheet({
             each one is a complete form. */}
         <View style={s.cargoBody}>
           <View style={[s.cell, { width: COL.marks }]}>
-            <Text style={s.value}>
-              {snapshot.useContainerSheet
-                ? S.asPerAttachedSheet
-                : (page ? page.marks : snapshot.marksAndNumbers)}
-            </Text>
+            {/* The container numbers always print here. This used to say
+                "AS PER ATTACHED CONTAINER SHEET" whenever the sheet was on,
+                which hid the very numbers the consignee needs to read off the
+                face of the BL. The sheet still follows as an extra page for
+                the per-container seal and weight detail. */}
+            <Text style={s.value}>{page ? page.marks : snapshot.marksAndNumbers}</Text>
           </View>
           <View style={[s.cell, { width: COL.desc }]}>
             <Text style={s.value}>

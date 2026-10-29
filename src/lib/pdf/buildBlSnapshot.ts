@@ -55,7 +55,14 @@ export function buildBlSnapshot({
   const base: BlSnapshot = {
     blNumber,
     blType,
-    printMode,
+    // Spec F15. Scan Copy is a photocopy of an ORIGINAL, so it means nothing
+    // on a Draft, Telex or Seaway BL. The mode was stored on the BL and kept
+    // applying after the type changed, which turned every later type black
+    // and white until someone switched back to Original and turned it off --
+    // and the control is only shown on Original, so there was no way to see
+    // what was wrong. Derived here instead of trusted, so the type always
+    // wins.
+    printMode: blType === 'Original' ? printMode : 'Original',
     shipmentReference: booking.bookingRef ?? '',
 
     consignor: booking.shipper ?? '',

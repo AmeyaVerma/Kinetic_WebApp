@@ -40,12 +40,10 @@ export interface BlPagination {
 }
 
 export function paginateBlCargo(snapshot: BlSnapshot): BlPagination {
-  // With the attach sheet on, the container column prints one fixed line and
-  // the containers are listed on the sheet instead, so only the cargo
-  // description can drive overflow.
-  const markLines = snapshot.useContainerSheet
-    ? []
-    : splitLines(snapshot.marksAndNumbers)
+  // The container column always carries the numbers now, so it can drive
+  // overflow again -- a booking with more containers than fit on one face
+  // continues onto the next sheet rather than being replaced by a pointer.
+  const markLines = splitLines(snapshot.marksAndNumbers)
   const descLines = splitLines(snapshot.packagesAndDescription)
 
   const sheets = Math.max(

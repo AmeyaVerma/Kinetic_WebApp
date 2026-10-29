@@ -171,20 +171,33 @@ Deno.serve(async (req) => {
     if (!settings) return fail(500, 'Company settings missing')
 
     const grey = scan
+
+    // What goes on the page, by BL type:
+    //   Draft            -- nothing, and the caller already blocks it
+    //   Surrender        -- the signature AND the surrender stamp, together
+    //   any other type   -- the signature only
+    //
     // The company's signature artwork already carries the round stamp, so a
-    // separate stamp file is optional rather than required. Composite
-    // whichever of the two exist; only refuse when neither does, because
-    // that is the case where the output would look signed and not be.
+    // separate stamp file is optional rather than required: composite
+    // whichever exist, and refuse only when none do, because that is the case
+    // where the output would look signed without being so.
+    //
+    // A surrender used to composite the stamp ALONE, so a surrendered BL came
+    // out marked BL SURRENDERED with an empty Authorised Signatory box -- the
+    // document asserted a surrender and showed nobody standing behind it.
+    const signatureAssets = [
+      {
+        path: grey ? settings.signature_grey_path : settings.signature_path,
+        place: 'signature',
+      },
+      { path: grey ? settings.stamp_grey_path : settings.stamp_path, place: 'stamp' },
+    ]
+
     const candidates =
       option === 'signed'
-        ? [
-            {
-              path: grey ? settings.signature_grey_path : settings.signature_path,
-              place: 'signature',
-            },
-            { path: grey ? settings.stamp_grey_path : settings.stamp_path, place: 'stamp' },
-          ]
+        ? signatureAssets
         : [
+            ...signatureAssets,
             {
               path: grey ? settings.surrender_stamp_grey_path : settings.surrender_stamp_path,
               place: 'surrender',
@@ -198,6 +211,19 @@ Deno.serve(async (req) => {
         'No artwork uploaded for ' +
           (option === 'signed' ? 'the signature' : 'the surrender stamp') +
           '. Upload it under Master Data -> Company settings first.',
+      )
+    }
+
+    // A surrender needs BOTH marks. With the signature present but the
+    // surrender stamp missing, the lines above would happily produce a
+    // signed BL and call it surrendered -- the one outcome worth refusing,
+    // because the document would assert something that never happened.
+    if (option === 'surrender' && !wanted.some((w) => w.place === 'surrender')) {
+      return fail(
+        409,
+        'The surrender stamp artwork is missing, and a Surrender BL must carry ' +
+          'both the stamp and the signature. Upload it under Master Data -> ' +
+          'Company settings first.',
       )
     }
 

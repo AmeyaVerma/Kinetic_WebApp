@@ -229,7 +229,13 @@ export function DocumentMakerTab({ booking }: { booking: Booking }) {
       // Scan Copy prints everything black and white, so it takes the
       // greyscale masthead; a colour logo on a mono page would be the one
       // thing that gave it away as not a photocopy.
-      logoSrc: bl?.print_mode === 'Scan' ? (logoGreySrc ?? logoSrc) : logoSrc,
+      // Same derivation as the snapshot: Scan Copy only means anything on an
+      // Original, so a Telex or Seaway BL keeps the colour masthead even if
+      // Scan was left switched on from an earlier Original (spec F15).
+      logoSrc:
+        bl?.print_mode === 'Scan' && (bl?.bl_type ?? 'Draft') === 'Original'
+          ? (logoGreySrc ?? logoSrc)
+          : logoSrc,
     })
   }, [booking, company, bl, issuedSnapshot, logoSrc, logoGreySrc])
 
@@ -493,7 +499,18 @@ export function DocumentMakerTab({ booking }: { booking: Booking }) {
               <Select
                 value={bl.bl_type}
                 disabled={!canWrite || blIssued || busy}
-                onChange={(e) => patchBl({ bl_type: e.target.value as BlType })}
+                onChange={(e) => {
+                  const next = e.target.value as BlType
+                  // Leaving Original also leaves Scan Copy behind: the
+                  // control disappears with the type, so a stored 'Scan'
+                  // would keep printing black and white with nothing on
+                  // screen to explain it.
+                  patchBl(
+                    next === 'Original'
+                      ? { bl_type: next }
+                      : { bl_type: next, print_mode: 'Original' },
+                  )
+                }}
               >
                 {BL_TYPES.map((t) => (
                   <option key={t} value={t}>
@@ -555,7 +572,10 @@ export function DocumentMakerTab({ booking }: { booking: Booking }) {
                   const { Document } = await import('@react-pdf/renderer')
                   const blob = await pdf(
                     <Document title={bl.bl_number + ' backside'}>
-                      <BlBackside scan={bl.print_mode === 'Scan'} src={backsideSrc} />
+                      <BlBackside
+                        scan={bl.print_mode === 'Scan' && bl.bl_type === 'Original'}
+                        src={backsideSrc}
+                      />
                     </Document>,
                   ).toBlob()
                   download(blob, bl.bl_number + '_BACKSIDE.pdf')

@@ -114,7 +114,8 @@ export function missingBlFields(snapshot: BlSnapshot): string[] {
   return BL_REQUIRED_FIELDS.filter((f) => {
     // The container column is satisfied by the attach sheet too -- the
     // containers are then listed there instead of in the BL body.
-    if (f.key === 'marksAndNumbers' && snapshot.useContainerSheet) return false
+    // marksAndNumbers always prints: see BlFrontSheet. The attach sheet is
+    // additional detail, not a replacement for the numbers on the face.
     const v = snapshot[f.key]
     return typeof v !== 'string' || v.trim() === ''
   }).map((f) => f.label)
