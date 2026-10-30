@@ -3,6 +3,7 @@ import { useEffect, type ReactNode, lazy, Suspense } from 'react'
 import { Layout } from './components/layout/Layout'
 import { DesignSystemPage } from './pages/DesignSystemPage'
 import { PlaceholderPage } from './pages/PlaceholderPage'
+import { AccountsPage } from './pages/AccountsPage'
 import { NvoccPage } from './pages/NvoccPage'
 import { BookingDetailPage } from './pages/BookingDetailPage'
 import { ApprovalsPage } from './pages/ApprovalsPage'
@@ -180,7 +181,7 @@ export default function App() {
               </Guard>
             }
           />
-          <Route path="/accounts" element={<Guard module="accounts"><PlaceholderPage title="Accounts" /></Guard>} />
+          <Route path="/accounts" element={<Guard module="accounts"><AccountsPage /></Guard>} />
           <Route path="/master" element={<Guard module="master"><MasterDataPage /></Guard>} />
           <Route path="/master/parties" element={<Guard module="master"><PartiesMasterPage /></Guard>} />
           <Route path="/master/parties/new" element={<Guard module="master"><AddPartyPage /></Guard>} />

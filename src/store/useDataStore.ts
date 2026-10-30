@@ -1016,6 +1016,12 @@ interface DataState {
       booking form, so an addition is seen by every screen and survives a
       refresh. */
   fetchContainerTypes: () => Promise<void>
+  /** Pulls real booking_charges rows and merges them into `charges`, keyed
+      back to the local booking id -- the same additive shape as
+      fetchBookings. Charges were written to the database and never read back,
+      so the Invoicing tab showed the seeded mock lines and a real booking's
+      own charges were invisible to it. */
+  fetchCharges: () => Promise<void>
   fetchBookings: () => Promise<void>
   /** Pulls real container_activities rows (keyed by dbId) and merges them
       into containerActivities, keyed back to the local booking id — same
@@ -1567,6 +1573,44 @@ export const useDataStore = create<DataState>((set, get) => ({
     if (error || !data) return
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     set({ containers: (data as any[]).map(rowToContainer) })
+  },
+
+  fetchCharges: async () => {
+    const { data, error } = await supabase
+      .from('booking_charges')
+      .select('id, booking_id, charge_code_id, charge_name, type, amount, currency, vendor_id')
+    if (error || !data) return
+    set((s) => {
+      // booking_charges is keyed by the booking's database id; the store
+      // keys everything by the booking ref, so the rows are translated back.
+      const localIdOf = new Map(
+        s.bookings.filter((b) => b.dbId).map((b) => [b.dbId as string, b.id]),
+      )
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const fetched = (data as any[])
+        .map((r) => {
+          const bookingId = localIdOf.get(r.booking_id as string)
+          if (!bookingId) return null
+          return {
+            id: r.id as string,
+            dbId: r.id as string,
+            bookingId,
+            chargeCodeId: r.charge_code_id ?? '',
+            chargeName: r.charge_name ?? 'Charge',
+            type: (r.type ?? 'sell') as 'buy' | 'sell',
+            amount: Number(r.amount ?? 0),
+            currency: (r.currency ?? 'USD') as 'USD' | 'INR',
+            vendorId: r.vendor_id ?? null,
+          }
+        })
+        .filter(Boolean) as typeof s.charges
+
+      // Keep whatever is already held for bookings the fetch did not cover
+      // (seeded rows, and anything optimistically added a moment ago).
+      const covered = new Set(fetched.map((c) => c.bookingId))
+      const kept = s.charges.filter((c) => !covered.has(c.bookingId))
+      return { charges: [...fetched, ...kept] }
+    })
   },
 
   fetchContainerTypes: async () => {
