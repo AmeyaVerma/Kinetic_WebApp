@@ -15,6 +15,7 @@ import {
 import { Card } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { StatKpi } from '../components/ui/StatKpi'
+import * as kpi from '../lib/kpi'
 import { CsvButton } from '../components/ui/CsvButton'
 import { Badge, type BadgeTone } from '../components/ui/Badge'
 import { Tabs } from '../components/ui/Tabs'
@@ -79,15 +80,23 @@ export function MnrPage() {
   const [gateInOpen, setGateInOpen] = useState(false)
   const { fleet, mnrJobs, approvals } = useDataStore()
 
-  const kpis = useMemo(() => {
-    const openJobs = mnrJobs.filter((j) => j.stage !== 'Closed')
-    return {
-      available: fleet.filter((f) => f.status === 'Available').length,
-      underRepair: fleet.filter((f) => f.status === 'Under Repair').length,
-      approvalQueue: approvals.filter((a) => a.entityType === 'repair_estimate' && a.status === 'Pending').length,
-      openJobs: openJobs.length,
-    }
-  }, [fleet, mnrJobs, approvals])
+  /**
+   * Shared definitions again (spec M6). Under Repair counted containers
+   * whose status field said so -- five of them -- against three open jobs,
+   * because the status is set by hand and the job is the actual work. The
+   * spec settles it in favour of the job. The approval queue counted only
+   * repair_estimate rows, so a repair waiting on an Admin showed as zero
+   * whenever it had been raised through any other route.
+   */
+  const kpis = useMemo(
+    () => ({
+      available: kpi.containersAvailable(fleet, mnrJobs).length,
+      underRepair: kpi.containersUnderRepair(fleet, mnrJobs).length,
+      approvalQueue: kpi.pendingApprovals(approvals).length,
+      openJobs: kpi.openRepairJobs(mnrJobs).length,
+    }),
+    [fleet, mnrJobs, approvals],
+  )
 
   const alertCount = useMemo(
     () => fleet.filter((f) => cscExpiringSoon(f) || isIdle6Months(f)).length,

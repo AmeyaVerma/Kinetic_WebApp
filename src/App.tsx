@@ -2,7 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-route
 import { useEffect, type ReactNode, lazy, Suspense } from 'react'
 import { Layout } from './components/layout/Layout'
 import { DesignSystemPage } from './pages/DesignSystemPage'
-import { PlaceholderPage } from './pages/PlaceholderPage'
+import { ReportsPage } from './pages/ReportsPage'
 import { AccountsPage } from './pages/AccountsPage'
 import { NvoccPage } from './pages/NvoccPage'
 import { BookingDetailPage } from './pages/BookingDetailPage'
@@ -266,7 +266,7 @@ export default function App() {
           <Route path="/approvals" element={<Guard module="approvals"><ApprovalsPage /></Guard>} />
           <Route path="/portal/customer" element={<Guard module="customers"><CustomersPage /></Guard>} />
           <Route path="/portal/agent" element={<Guard module="agents"><AgentsPage /></Guard>} />
-          <Route path="/reports" element={<Guard module="reports"><PlaceholderPage title="Reports" /></Guard>} />
+          <Route path="/reports" element={<Guard module="reports"><ReportsPage /></Guard>} />
           <Route path="/hr" element={<Guard module="hr"><HrPage /></Guard>} />
           <Route path="/settings" element={<Guard module="settings"><SettingsPage /></Guard>} />
           <Route path="/admin/users" element={<Guard module="users"><UsersRolesPage /></Guard>} />

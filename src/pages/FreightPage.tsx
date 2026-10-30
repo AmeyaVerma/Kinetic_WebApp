@@ -4,6 +4,7 @@ import { Plus, Trash2, Link2, Boxes, Ship, DollarSign, ClipboardCheck } from 'lu
 import { Card } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { StatKpi } from '../components/ui/StatKpi'
+import * as kpi from '../lib/kpi'
 import { CsvButton } from '../components/ui/CsvButton'
 import { Badge, type BadgeTone } from '../components/ui/Badge'
 import { Modal } from '../components/ui/Modal'
@@ -36,14 +37,22 @@ export function FreightPage() {
 
   const parents = useMemo(() => ffShipments.filter((f) => !f.parentId), [ffShipments])
 
+  /**
+   * GP is two figures, never one.
+   *
+   * Adding a shipment still carrying quoted buy figures to one whose vendor
+   * bills have all arrived gives a number that is true of neither set -- it
+   * read "$-50" while the listed GPs added to roughly $2,150 (spec M6). A
+   * shipment is estimated until every vendor line is billed, and then it is
+   * actual, and the two are shown apart.
+   */
   const kpis = useMemo(() => {
     const open = parents.filter((f) => f.stage !== 'Closed')
-    const gpTotal = parents.reduce((a, f) => a + ffGp(f).value, 0)
     return {
       total: parents.length,
       open: open.length,
       inTransit: parents.filter((f) => f.stage === 'Export & Transit').length,
-      gpTotal,
+      gp: kpi.gpSplit(parents),
       docs: parents.filter((f) => f.stage === 'Documentation').length,
     }
   }, [parents])
@@ -79,13 +88,31 @@ export function FreightPage() {
       </div>
 
       {/* KPI row */}
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
         <StatKpi label="Total Shipments" value={kpis.total} icon={<Boxes size={17} />} tint="#ECFDF5" color="#10B981" />
         <StatKpi label="Open" value={kpis.open} icon={<ClipboardCheck size={17} />} tint="#EFF6FF" color="#3B82F6" />
         <StatKpi label="In Transit" value={kpis.inTransit} icon={<Ship size={17} />} tint="#F5F3FF" color="#8B5CF6" />
         <StatKpi label="In Documentation" value={kpis.docs} icon={<Link2 size={17} />} tint="#FEFCE8" color="#F59E0B" />
-        <StatKpi label="Total GP" value={`$${kpis.gpTotal.toLocaleString()}`} icon={<DollarSign size={17} />} tint="#FFF7ED" color="#F97316" />
+        <StatKpi
+          label={`Estimated GP (${kpis.gp.estimatedCount})`}
+          value={`$${Math.round(kpis.gp.estimated).toLocaleString()}`}
+          icon={<DollarSign size={17} />}
+          tint="#FFF7ED"
+          color="#F97316"
+        />
+        <StatKpi
+          label={`Actual GP (${kpis.gp.actualCount})`}
+          value={`$${Math.round(kpis.gp.actual).toLocaleString()}`}
+          icon={<DollarSign size={17} />}
+          tint="#ECFDF5"
+          color="#10B981"
+        />
       </div>
+
+      <p className="text-xs text-muted">
+        Estimated GP covers shipments still carrying quoted buy figures; actual GP covers
+        those whose vendor bills have all arrived. They are never added together.
+      </p>
 
       <Card className="overflow-hidden">
         <div className="flex items-center justify-end border-b border-line px-4 py-2.5">

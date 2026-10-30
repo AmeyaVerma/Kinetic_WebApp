@@ -10,6 +10,7 @@ import { DocStatusChip } from '../components/ui/DocStatusChip'
 import { NewBookingWizard } from '../components/nvocc/NewBookingWizard'
 import { useDataStore } from '../store/useDataStore'
 import { deriveStatus, latestActivityLabel, toChipStatus } from '../lib/milestones'
+import * as kpi from '../lib/kpi'
 import { docStatusOf } from '../lib/docStatus'
 
 export function NvoccPage() {
@@ -30,30 +31,40 @@ export function NvoccPage() {
     [bookings],
   )
 
-  // KPIs count live bookings only. The seeded CSV rows are shown in the
-  // list so the history is visible, but counting them would overstate the
-  // business by every row that was never actually placed in this system.
+  // The historical CSV rows are real history but were never placed in this
+  // system, so counting them would overstate the business. They stay
+  // visible behind a toggle -- and because the toggle drives the cards and
+  // the table together, a card always equals the rows beneath it, which is
+  // what the spec's acceptance checklist asks for.
+  const [includeHistorical, setIncludeHistorical] = useState(false)
   const liveBookings = useMemo(() => nvoccBookings.filter((b) => !b.demo), [nvoccBookings])
   const demoCount = nvoccBookings.length - liveBookings.length
+  const shown = includeHistorical ? nvoccBookings : liveBookings
 
-  const kpis = useMemo(() => {
-    const statuses = liveBookings.map((b) => {
-      const entries = milestones.filter((m) => m.bookingId === b.id)
-      return toChipStatus(deriveStatus(b.direction, entries, b.cancelled))
-    })
-    return {
-      total: liveBookings.length,
-      exports: liveBookings.filter((b) => b.direction === 'Export').length,
-      imports: liveBookings.filter((b) => b.direction === 'Import').length,
-      inTransit: statuses.filter((s) => s === 'In Transit').length,
-      delivered: statuses.filter((s) => s === 'Delivered' || s === 'Arrived').length,
-      blDrafts: statuses.filter((s) => s === 'BL Draft').length,
-    }
-  }, [liveBookings, milestones])
+  /**
+   * Every figure here comes from src/lib/kpi.ts, which is also what the
+   * table below filters on. The cards used to answer a different question
+   * from the column beside them -- BL Drafts read the milestone ladder while
+   * the Documentation column read the BL's own lifecycle, so the card said 0
+   * against twenty-odd rows marked Draft (spec M6).
+   */
+  const counted = useMemo(() => kpi.totalBookings(shown), [shown])
+
+  const kpis = useMemo(
+    () => ({
+      total: counted.length,
+      exports: kpi.byDirection(counted, 'Export').length,
+      imports: kpi.byDirection(counted, 'Import').length,
+      inTransit: kpi.inTransit(counted, milestones).length,
+      delivered: kpi.deliveredOrArrived(counted, milestones).length,
+      blDrafts: kpi.blDrafts(counted, blStates).length,
+    }),
+    [counted, milestones, blStates],
+  )
 
   const bookingRows = useMemo(
     () =>
-      nvoccBookings.map((b) => {
+      counted.map((b) => {
         const entries = milestones.filter((m) => m.bookingId === b.id)
         const bl = blStates.find((x) => x.bookingId === b.id)
         return {
@@ -69,7 +80,7 @@ export function NvoccPage() {
           Status: deriveStatus(b.direction, entries, b.cancelled),
         }
       }),
-    [nvoccBookings, milestones, containerActivities, blStates],
+    [counted, milestones, containerActivities, blStates],
   )
 
   return (
@@ -97,13 +108,17 @@ export function NvoccPage() {
       </div>
 
       {demoCount > 0 && (
-        <p className="text-xs text-muted">
-          The figures above count the {liveBookings.length} live booking
-          {liveBookings.length === 1 ? '' : 's'}. {demoCount} older row
-          {demoCount === 1 ? '' : 's'} imported from the historical spreadsheet
-          {demoCount === 1 ? ' is' : ' are'} listed below marked{' '}
-          <span className="font-semibold">DEMO</span> and left out of the counts.
-        </p>
+        <label className="flex cursor-pointer items-center gap-2 text-xs text-muted">
+          <input
+            type="checkbox"
+            className="accent-primary"
+            checked={includeHistorical}
+            onChange={(e) => setIncludeHistorical(e.target.checked)}
+          />
+          Include {demoCount} historical row{demoCount === 1 ? '' : 's'} imported from the
+          spreadsheet. They are marked <span className="font-semibold">DEMO</span> and are
+          left out of the figures unless you tick this.
+        </label>
       )}
 
       <Card className="overflow-hidden">
@@ -126,7 +141,7 @@ export function NvoccPage() {
               </tr>
             </thead>
             <tbody>
-              {nvoccBookings.map((b) => {
+              {counted.map((b) => {
                 const entries = milestones.filter((m) => m.bookingId === b.id)
                 const status = deriveStatus(b.direction, entries, b.cancelled)
                 const bl = blStates.find((x) => x.bookingId === b.id)
