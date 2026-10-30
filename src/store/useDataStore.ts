@@ -5,6 +5,7 @@
 
 import { create } from 'zustand'
 import { supabase } from '../lib/supabaseClient'
+import { syncApprovals, markSynced, rowToApproval } from './approvalSync'
 import type {
   ActivityEntry,
   AgentRecord,
@@ -83,7 +84,6 @@ import {
 } from '../mocks/masters'
 import {
   mockActivities,
-  mockApprovals,
   mockBlStates,
   mockBlVersions,
   mockBookings,
@@ -98,6 +98,11 @@ import {
 
 let seq = 1000
 const uid = (p: string) => `${p}${++seq}`
+/* An approval's id is now the primary key of a real row, so it has to be a
+   uuid rather than the counter-based id used for things that only ever live
+   in the browser. Minted here so the queue on screen and the row in the
+   database are the same object from the moment it is raised. */
+const apId = () => crypto.randomUUID()
 const now = () => new Date().toISOString()
 
 /* ── Supabase mapping (NVOCC pilot only — see supabase/migrations/0005) ──
@@ -1022,6 +1027,10 @@ interface DataState {
       so the Invoicing tab showed the seeded mock lines and a real booking's
       own charges were invisible to it. */
   fetchCharges: () => Promise<void>
+  /** Pulls the real approvals queue. Approvals used to live only in browser
+      memory: a costing request raised in the morning was gone by the
+      afternoon, and no second person ever saw it. */
+  fetchApprovals: () => Promise<void>
   fetchBookings: () => Promise<void>
   /** Pulls real container_activities rows (keyed by dbId) and merges them
       into containerActivities, keyed back to the local booking id — same
@@ -1475,7 +1484,7 @@ export const useDataStore = create<DataState>((set, get) => ({
   containerActivities: mockContainerActivities,
   containerActivityMarks: {},
   invoices: mockInvoices,
-  approvals: mockApprovals,
+  approvals: [],
   activities: mockActivities,
   parties: [],
   partyBranches: [],
@@ -1610,6 +1619,25 @@ export const useDataStore = create<DataState>((set, get) => ({
       const covered = new Set(fetched.map((c) => c.bookingId))
       const kept = s.charges.filter((c) => !covered.has(c.bookingId))
       return { charges: [...fetched, ...kept] }
+    })
+  },
+
+  fetchApprovals: async () => {
+    const { data, error } = await supabase
+      .from('approvals')
+      .select('*')
+      .order('requested_at', { ascending: false })
+    if (error || !data) return
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const fetched = (data as any[]).map(rowToApproval)
+    // Seed the sync map first, so rows that just came out of the database are
+    // not written straight back into it.
+    markSynced(fetched)
+    set((st) => {
+      const ids = new Set(fetched.map((a) => a.id))
+      // Anything raised a moment ago whose insert has not landed yet is kept.
+      const kept = st.approvals.filter((a) => !ids.has(a.id))
+      return { approvals: [...kept, ...fetched] }
     })
   },
 
@@ -1896,7 +1924,7 @@ export const useDataStore = create<DataState>((set, get) => ({
       // approval gate: the document is already saved regardless of decision.
       approvals: [
         {
-          id: uid('ap'),
+          id: apId(),
           entityType: 'party_document' as const,
           entityId: partyId,
           bookingId: null,
@@ -2211,7 +2239,7 @@ export const useDataStore = create<DataState>((set, get) => ({
       return {
         approvals: [
           {
-            id: uid('ap'),
+            id: apId(),
             entityType: 'booking_field_edit' as const,
             entityId: bookingId,
             bookingId,
@@ -2240,7 +2268,7 @@ export const useDataStore = create<DataState>((set, get) => ({
       return {
         approvals: [
           {
-            id: uid('ap'),
+            id: apId(),
             entityType: 'ff_field_edit' as const,
             entityId: shipmentId,
             bookingId: null,
@@ -2441,7 +2469,7 @@ export const useDataStore = create<DataState>((set, get) => ({
         ),
         approvals: [
           {
-            id: uid('ap'),
+            id: apId(),
             entityType: 'bl_edit' as const,
             entityId: bookingId,
             bookingId,
@@ -2779,7 +2807,7 @@ export const useDataStore = create<DataState>((set, get) => ({
     set((s) => ({
       approvals: [
         {
-          id: uid('ap'),
+          id: apId(),
           entityType: 'booking_costing' as const,
           entityId: bookingId,
           bookingId,
@@ -2830,7 +2858,7 @@ export const useDataStore = create<DataState>((set, get) => ({
       if (next === 'Pending approval') {
         extra.approvals = [
           {
-            id: uid('ap'),
+            id: apId(),
             entityType: 'invoice' as const,
             entityId: invoiceId,
             bookingId: inv.bookingId,
@@ -3103,7 +3131,7 @@ export const useDataStore = create<DataState>((set, get) => ({
       if (!autoApproved) {
         patch.approvals = [
           {
-            id: uid('ap'),
+            id: apId(),
             entityType: 'repair_estimate' as const,
             entityId: jobId,
             bookingId: null,
@@ -3136,7 +3164,7 @@ export const useDataStore = create<DataState>((set, get) => ({
         mnrJobs: s.mnrJobs.map((j) => (j.id === jobId ? { ...j, additionalDamagePending: true } : j)),
         approvals: [
           {
-            id: uid('ap'),
+            id: apId(),
             entityType: 'repair_estimate' as const,
             entityId: `${jobId}:delta`,
             bookingId: null,
@@ -3222,7 +3250,7 @@ export const useDataStore = create<DataState>((set, get) => ({
       if (overTolerance) {
         patch.approvals = [
           {
-            id: uid('ap'),
+            id: apId(),
             entityType: 'invoice' as const,
             entityId: jobId,
             bookingId: null,
@@ -3376,7 +3404,7 @@ export const useDataStore = create<DataState>((set, get) => ({
       approvals: creditHold
         ? [
             {
-              id: uid('ap'),
+              id: apId(),
               entityType: 'credit_hold' as const,
               entityId: id,
               bookingId: null,
@@ -3689,7 +3717,7 @@ export const useDataStore = create<DataState>((set, get) => ({
         // as NVOCC's submitCustomerBlEdit.
         extra.approvals = [
           {
-            id: uid('ap'),
+            id: apId(),
             entityType: 'bl_edit' as const,
             entityId: `ff:${id}`,
             bookingId: null,
@@ -3861,7 +3889,7 @@ export const useDataStore = create<DataState>((set, get) => ({
       if (flag) {
         extra.approvals = [
           {
-            id: uid('ap'),
+            id: apId(),
             entityType: 'invoice' as const,
             entityId: `${id}:${lineId}`,
             bookingId: null,
@@ -3978,7 +4006,7 @@ export const useDataStore = create<DataState>((set, get) => ({
         customers: s.customers.map((x) => (x.id === id ? { ...x, pendingCreditRequest: amount } : x)),
         approvals: [
           {
-            id: uid('ap'),
+            id: apId(),
             entityType: 'credit_hold' as const,
             entityId: `cust:${id}:credit`,
             bookingId: null,
@@ -4000,7 +4028,7 @@ export const useDataStore = create<DataState>((set, get) => ({
       return {
         approvals: [
           {
-            id: uid('ap'),
+            id: apId(),
             entityType: 'blacklist' as const,
             entityId: `cust:${id}:blacklist`,
             bookingId: null,
@@ -4023,7 +4051,7 @@ export const useDataStore = create<DataState>((set, get) => ({
       return {
         approvals: [
           {
-            id: uid('ap'),
+            id: apId(),
             entityType: 'blacklist' as const,
             entityId: `cust:${id}:reverse`,
             bookingId: null,
@@ -4056,7 +4084,7 @@ export const useDataStore = create<DataState>((set, get) => ({
         agents: s.agents.map((x) => (x.id === id ? { ...x, activationRequested: true } : x)),
         approvals: [
           {
-            id: uid('ap'),
+            id: apId(),
             entityType: 'agent_gate' as const,
             entityId: `agt:${id}:onboard`,
             bookingId: null,
@@ -4079,7 +4107,7 @@ export const useDataStore = create<DataState>((set, get) => ({
         agents: s.agents.map((x) => (x.id === id ? { ...x, pendingCommissionChange: description } : x)),
         approvals: [
           {
-            id: uid('ap'),
+            id: apId(),
             entityType: 'agent_gate' as const,
             entityId: `agt:${id}:commission`,
             bookingId: null,
@@ -4122,7 +4150,7 @@ export const useDataStore = create<DataState>((set, get) => ({
       return {
         approvals: [
           {
-            id: uid('ap'),
+            id: apId(),
             entityType: 'agent_gate' as const,
             entityId: `agt:${id}:terminate`,
             bookingId: null,
@@ -4175,7 +4203,7 @@ export const useDataStore = create<DataState>((set, get) => ({
         leaveRequests: [req, ...s.leaveRequests],
         approvals: [
           {
-            id: uid('ap'),
+            id: apId(),
             entityType: 'leave_request' as const,
             entityId: `emp:${emp.id}:leave:${req.id}`,
             bookingId: null,
@@ -4272,7 +4300,9 @@ export const useDataStore = create<DataState>((set, get) => ({
       let patch: Partial<DataState> = {}
       const done = () => ({
         ...patch,
-        approvals: s.approvals.map((a) => (a.id === approvalId ? { ...a, status: decision } : a)),
+        approvals: s.approvals.map((a) =>
+          a.id === approvalId ? { ...a, status: decision, decidedBy: decidedBy.name } : a,
+        ),
       })
       // HR leave approvals (entityId emp:{id}:leave:{reqId})
       if (ap.entityId.startsWith('emp:') && ap.entityType === 'leave_request') {
@@ -4421,7 +4451,7 @@ export const useDataStore = create<DataState>((set, get) => ({
         }
         return {
           ...patch,
-          approvals: s.approvals.map((a) => (a.id === approvalId ? { ...a, status: decision } : a)),
+          approvals: s.approvals.map((a) => (a.id === approvalId ? { ...a, status: decision, decidedBy: decidedBy.name } : a)),
         }
       }
       if (ap.entityType === 'bl_edit' && ap.entityId.startsWith('ff:')) {
@@ -4438,7 +4468,7 @@ export const useDataStore = create<DataState>((set, get) => ({
         }
         return {
           ...patch,
-          approvals: s.approvals.map((a) => (a.id === approvalId ? { ...a, status: decision } : a)),
+          approvals: s.approvals.map((a) => (a.id === approvalId ? { ...a, status: decision, decidedBy: decidedBy.name } : a)),
         }
       }
       if (ap.entityType === 'repair_estimate') {
@@ -4477,7 +4507,7 @@ export const useDataStore = create<DataState>((set, get) => ({
         }
         return {
           ...patch,
-          approvals: s.approvals.map((a) => (a.id === approvalId ? { ...a, status: decision } : a)),
+          approvals: s.approvals.map((a) => (a.id === approvalId ? { ...a, status: decision, decidedBy: decidedBy.name } : a)),
         }
       }
       if (decision === 'Approved') {
@@ -4566,10 +4596,25 @@ export const useDataStore = create<DataState>((set, get) => ({
       const activityTarget = ap.bookingId ?? (ap.entityType === 'ff_field_edit' ? ap.entityId : null)
       return {
         ...patch,
-        approvals: s.approvals.map((a) => (a.id === approvalId ? { ...a, status: decision } : a)),
+        approvals: s.approvals.map((a) => (a.id === approvalId ? { ...a, status: decision, decidedBy: decidedBy.name } : a)),
         activities: activityTarget
           ? log(s.activities, activityTarget, 'Ops', `Approval ${decision.toLowerCase()}: ${ap.summary}`)
           : s.activities,
       }
     }),
 }))
+
+/* ── Keeping the queue in the database ───────────────────────────
+   Approvals are raised from nineteen places in this file. Rather than a
+   write at each one -- nineteen chances to forget, and a twentieth written
+   by someone who never read this -- the queue itself is watched, and
+   anything that appears in it or changes status is mirrored.
+
+   See src/store/approvalSync.ts for why the writes are fire-and-forget. */
+useDataStore.subscribe((state, prev) => {
+  if (state.approvals === prev.approvals) return
+  const bookings = state.bookings
+  void syncApprovals(state.approvals, (bookingId) =>
+    bookingId ? bookings.find((b) => b.id === bookingId)?.dbId ?? null : null,
+  )
+})

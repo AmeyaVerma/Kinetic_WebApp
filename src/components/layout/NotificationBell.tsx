@@ -44,7 +44,14 @@ function saveRead(ids: Set<string>) {
 
 export function NotificationBell() {
   const navigate = useNavigate()
-  const { approvals, bookings, blStates } = useDataStore()
+  const { approvals, bookings, blStates, fetchApprovals } = useDataStore()
+
+  // The bell sits in the layout, so this is the one place every page passes
+  // through — the queue is loaded here rather than in each screen that
+  // happens to read it.
+  useEffect(() => {
+    void fetchApprovals()
+  }, [fetchApprovals])
   const [open, setOpen] = useState(false)
   const [read, setRead] = useState<Set<string>>(loadRead)
   const boxRef = useRef<HTMLDivElement>(null)

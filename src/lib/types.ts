@@ -829,6 +829,9 @@ export interface Approval {
   requestedBy: string
   requestedAt: string
   status: ApprovalStatus
+  /** Who approved or rejected it. The one rule this queue enforces is that
+      nobody decides their own request, so the decider is worth keeping. */
+  decidedBy?: string
   /** For bl_edit: proposed field changes awaiting ops approval */
   payload?: Partial<BlFields>
   /** For booking_field_edit: a single non-admin field-level change awaiting
