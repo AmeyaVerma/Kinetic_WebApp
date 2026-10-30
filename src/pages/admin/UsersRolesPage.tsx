@@ -4,6 +4,7 @@ import { Card } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'
 import { CsvButton } from '../../components/ui/CsvButton'
 import { AuditTrailTab } from '../../components/admin/AuditTrailTab'
+import { PortalAccountsTab } from '../../components/admin/PortalAccountsTab'
 import { Badge, type BadgeTone } from '../../components/ui/Badge'
 import { Tabs } from '../../components/ui/Tabs'
 import { Modal } from '../../components/ui/Modal'
@@ -58,6 +59,7 @@ export function UsersRolesPage() {
         tabs={[
           { key: 'pending', label: 'Pending approvals', badge: pendingSignups.length || undefined },
           { key: 'users', label: 'Users', badge: users.length },
+          { key: 'portal', label: 'Portal accounts' },
           { key: 'roles', label: 'Roles & permissions' },
           { key: 'audit', label: 'Audit trail', badge: undefined },
         ]}
@@ -67,6 +69,7 @@ export function UsersRolesPage() {
 
       {tab === 'pending' && <PendingApprovalsTab />}
       {tab === 'users' && <UsersTab />}
+      {tab === 'portal' && <PortalAccountsTab />}
       {tab === 'roles' && <RolesTab />}
       {tab === 'audit' && <AuditTrailTab />}
     </div>
