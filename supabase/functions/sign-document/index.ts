@@ -256,14 +256,29 @@ Deno.serve(async (req) => {
 
     const out = await pdf.save({ useObjectStreams: false })
 
-    await audit(admin, profile, user.id, 'BL_SIGNED', {
+    // The signed document is NOT returned unless the signature was recorded.
+    //
+    // A signature nobody can trace is the thing this whole function exists to
+    // prevent -- the PIN, the lockout and the per-admin hashing are all there
+    // to answer "who signed this BL". Handing back a composited PDF while the
+    // record of it was silently dropped is exactly the failure that went
+    // unnoticed until now, so an unloggable signature is refused instead.
+    const auditError = await audit(admin, profile, user.id, 'BL_SIGNED', {
       option,
       bl_number: body.blNumber ?? null,
       booking_id: body.bookingId ?? null,
       version: body.version ?? null,
       scan,
       front_sheets: frontSheets,
+      signed_by: profile.name ?? null,
     })
+    if (auditError) {
+      return fail(
+        500,
+        'The signature could not be recorded in the audit trail, so the signed ' +
+          'document has not been issued. Nothing was signed. (' + auditError + ')',
+      )
+    }
 
     return new Response(JSON.stringify({ pdf: bytesToBase64(out) }), {
       headers: { ...cors, 'Content-Type': 'application/json' },
@@ -319,10 +334,17 @@ async function audit(
   userId: string,
   action: string,
   detail: Record<string, unknown>,
-) {
+): Promise<string | null> {
   // Written explicitly rather than by a row trigger: a trigger on
   // signing_pins would copy pin_hash into audit_log, which admins can read.
-  await admin.from('audit_log').insert({
+  //
+  // The error is CHECKED now. It used to be discarded, and because
+  // audit_log.action only permitted INSERT/UPDATE/DELETE, every security
+  // event this function writes was rejected and thrown away without a trace:
+  // no signature, no failed PIN, no lockout was ever recorded. The constraint
+  // is fixed in migration 0083, and this returns the failure so the caller
+  // can decide rather than assume it worked.
+  const { error } = await admin.from('audit_log').insert({
     tenant_id: profile.tenant_id,
     table_name: 'signing_pins',
     record_id: userId,
@@ -331,6 +353,11 @@ async function audit(
     actor_role: profile.role,
     new_data: detail,
   })
+  if (error) {
+    console.error('audit write failed', action, error.message)
+    return error.message
+  }
+  return null
 }
 
 function ok(payload: unknown) {

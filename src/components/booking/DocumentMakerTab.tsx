@@ -26,7 +26,13 @@ import {
   type ResolvedMasters,
 } from '../../lib/pdf/opDocSnapshot'
 import { buildBlSnapshot, type CompanySettingsLite } from '../../lib/pdf/buildBlSnapshot'
-import { missingBlFields, formatBlNumber, fyCodeFor, type BlSnapshot } from '../../lib/pdf/blSnapshot'
+import {
+  missingBlFields,
+  formatBlNumber,
+  fyCodeFor,
+  FALLBACK_BL_SERIES,
+  type BlSnapshot,
+} from '../../lib/pdf/blSnapshot'
 import { BL_TYPE_LABEL, printsBackside, type BlType } from '../../lib/pdf/strings/bl'
 import { SigningPanel } from './SigningPanel'
 
@@ -293,7 +299,18 @@ export function DocumentMakerTab({ booking }: { booking: Booking }) {
       setBusy(false)
       return
     }
-    const blNumber = formatBlNumber(fyCodeFor(), seq as number)
+    // The series comes from company settings, not from a constant. It used
+    // to be the booking prefix, which made a BL number look exactly like a
+    // booking reference -- see formatBlNumber for what that produced.
+    const { data: series } = await supabase
+      .from('company_settings')
+      .select('bl_series')
+      .maybeSingle()
+    const blNumber = formatBlNumber(
+      series?.bl_series || FALLBACK_BL_SERIES,
+      fyCodeFor(),
+      seq as number,
+    )
     const blColumns = { bl_number: blNumber, bl_type: 'Draft' as const, status: 'Draft' as const }
     const { data: existing } = await supabase
       .from('bl_state')

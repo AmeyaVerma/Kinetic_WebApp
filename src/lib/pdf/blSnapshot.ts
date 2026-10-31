@@ -122,13 +122,26 @@ export function missingBlFields(snapshot: BlSnapshot): string[] {
 }
 
 /**
- * KLNVO + financial-year code + 6-digit sequence, e.g. KLNVO2627000531.
+ * BL series + financial-year code + 6-digit sequence, e.g. KLMTD2627000531.
+ *
+ * The series is passed in, from company_settings.bl_series, because it used
+ * to be the literal `KLNVO` -- the BOOKING prefix. A BL drew its number from
+ * its own `nvocc_bl` counter but wore the booking series, so a BL on booking
+ * KLNVO2627000025 came out numbered KLNVO2627000014: a string nothing could
+ * distinguish from a booking reference, and one a booking will eventually
+ * carry. Under spec v2 a booking has several BLs, so the collision would
+ * have multiplied.
+ *
  * The sequence comes from next_document_number() in Postgres, which
  * allocates atomically; this only formats it.
  */
-export function formatBlNumber(fyCode: string, sequence: number): string {
-  return `KLNVO${fyCode}${String(sequence).padStart(6, '0')}`
+export function formatBlNumber(series: string, fyCode: string, sequence: number): string {
+  return `${series}${fyCode}${String(sequence).padStart(6, '0')}`
 }
+
+/** Used only when company_settings has no bl_series yet. Deliberately not
+    the booking prefix, so a missing setting cannot recreate the collision. */
+export const FALLBACK_BL_SERIES = 'KLMTD'
 
 /** Financial year runs 1 April to 31 March. Mirrors public.fy_code(). */
 export function fyCodeFor(date = new Date()): string {
