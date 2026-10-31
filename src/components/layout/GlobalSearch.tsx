@@ -26,10 +26,26 @@ const MAX_PER_GROUP = 5
 
 export function GlobalSearch() {
   const navigate = useNavigate()
-  const { bookings, containers, invoices, blStates } = useDataStore()
+  const { bookings } = useDataStore()
   const [q, setQ] = useState('')
   const [open, setOpen] = useState(false)
   const [parties, setParties] = useState<Hit[]>([])
+  /**
+   * BLs, invoices and containers are read from Postgres, not from the store.
+   *
+   * They used to come from the store, and all three missed:
+   *  - a BL was matched on `currentFields.blNumber`, but the real number is
+   *    the `bl_number` COLUMN -- current_fields holds the editable BL fields,
+   *    and the number was never in it, so no BL was ever findable;
+   *  - `invoices` in the store is still the seeded list, while real invoices
+   *    live in Postgres, so searching a real invoice number found nothing;
+   *  - `containers` starts empty and is filled only by the containers master
+   *    page, so a container was findable only after visiting that screen.
+   *
+   * The search box offers "booking, BL, container, invoice". Three of those
+   * four were decorative.
+   */
+  const [dbHits, setDbHits] = useState<Hit[]>([])
   const [cursor, setCursor] = useState(0)
   const boxRef = useRef<HTMLDivElement>(null)
 
@@ -78,6 +94,69 @@ export function GlobalSearch() {
     }
   }, [q, needle])
 
+  useEffect(() => {
+    if (needle.length < 2) {
+      setDbHits([])
+      return
+    }
+    let cancelled = false
+    const t = setTimeout(() => {
+      const safe = q.trim().replace(/[,%]/g, ' ')
+      void (async () => {
+        const [bls, invs, cons] = await Promise.all([
+          supabase
+            .from('bl_state')
+            .select('booking_id, bl_number, lifecycle, bookings(booking_ref)')
+            .ilike('bl_number', `%${safe}%`)
+            .limit(MAX_PER_GROUP),
+          supabase
+            .from('invoices')
+            .select('id, invoice_no, type, status, booking_id, bookings(booking_ref)')
+            .ilike('invoice_no', `%${safe}%`)
+            .limit(MAX_PER_GROUP),
+          supabase
+            .from('containers')
+            .select('id, container_no, status, depot, port')
+            .ilike('container_no', `%${safe}%`)
+            .limit(MAX_PER_GROUP),
+        ])
+        if (cancelled) return
+
+        /* eslint-disable @typescript-eslint/no-explicit-any */
+        const blHits: Hit[] = ((bls.data as any[]) ?? []).map((r) => ({
+          id: r.booking_id,
+          group: 'Bills of Lading' as const,
+          title: r.bl_number,
+          subtitle: [r.bookings?.booking_ref, r.lifecycle].filter(Boolean).join(' · '),
+          to: `/nvocc/${r.bookings?.booking_ref ?? r.booking_id}`,
+        }))
+
+        const invHits: Hit[] = ((invs.data as any[]) ?? []).map((r) => ({
+          id: r.id,
+          group: 'Invoices' as const,
+          title: r.invoice_no,
+          subtitle: [r.type, r.status, r.bookings?.booking_ref].filter(Boolean).join(' · '),
+          to: r.bookings?.booking_ref ? `/nvocc/${r.bookings.booking_ref}` : '/accounts',
+        }))
+
+        const conHits: Hit[] = ((cons.data as any[]) ?? []).map((r) => ({
+          id: r.id,
+          group: 'Containers' as const,
+          title: r.container_no,
+          subtitle: [r.status, r.depot ?? r.port].filter(Boolean).join(' · ') || 'Container',
+          to: '/mnr',
+        }))
+        /* eslint-enable @typescript-eslint/no-explicit-any */
+
+        setDbHits([...blHits, ...conHits, ...invHits])
+      })()
+    }, 200)
+    return () => {
+      cancelled = true
+      clearTimeout(t)
+    }
+  }, [q, needle])
+
   const hits = useMemo<Hit[]>(() => {
     if (needle.length < 2) return []
     const has = (...fields: (string | null | undefined)[]) =>
@@ -105,47 +184,8 @@ export function GlobalSearch() {
         to: b.module === 'nvocc' ? `/nvocc/${b.id}` : `/freight/${b.id}`,
       }))
 
-    const blHits: Hit[] = blStates
-      .filter((s) => has(s.currentFields?.blNumber, s.currentFields?.blNumberManual))
-      .slice(0, MAX_PER_GROUP)
-      .map((s) => {
-        const b = bookings.find((x) => x.id === s.bookingId)
-        return {
-          id: s.bookingId,
-          group: 'Bills of Lading' as const,
-          title: s.currentFields?.blNumber || s.currentFields?.blNumberManual || 'BL draft',
-          subtitle: b ? `${b.bookingRef} · ${s.lifecycle}` : s.lifecycle,
-          to: `/nvocc/${s.bookingId}`,
-        }
-      })
-
-    const containerHits: Hit[] = containers
-      .filter((c) => has(c.containerNo))
-      .slice(0, MAX_PER_GROUP)
-      .map((c) => ({
-        id: c.id,
-        group: 'Containers' as const,
-        title: c.containerNo,
-        subtitle: [c.status, c.depot ?? c.port].filter(Boolean).join(' · ') || 'Container',
-        to: '/mnr',
-      }))
-
-    const invoiceHits: Hit[] = invoices
-      .filter((i) => has(i.invoiceNo))
-      .slice(0, MAX_PER_GROUP)
-      .map((i) => {
-        const b = bookings.find((x) => x.id === i.bookingId)
-        return {
-          id: i.id,
-          group: 'Invoices' as const,
-          title: i.invoiceNo,
-          subtitle: `${i.type} · ${i.status}${b ? ` · ${b.bookingRef}` : ''}`,
-          to: b ? `/nvocc/${b.id}` : '/approvals',
-        }
-      })
-
-    return [...bookingHits, ...blHits, ...containerHits, ...invoiceHits, ...parties]
-  }, [needle, bookings, blStates, containers, invoices, parties])
+    return [...bookingHits, ...dbHits, ...parties]
+  }, [needle, bookings, dbHits, parties])
 
   useEffect(() => setCursor(0), [needle])
 
