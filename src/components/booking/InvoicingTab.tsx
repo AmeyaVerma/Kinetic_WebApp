@@ -6,6 +6,7 @@ import { Badge, type BadgeTone } from '../ui/Badge'
 import { Select, TextInput } from '../ui/Field'
 import { AddableSelect } from '../ui/AddableSelect'
 import { BookingMilestonesSection } from './BookingMilestonesSection'
+import { InvoiceRecords } from './InvoiceRecords'
 import { useDataStore } from '../../store/useDataStore'
 import { supabase } from '../../lib/supabaseClient'
 import { raiseInvoice } from '../../lib/invoiceFromBooking'
@@ -187,6 +188,8 @@ export function InvoicingTab({
 
   return (
     <div className="space-y-6">
+      <InvoiceRecords booking={booking} />
+
       {/* KPI row */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <div className="rounded-card border border-line bg-surface p-4 shadow-card">
