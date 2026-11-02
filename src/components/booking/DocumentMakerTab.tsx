@@ -143,6 +143,35 @@ export function DocumentMakerTab({ booking }: { booking: Booking }) {
   // Logo is public branding and readable, unlike the stamps.
   const [logoSrc, setLogoSrc] = useState<string | undefined>(undefined)
   const [logoGreySrc, setLogoGreySrc] = useState<string | undefined>(undefined)
+  // The POD agent, formatted for the BL's Overseas Agent box. Read from the
+  // Agents master, so the box is never typed by hand.
+  const [deliveryAgent, setDeliveryAgent] = useState('')
+  const podAgentId = booking.podAgentId
+  useEffect(() => {
+    if (!podAgentId) {
+      setDeliveryAgent('')
+      return
+    }
+    let cancelled = false
+    void (async () => {
+      const { data } = await supabase
+        .from('agents')
+        .select('name, agent_branches(address_raw, city, country)')
+        .eq('id', podAgentId)
+        .maybeSingle()
+      if (cancelled || !data) return
+      const a = data as unknown as {
+        name: string
+        agent_branches?: { address_raw: string | null; city: string | null; country: string | null }[]
+      }
+      const br = a.agent_branches?.[0]
+      const addr = br?.address_raw || [br?.city, br?.country].filter(Boolean).join(', ')
+      setDeliveryAgent([a.name, addr].filter(Boolean).join('\n').toUpperCase())
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [podAgentId])
   const [open, setOpen] = useState<{ type: CardKey; group: string } | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -264,6 +293,7 @@ export function DocumentMakerTab({ booking }: { booking: Booking }) {
       printMode: bl?.print_mode ?? 'Original',
       useContainerSheet: bl?.use_container_sheet ?? false,
       issuedAt: bl?.issued_at ?? null,
+      deliveryAgent,
       // Scan Copy prints everything black and white, so it takes the
       // greyscale masthead; a colour logo on a mono page would be the one
       // thing that gave it away as not a photocopy.
@@ -275,7 +305,7 @@ export function DocumentMakerTab({ booking }: { booking: Booking }) {
           ? (logoGreySrc ?? logoSrc)
           : logoSrc,
     })
-  }, [booking, company, bl, issuedSnapshot, logoSrc, logoGreySrc])
+  }, [booking, company, bl, issuedSnapshot, logoSrc, logoGreySrc, deliveryAgent])
 
   const opSnapshot = useMemo(() => {
     if (!open || open.type === 'bl' || !docCompany) return null

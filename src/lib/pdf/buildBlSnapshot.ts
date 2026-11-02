@@ -35,6 +35,7 @@ export function buildBlSnapshot({
   useContainerSheet,
   issuedAt,
   logoSrc,
+  deliveryAgent,
   overrides,
 }: {
   booking: Booking
@@ -47,6 +48,9 @@ export function buildBlSnapshot({
   issuedAt?: string | null
   /** Signed URL for the logo, when it has been uploaded. */
   logoSrc?: string
+  /** The POD agent from the Agents master, already formatted for the box.
+      Never typed on the BL: it comes from the booking's Parties tab. */
+  deliveryAgent?: string
   /** Fields edited on the BL itself. They never write back to the booking. */
   overrides?: Partial<BlSnapshot>
 }): BlSnapshot {
@@ -68,9 +72,9 @@ export function buildBlSnapshot({
     consignor: booking.shipper ?? '',
     consignee: booking.consignee ?? '',
     notifyAddress: booking.notifyParty ?? '',
-    // Resolved from destination_agent_id by the caller, which has the party
-    // master loaded; the id alone is not printable.
-    deliveryAgent: '',
+    // Resolved from the booking's POD agent by the caller, which reads the
+    // Agents master; the id alone is not printable.
+    deliveryAgent: deliveryAgent ?? '',
 
     preCarriageBy: booking.preCarriageBy ?? '',
     portOfReceipt: booking.portOfReceipt ?? '',
