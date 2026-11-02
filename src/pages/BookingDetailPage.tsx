@@ -13,6 +13,7 @@ import { BookingEditProvider, useBookingEdit, useFieldBinding } from '../compone
 import { BookingEditBar } from '../components/booking/BookingEditBar'
 import { BookingAuditLog } from '../components/booking/BookingAuditLog'
 import { BookingOverviewTab } from '../components/booking/BookingOverviewTab'
+import { DepotPicker } from '../components/booking/DepotPicker'
 import { StopBookingDialog, type StopKind } from '../components/booking/StopBookingDialog'
 import { PortSearchField } from '../components/nvocc/PortSearchField'
 // Lazy: these pull in @react-pdf/renderer, which is ~470 kB gzipped. Loading
@@ -1273,7 +1274,8 @@ function AgentDetailsTab({ booking }: { booking: import('../lib/types').Booking 
 /* ── Tab: Container yard — CRO workflow (doc §3) ─────────────── */
 
 function ContainerYardTab({ booking }: { booking: import('../lib/types').Booking }) {
-  const { cros, generateCro, updateCroValidity, croPickup, updateEmptyYardField } = useDataStore()
+  const { cros, generateCro, updateCroValidity, croPickup, updateEmptyYardField, updateBookingDepot } =
+    useDataStore()
   const cro = cros.find((c) => c.bookingId === booking.id)
   const [containerNo, setContainerNo] = useState('')
   const [croValidUntil, setCroValidUntil] = useState('')
@@ -1284,19 +1286,61 @@ function ContainerYardTab({ booking }: { booking: import('../lib/types').Booking
 
   return (
     <div className="space-y-5">
+      {/* Two depots, not one (spec v2). The booking used to carry a single
+          depot plus two free-text yard notes; v2 separates where the empty is
+          COLLECTED from where it is RETURNED, because the CRO is issued from
+          the first and MNR tracks the return against the second. Both read
+          the same Depots master -- it has no type restriction, so any depot
+          can serve either role. */}
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="rounded-btn border border-line bg-surface-2/60 px-3 py-2">
+          <p className="font-mono text-[10px] uppercase tracking-wide text-muted">
+            Empty pickup depot
+          </p>
+          <p className="mb-1.5 mt-0.5 text-[11px] text-muted">
+            Where the empty is collected. The CRO is issued from here and gate-out is logged
+            against it.
+          </p>
+          <DepotPicker
+            value={booking.depotId}
+            onChange={(id) => updateBookingDepot(booking.id, 'pickup', id, 'Ops')}
+          />
+        </div>
+        <div className="rounded-btn border border-line bg-surface-2/60 px-3 py-2">
+          <p className="font-mono text-[10px] uppercase tracking-wide text-muted">
+            Empty drop-off depot
+          </p>
+          <p className="mb-1.5 mt-0.5 text-[11px] text-muted">
+            Where the empty is returned. Can be filled later, but must be set before the
+            container goes back.
+          </p>
+          <DepotPicker
+            value={booking.returnDepotId}
+            onChange={(id) => updateBookingDepot(booking.id, 'dropoff', id, 'Ops')}
+          />
+        </div>
+      </div>
+
       <div className="grid grid-cols-2 gap-3">
         <FieldPill label="CRO status" value={croStatusValue} />
-        <EditableTextPill
-          label="Empty container yard origin"
-          value={booking.emptyContainerYardOrigin ?? ''}
-          onChange={(v) => updateEmptyYardField(booking.id, 'emptyContainerYardOrigin', v, 'Ops')}
-        />
-        <EditableTextPill
-          label="Empty container yard destination"
-          value={booking.emptyContainerYardDestination ?? ''}
-          onChange={(v) => updateEmptyYardField(booking.id, 'emptyContainerYardDestination', v, 'Ops')}
-        />
       </div>
+
+      {/* The old free-text yard notes. Kept visible because real bookings
+          carry values in them, but they are no longer how a depot is chosen. */}
+      {(booking.emptyContainerYardOrigin || booking.emptyContainerYardDestination) && (
+        <div className="grid grid-cols-2 gap-3">
+          <EditableTextPill
+            label="Empty container yard origin (free text, legacy)"
+            value={booking.emptyContainerYardOrigin ?? ''}
+            onChange={(v) => updateEmptyYardField(booking.id, 'emptyContainerYardOrigin', v, 'Ops')}
+          />
+          <EditableTextPill
+            label="Empty container yard destination (free text, legacy)"
+            value={booking.emptyContainerYardDestination ?? ''}
+            onChange={(v) => updateEmptyYardField(booking.id, 'emptyContainerYardDestination', v, 'Ops')}
+          />
+        </div>
+      )}
 
       <div className="rounded-card border border-line bg-surface-2/40 p-5">
         <div className="flex items-center gap-2">
@@ -1308,9 +1352,21 @@ function ContainerYardTab({ booking }: { booking: import('../lib/types').Booking
           container number on pickup — which logs a gate-out activity and advances the cycle.
         </p>
 
+        {!cro && !booking.depotId && (
+          <p className="mt-3 text-sm text-amber-600">
+            Set the empty pickup depot first — a CRO is issued from a depot, and this is the
+            blank that used to print on it.
+          </p>
+        )}
+
         {!cro && (
           <div className="mt-4 flex flex-wrap items-end gap-2">
-            <Button size="sm" onClick={() => generateCro(booking.id, croValidUntil || undefined)}>
+            <Button
+              size="sm"
+              disabled={!booking.depotId}
+              className="disabled:opacity-50"
+              onClick={() => generateCro(booking.id, croValidUntil || undefined)}
+            >
               Generate CRO from booking
             </Button>
             <div className="w-44">

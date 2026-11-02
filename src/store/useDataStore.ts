@@ -1155,6 +1155,17 @@ interface DataState {
     value: string,
     actor: string,
   ) => void
+  /** The two depots spec v2 asks for, both read from the one Depots master.
+      `depotId` is where the empty is COLLECTED -- the CRO is issued from it
+      and gate-out is logged there. `returnDepotId` is where the empty is
+      RETURNED, which MNR and return tracking use. The master carries no
+      "type" restriction, so the same depot can serve either role. */
+  updateBookingDepot: (
+    bookingId: string,
+    role: 'pickup' | 'dropoff',
+    depotId: string | null,
+    actor: string,
+  ) => void
 
   // Milestones (doc §6)
   markMilestone: (bookingId: string, key: string, actor: string, completedAt?: string) => void
@@ -2343,6 +2354,38 @@ export const useDataStore = create<DataState>((set, get) => ({
       persistBookingUpdate(booking.dbId, { [column]: value }, 'updateEmptyYardField')
       return {
         bookings: s.bookings.map((b) => (b.id === bookingId ? { ...b, [field]: value } : b)),
+        activities: log(s.activities, bookingId, actor, `${label} updated`),
+      }
+    }),
+
+  updateBookingDepot: (bookingId, role, depotId, actor) =>
+    set((s) => {
+      const booking = s.bookings.find((b) => b.id === bookingId)
+      if (!booking) return s
+      const field = role === 'pickup' ? 'depotId' : 'returnDepotId'
+      if ((booking[field] ?? null) === depotId) return s
+
+      // depot_id is also mirrored to the legacy empty_yard_id column, which
+      // migration 0046 made the same value. Leaving them to diverge is what
+      // produced a CRO with a blank depot in the first place: one column was
+      // written and the other was read.
+      const columns: Record<string, unknown> =
+        role === 'pickup'
+          ? { depot_id: depotId, empty_yard_id: depotId }
+          : { return_depot_id: depotId }
+      persistBookingUpdate(booking.dbId, columns, 'updateBookingDepot')
+
+      const label = role === 'pickup' ? 'Empty pickup depot' : 'Empty drop-off depot'
+      return {
+        bookings: s.bookings.map((b) =>
+          b.id === bookingId
+            ? {
+                ...b,
+                [field]: depotId,
+                ...(role === 'pickup' ? { emptyYardId: depotId } : {}),
+              }
+            : b,
+        ),
         activities: log(s.activities, bookingId, actor, `${label} updated`),
       }
     }),
