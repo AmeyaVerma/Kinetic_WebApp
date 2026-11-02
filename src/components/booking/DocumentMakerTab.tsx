@@ -35,6 +35,7 @@ import {
 } from '../../lib/pdf/blSnapshot'
 import { BL_TYPE_LABEL, printsBackside, type BlType } from '../../lib/pdf/strings/bl'
 import { SigningPanel } from './SigningPanel'
+import { BlMasterLink } from './BlMasterLink'
 import { BlContainerSplit } from './BlContainerSplit'
 
 /**
@@ -106,6 +107,7 @@ type BlRow = {
   issued_at: string | null
   mbl_number: string | null
   carrier_name: string | null
+  carrier_booking_no: string | null
   master_bl_id: string | null
   use_container_sheet: boolean
 }
@@ -734,6 +736,14 @@ export function DocumentMakerTab({ booking }: { booking: Booking }) {
               </Button>
             )}
           </div>
+
+          <BlMasterLink
+            key={bl.id}
+            bl={bl}
+            all={bls}
+            disabled={!canWrite || blIssued || bl.status === 'Released'}
+            onChanged={load}
+          />
 
           <BlContainerSplit
             booking={booking}
