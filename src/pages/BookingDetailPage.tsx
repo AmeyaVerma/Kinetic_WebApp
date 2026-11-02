@@ -14,6 +14,7 @@ import { BookingEditBar } from '../components/booking/BookingEditBar'
 import { BookingAuditLog } from '../components/booking/BookingAuditLog'
 import { BookingOverviewTab } from '../components/booking/BookingOverviewTab'
 import { DepotPicker } from '../components/booking/DepotPicker'
+import { PodAgentPicker } from '../components/booking/PodAgentPicker'
 import { StopBookingDialog, type StopKind } from '../components/booking/StopBookingDialog'
 import { PortSearchField } from '../components/nvocc/PortSearchField'
 // Lazy: these pull in @react-pdf/renderer, which is ~470 kB gzipped. Loading
@@ -883,15 +884,24 @@ function ProductInfoTab({ booking }: { booking: import('../lib/types').Booking }
         </label>
         <label className="block rounded-btn border border-line bg-surface-2/60 px-3 py-2 focus-within:border-primary">
           <p className="font-mono text-[10px] uppercase tracking-wide text-muted">Freight terms</p>
+          {/* No default (spec v2): the wizard used to start at Prepaid, so a
+              booking could be issued Prepaid without anybody choosing it.
+              Labelled in capitals as v2 writes them; stored as it always was. */}
           <select
             value={binding.value('freightTerms')}
             disabled={!!pendingFor('freightTerms') || !binding.canType}
             onChange={(e) => editField('freightTerms', 'Freight terms')(e.target.value)}
             className="mt-0.5 w-full bg-transparent text-[13px] text-heading focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
           >
-            <option value="Prepaid">Prepaid</option>
-            <option value="Collect">Collect</option>
+            <option value="">— not chosen —</option>
+            <option value="Prepaid">PREPAID</option>
+            <option value="Collect">COLLECT</option>
           </select>
+          {!binding.value('freightTerms') && (
+            <p className="mt-1 text-[11px] text-amber-600">
+              Required before a non-draft BL. Not the same as the Incoterm.
+            </p>
+          )}
           {hintFor('freightTerms') && <p className="mt-1 text-[11px] text-accent-orange">{hintFor('freightTerms')}</p>}
         </label>
         <EditableTextPill
@@ -1134,6 +1144,7 @@ function AgentDetailsTab({ booking }: { booking: import('../lib/types').Booking 
     updateTransshipmentAgent,
     updateContainerInfoField,
     requestBookingFieldChange,
+    updateBookingPodAgent,
     parties,
     fetchParties,
   } = useDataStore()
@@ -1234,9 +1245,24 @@ function AgentDetailsTab({ booking }: { booking: import('../lib/types').Booking 
           </span>
         </label>
 
+        <div className="space-y-1">
+          <span className="block font-mono text-[10px] uppercase tracking-wide text-muted">
+            POD agent
+          </span>
+          <PodAgentPicker
+            value={booking.podAgentId}
+            disabled={!binding.canType}
+            onChange={(id) => updateBookingPodAgent(booking.id, id, 'Ops')}
+          />
+          <span className="block text-[10px] text-muted">
+            Prints in the BL&rsquo;s Overseas Agent box. The BL maker cannot type over it — to
+            change it, change it here.
+          </span>
+        </div>
+
         <label className="space-y-1">
           <span className="block font-mono text-[10px] uppercase tracking-wide text-muted">
-            Destination agent
+            Destination agent (legacy)
           </span>
           <Select
             value={binding.value('destinationAgentId')}

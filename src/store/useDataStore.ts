@@ -416,6 +416,7 @@ function rowToBooking(row: any): Booking {
     sbNumber: row.sb_number ?? undefined,
     sbDate: row.sb_date ?? undefined,
     depotId: row.depot_id ?? undefined,
+    podAgentId: row.pod_agent_id ?? undefined,
     surveyorRefId: row.surveyor_ref_id ?? undefined,
     hblNo: row.hbl_no,
     cancelled: row.cancelled,
@@ -508,6 +509,7 @@ function bookingToInsertRow(b: Booking) {
     sb_number: b.sbNumber ?? null,
     sb_date: b.sbDate || null,
     depot_id: b.depotId || null,
+    pod_agent_id: b.podAgentId || null,
     surveyor_ref_id: b.surveyorRefId || null,
     hbl_no: b.hblNo,
     cancelled: b.cancelled,
@@ -1166,6 +1168,9 @@ interface DataState {
     depotId: string | null,
     actor: string,
   ) => void
+  /** The POD Agent, from the Agents master (spec v2). Set on the booking
+      because the BL reads it and must not be able to override it. */
+  updateBookingPodAgent: (bookingId: string, agentId: string | null, actor: string) => void
 
   // Milestones (doc §6)
   markMilestone: (bookingId: string, key: string, actor: string, completedAt?: string) => void
@@ -2387,6 +2392,19 @@ export const useDataStore = create<DataState>((set, get) => ({
             : b,
         ),
         activities: log(s.activities, bookingId, actor, `${label} updated`),
+      }
+    }),
+
+  updateBookingPodAgent: (bookingId, agentId, actor) =>
+    set((s) => {
+      const booking = s.bookings.find((b) => b.id === bookingId)
+      if (!booking || (booking.podAgentId ?? null) === agentId) return s
+      persistBookingUpdate(booking.dbId, { pod_agent_id: agentId }, 'updateBookingPodAgent')
+      return {
+        bookings: s.bookings.map((b) =>
+          b.id === bookingId ? { ...b, podAgentId: agentId } : b,
+        ),
+        activities: log(s.activities, bookingId, actor, 'POD agent updated'),
       }
     }),
 

@@ -492,7 +492,10 @@ export interface Booking {
   transhipment?: 'Yes' | 'No'
   etd: string
   eta: string
-  freightTerms: FreightTerms
+  /** PREPAID or COLLECT. Nullable because "nobody has chosen yet" is a real
+      state (spec v2): the wizard no longer defaults it, and a non-draft BL is
+      blocked until it is set. Not the same as the Incoterm. */
+  freightTerms: FreightTerms | null
   surveyorId: string | null
   emptyYardId: string | null | undefined
   terminal?: string | null
@@ -574,6 +577,10 @@ export interface Booking {
   sbDate?: string | null
   /** Master links. The legacy emptyYardId/surveyorId hold mock ids. */
   depotId?: string | null
+  /** The POD Agent (spec v2), from the Agents master. Prints into the BL's
+      Overseas Agent box, which the BL maker cannot type over. Distinct from
+      the older destinationAgentId, which is text and still holds party ids. */
+  podAgentId?: string | null
   surveyorRefId?: string | null
   /* Stopping a booking. `cancelled` stays the flag that halts it either way;
      these record which of the two happened, why, and who decided (spec F5). */

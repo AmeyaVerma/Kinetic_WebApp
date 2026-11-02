@@ -426,7 +426,23 @@ export function DocumentMakerTab({ booking }: { booking: Booking }) {
     )
   }
 
-  const blMissing = blSnapshot ? missingBlFields(blSnapshot) : []
+  /**
+   * What blocks issuing a BL.
+   *
+   * On top of the BL's own required fields, v2 adds two that live on the
+   * BOOKING: the POD Agent, which prints in the Overseas Agent box, and the
+   * freight terms. A draft may print without them -- that is explicitly
+   * allowed -- but a non-draft may not be issued, because those two are
+   * exactly the blanks that would otherwise go out on a transport document.
+   */
+  const bookingMissing =
+    bl && bl.bl_type !== 'Draft'
+      ? [
+          ...(booking.podAgentId ? [] : ['POD agent (Parties tab)']),
+          ...(booking.freightTerms ? [] : ['Freight terms, PREPAID or COLLECT (Product info tab)']),
+        ]
+      : []
+  const blMissing = [...(blSnapshot ? missingBlFields(blSnapshot) : []), ...bookingMissing]
   const opMissing = opSnapshot ? missingDocFields(opSnapshot) : []
   const blIssued = bl?.status === 'Issued'
 
@@ -616,7 +632,13 @@ export function DocumentMakerTab({ booking }: { booking: Booking }) {
               <Button
                 onClick={handleIssueBl}
                 disabled={!canWrite || busy || blMissing.length > 0 || bl.bl_type === 'Draft'}
-                title={bl.bl_type === 'Draft' ? 'Choose a type other than Draft to issue' : undefined}
+                title={
+                  bl.bl_type === 'Draft'
+                    ? 'Choose a type other than Draft to issue'
+                    : bookingMissing.length > 0
+                      ? 'Set ' + bookingMissing.join(' and ') + ' on the booking first'
+                      : undefined
+                }
               >
                 Issue BL
               </Button>

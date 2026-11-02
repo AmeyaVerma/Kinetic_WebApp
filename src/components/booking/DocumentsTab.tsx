@@ -133,7 +133,7 @@ export function DocumentsTab({
         weight: booking.grossWeightKg ? `GROSS WEIGHT\n${booking.grossWeightKg.toLocaleString()} KGS` : '',
         measurement: '',
         otherParticulars: '',
-        freight: booking.freightTerms.toUpperCase(),
+        freight: booking.freightTerms?.toUpperCase() ?? '',
         freightPayableAt: '',
         collectCharges: '',
         releaseType: '',

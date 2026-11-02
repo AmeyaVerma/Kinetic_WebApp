@@ -68,7 +68,10 @@ export function NewBookingWizard({ open, onClose, onCreated }: Props) {
   const [pol, setPol] = useState('')
   const [pod, setPod] = useState('')
   const [finalPlaceOfDischarge, setFinalPlaceOfDischarge] = useState('')
-  const [freightTerms, setFreightTerms] = useState<FreightTerms>('Prepaid')
+  // No default (spec v2). This used to start at 'Prepaid', so a booking could
+  // be created -- and a BL issued -- Prepaid without anybody choosing it. Four
+  // of the five live bookings read Prepaid for exactly that reason.
+  const [freightTerms, setFreightTerms] = useState<FreightTerms | ''>('')
   const [surveyorId, setSurveyorId] = useState('')
   const [emptyYardId, setEmptyYardId] = useState('')
   const [containerType, setContainerType] = useState('40HC')
@@ -209,7 +212,7 @@ export function NewBookingWizard({ open, onClose, onCreated }: Props) {
         finalPlaceOfDischarge,
         etd,
         eta,
-        freightTerms,
+        freightTerms: freightTerms || null,
         // The documents read depotId / surveyorRefId; the older
         // emptyYardId / surveyorId are kept in step so both sides of the
         // booking agree rather than a CRO printing a blank depot.
@@ -395,7 +398,11 @@ export function NewBookingWizard({ open, onClose, onCreated }: Props) {
             <PortSearchField value={finalPlaceOfDischarge} placeholder="Search port…" onSelect={setFinalPlaceOfDischarge} />
           </Field>
           <Field label="Freight terms" required>
-            <Select value={freightTerms} onChange={(e) => setFreightTerms(e.target.value as FreightTerms)}>
+            <Select
+              value={freightTerms}
+              onChange={(e) => setFreightTerms(e.target.value as FreightTerms | '')}
+            >
+              <option value="">— choose PREPAID or COLLECT —</option>
               <option>Prepaid</option>
               <option>Collect</option>
             </Select>
