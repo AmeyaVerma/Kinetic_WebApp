@@ -35,6 +35,7 @@ import {
 } from '../../lib/pdf/blSnapshot'
 import { BL_TYPE_LABEL, printsBackside, type BlType } from '../../lib/pdf/strings/bl'
 import { SigningPanel } from './SigningPanel'
+import { BlContainerSplit } from './BlContainerSplit'
 
 /**
  * The Documents tab: every document this booking can produce, in one place.
@@ -733,6 +734,13 @@ export function DocumentMakerTab({ booking }: { booking: Booking }) {
               </Button>
             )}
           </div>
+
+          <BlContainerSplit
+            booking={booking}
+            blId={bl.id}
+            blRole={bl.role}
+            disabled={!canWrite || blIssued}
+          />
 
           <SigningPanel
             snapshot={blSnapshot}
