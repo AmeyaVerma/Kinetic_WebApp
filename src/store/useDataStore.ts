@@ -4392,7 +4392,7 @@ export const useDataStore = create<DataState>((set, get) => ({
       if (!decidedBy?.isAdmin) {
         return {
           activities: log(s.activities, ap.bookingId ?? '', decidedBy?.name ?? 'Unknown',
-            `Approval refused — only an Admin can decide "${ap.summary}"`),
+            `Approval refused — only an Admin or an Approver can decide "${ap.summary}"`),
         }
       }
       const samePerson =

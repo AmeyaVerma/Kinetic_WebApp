@@ -27,7 +27,7 @@ export interface AppUser {
   employeeId?: string // ties to HR record for internal staff
   scopeName?: string // for external users — the customer/agent they belong to
   /** Which companies this person may open, and their role in each. */
-  memberships?: { tenantId: string; tenantName: string; role: Role }[]
+  memberships?: { tenantId: string; tenantName: string; role: Role; isApprover?: boolean }[]
 }
 
 export interface AuditEntry {
@@ -88,6 +88,10 @@ export interface Company {
   id: string
   name: string
   role: Role
+  /** Spec v2: may work the approvals queue in this company, without being an
+      Admin. Per company, because a person can hold different standing in
+      each. Only an Admin can grant it. */
+  isApprover?: boolean
 }
 
 interface AuthState {
@@ -107,6 +111,8 @@ interface AuthState {
   /** Grants or revokes a person's access to a company, with their role there.
       Siddharth: "admin can also choose who can login to which company." */
   setMembership: (userId: string, tenantId: string, role: Role | null) => Promise<void>
+  /** Admin-only: give or remove the Approver role for one person in one company. */
+  setApprover: (userId: string, tenantId: string, isApprover: boolean) => Promise<void>
   /** Switches company for the session. Row-level security reads the same
       value from the database, so this is the real scope change, not a filter. */
   setActiveCompany: (companyId: string) => Promise<void>
@@ -220,7 +226,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   fetchUsers: async () => {
     const [profiles, memberships, tenants] = await Promise.all([
       supabase.from('profiles').select('*').order('created_at', { ascending: true }),
-      supabase.from('memberships').select('user_id, tenant_id, role'),
+      supabase.from('memberships').select('user_id, tenant_id, role, is_approver'),
       supabase.from('tenants').select('id, name'),
     ])
     if (profiles.error || !profiles.data) {
@@ -230,10 +236,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     const tenantName = new Map(
       ((tenants.data as { id: string; name: string }[]) ?? []).map((t) => [t.id, t.name]),
     )
-    const byUser = new Map<string, { tenantId: string; tenantName: string; role: Role }[]>()
-    for (const m of ((memberships.data as { user_id: string; tenant_id: string; role: Role }[]) ?? [])) {
+    const byUser = new Map<string, { tenantId: string; tenantName: string; role: Role; isApprover?: boolean }[]>()
+    for (const m of ((memberships.data as { user_id: string; tenant_id: string; role: Role; is_approver: boolean }[]) ?? [])) {
       const list = byUser.get(m.user_id) ?? []
-      list.push({ tenantId: m.tenant_id, tenantName: tenantName.get(m.tenant_id) ?? '—', role: m.role })
+      list.push({ tenantId: m.tenant_id, tenantName: tenantName.get(m.tenant_id) ?? '—', role: m.role, isApprover: m.is_approver })
       byUser.set(m.user_id, list)
     }
     const rows = (profiles.data as ProfileRow[]).map((r) => ({
@@ -274,6 +280,21 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     await get().fetchUsers()
   },
 
+  setApprover: async (userId, tenantId, isApprover) => {
+    // Refused by RLS and by a trigger for anyone but an Admin; this is only
+    // the call.
+    const { error } = await supabase
+      .from('memberships')
+      .update({ is_approver: isApprover })
+      .eq('user_id', userId)
+      .eq('tenant_id', tenantId)
+    if (error) {
+      set({ authError: error.message })
+      return
+    }
+    await get().fetchUsers()
+  },
+
   loadCompanies: async () => {
     const { data: auth } = await supabase.auth.getUser()
     const uid = auth.user?.id
@@ -282,17 +303,18 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       return
     }
     const [memberships, profile] = await Promise.all([
-      supabase.from('memberships').select('tenant_id, role, tenants(id, name)').eq('user_id', uid),
+      supabase.from('memberships').select('tenant_id, role, is_approver, tenants(id, name)').eq('user_id', uid),
       supabase.from('profiles').select('active_tenant_id').eq('id', uid).single(),
     ])
     const rows = (memberships.data ?? []) as unknown as {
       tenant_id: string
       role: Role
+      is_approver: boolean
       tenants: { id: string; name: string } | null
     }[]
     const companies: Company[] = rows
       .filter((r) => r.tenants)
-      .map((r) => ({ id: r.tenant_id, name: r.tenants!.name, role: r.role }))
+      .map((r) => ({ id: r.tenant_id, name: r.tenants!.name, role: r.role, isApprover: r.is_approver }))
       .sort((a, b) => a.name.localeCompare(b.name))
 
     const stored = (profile.data as { active_tenant_id: string | null } | null)?.active_tenant_id
@@ -511,4 +533,21 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 /** The real signed-in user (Supabase session), or null while checking / signed out. */
 export function useCurrentUser(): AppUser | null {
   return useAuthStore((s) => s.profile)
+}
+
+/**
+ * Whether the signed-in person may decide approvals in the ACTIVE company:
+ * an Admin, or somebody an Admin has made an Approver there (spec v2).
+ *
+ * This only decides what to show. The decision itself is refused by the
+ * database for anyone else, so a wrong answer here cannot grant anything.
+ */
+export function useIsApprover(): boolean {
+  const user = useAuthStore((s) => s.profile)
+  const viewAsRole = useAuthStore((s) => s.viewAsRole)
+  const companies = useAuthStore((s) => s.companies)
+  const activeCompanyId = useAuthStore((s) => s.activeCompanyId)
+  if ((viewAsRole ?? user?.role) === 'admin') return true
+  if (viewAsRole) return false
+  return !!companies.find((c) => c.id === activeCompanyId)?.isApprover
 }

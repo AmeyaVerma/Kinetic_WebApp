@@ -7,7 +7,7 @@ import { CsvButton } from '../components/ui/CsvButton'
 import { Badge } from '../components/ui/Badge'
 import { Tabs } from '../components/ui/Tabs'
 import { useDataStore } from '../store/useDataStore'
-import { useAuthStore, useCurrentUser } from '../store/useAuthStore'
+import { useCurrentUser, useIsApprover } from '../store/useAuthStore'
 import type { Approval, ApprovalEntityType } from '../lib/types'
 
 const CATEGORY_TABS: { key: ApprovalEntityType | 'all'; label: string }[] = [
@@ -42,8 +42,10 @@ const TYPE_LABEL: Record<ApprovalEntityType, string> = {
 export function ApprovalsPage() {
   const { approvals, decideApproval, bookings, ffShipments } = useDataStore()
   const currentUser = useCurrentUser()
-  const viewAsRole = useAuthStore((s) => s.viewAsRole)
-  const isAdmin = (viewAsRole ?? currentUser?.role) === 'admin'
+  // An Admin, or an Approver an Admin has appointed in this company (spec v2).
+  // The name stays `isAdmin` below because the row component and the store
+  // action are written against it; what it now means is "may decide".
+  const isAdmin = useIsApprover()
   const [tab, setTab] = useState<string>('all')
   const [showDecided, setShowDecided] = useState(false)
 
@@ -155,8 +157,8 @@ function ApprovalRow({
     a.requestedBy.trim().toLowerCase() === currentUserName.trim().toLowerCase()
   const locked = !isAdmin || ownRequest
   const lockReason = ownRequest
-    ? 'You raised this — another Admin has to decide it'
-    : 'Only an Admin can decide this'
+    ? 'You raised this — somebody else has to decide it'
+    : 'Only an Admin or an Approver can decide this'
 
   return (
     <Card className="p-4">

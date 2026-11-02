@@ -461,6 +461,7 @@ function RolesTab() {
 function CompanyAccess({ user: u, isSelf }: { user: AppUser; isSelf: boolean }) {
   const companies = useAuthStore((s) => s.companies)
   const setMembership = useAuthStore((s) => s.setMembership)
+  const setApprover = useAuthStore((s) => s.setApprover)
   const [busy, setBusy] = useState<string | null>(null)
 
   const roleIn = (tenantId: string) =>
@@ -507,6 +508,27 @@ function CompanyAccess({ user: u, isSelf }: { user: AppUser; isSelf: boolean }) 
                 </select>
                 {busy === c.id && <span className="text-[11px] text-muted">Saving…</span>}
               </div>
+              {/* The Approver role (spec v2): works the approval queue without
+                  being an Admin. An Admin already can, so the toggle is only
+                  offered for everyone else. It cannot decide its own request,
+                  change Users & Roles or settings, or give the role away --
+                  the database refuses all three. */}
+              {role && role !== 'admin' && (
+                <label className="flex w-full cursor-pointer items-center gap-2 text-[11px] text-muted">
+                  <input
+                    type="checkbox"
+                    className="accent-primary"
+                    checked={!!u.memberships?.find((m) => m.tenantId === c.id)?.isApprover}
+                    disabled={busy === c.id}
+                    onChange={async (e) => {
+                      setBusy(c.id)
+                      await setApprover(u.id, c.id, e.target.checked)
+                      setBusy(null)
+                    }}
+                  />
+                  Approver in {c.name} — can work the approval queue, but not their own requests
+                </label>
+              )}
               {lastOwn && (
                 <p className="w-full text-[11px] text-accent-orange">
                   This is your only company — removing it would lock you out.
