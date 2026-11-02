@@ -17,6 +17,10 @@ import { PartiesMasterPage } from './pages/master/PartiesMasterPage'
 import { AddPartyPage } from './pages/master/AddPartyPage'
 import { PartyDetailPage } from './pages/master/PartyDetailPage'
 import { MasterComingSoon } from './pages/master/MasterComingSoon'
+import { VendorsHubPage } from './pages/master/VendorsHubPage'
+import { AgentsMasterPage } from './pages/master/AgentsMasterPage'
+import { CfsMasterPage } from './pages/master/CfsMasterPage'
+import { EmptyYardsGroupPage } from './pages/master/EmptyYardsGroupPage'
 import { VesselsMasterPage } from './pages/master/VesselsMasterPage'
 import { VesselDetailPage } from './pages/master/VesselDetailPage'
 import { AddVesselPage } from './pages/master/AddVesselPage'
@@ -42,7 +46,7 @@ import { IcdDetailPage } from './pages/master/IcdDetailPage'
 import { AirPortsMasterPage } from './pages/master/AirPortsMasterPage'
 import { AddAirPortPage } from './pages/master/AddAirPortPage'
 import { AirPortDetailPage } from './pages/master/AirPortDetailPage'
-import { Truck, Wrench, FileWarning, Wallet } from 'lucide-react'
+import { Wrench, FileWarning, Wallet } from 'lucide-react'
 import { AgentsPage } from './pages/AgentsPage'
 import { HrPage } from './pages/HrPage'
 import { LoginPage } from './pages/LoginPage'
@@ -186,18 +190,10 @@ export default function App() {
           <Route path="/master/parties" element={<Guard module="master"><PartiesMasterPage /></Guard>} />
           <Route path="/master/parties/new" element={<Guard module="master"><AddPartyPage /></Guard>} />
           <Route path="/master/parties/:code" element={<Guard module="master"><PartyDetailPage /></Guard>} />
-          <Route
-            path="/master/vendors"
-            element={
-              <Guard module="master">
-                <MasterComingSoon
-                  title="Vendors"
-                  description="Shipping lines, surveyors, CFS, repair shops, truckers and customs brokers."
-                  icon={Truck}
-                />
-              </Guard>
-            }
-          />
+          <Route path="/master/vendors" element={<Guard module="master"><VendorsHubPage /></Guard>} />
+          <Route path="/master/vendors/cfs" element={<Guard module="master"><CfsMasterPage /></Guard>} />
+          <Route path="/master/vendors/empty-yards" element={<Guard module="master"><EmptyYardsGroupPage /></Guard>} />
+          <Route path="/master/agents" element={<Guard module="master"><AgentsMasterPage /></Guard>} />
           <Route path="/master/vessels" element={<Guard module="master"><VesselsMasterPage /></Guard>} />
           <Route path="/master/vessels/new" element={<Guard module="master"><AddVesselPage /></Guard>} />
           <Route path="/master/vessels/:id" element={<Guard module="master"><VesselDetailPage /></Guard>} />

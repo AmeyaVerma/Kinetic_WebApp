@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Building2, Briefcase, UserCheck, Contact, Truck, Ship, Container, Wallet, Anchor, LayoutGrid, ChevronRight } from 'lucide-react'
+import { Building2, Briefcase, UserCheck, Contact, Truck, Ship, Container, Wallet, Anchor, LayoutGrid, ChevronRight, Globe2 } from 'lucide-react'
 import { Card } from '../components/ui/Card'
 import { useDataStore } from '../store/useDataStore'
 import { supabase } from '../lib/supabaseClient'
@@ -23,6 +23,7 @@ export function MasterDataPage() {
   // VesselsMasterPage — so the tile count here is a lightweight
   // head-only count query, not a full fetch.
   const [vesselsCount, setVesselsCount] = useState<number | null>(null)
+  const [agentCount, setAgentCount] = useState<number | null>(null)
 
   useEffect(() => {
     fetchParties()
@@ -31,23 +32,36 @@ export function MasterDataPage() {
       .from('vessels')
       .select('*', { count: 'exact', head: true })
       .then(({ count }) => setVesselsCount(count ?? 0))
+    supabase
+      .from('agents')
+      .select('*', { count: 'exact', head: true })
+      .then(({ count }) => setAgentCount(count ?? 0))
   }, [fetchParties, fetchContainers])
 
   const tiles: MasterTile[] = [
     {
       key: 'parties',
       label: 'Parties',
-      description: 'Companies, individuals & BL control entries — shippers, consignees, customers, agents.',
+      description: 'Companies, individuals & BL control entries — shippers, consignees, customers. Agents have their own master.',
       icon: Contact,
       live: true,
       count: parties.length,
     },
     {
+      key: 'agents',
+      label: 'Agents',
+      description:
+        'Overseas and origin agents. Every agent picker, the BL Overseas Agent box and the Agent portal read this master and nothing else.',
+      icon: Globe2,
+      live: true,
+      count: agentCount ?? undefined,
+    },
+    {
       key: 'vendors',
       label: 'Vendors',
-      description: 'Shipping lines, surveyors, CFS, repair shops, truckers, customs brokers.',
+      description: 'A master per kind of vendor — CFS, empty container yards, surveyors. Shipping lines, repair shops and truckers to follow.',
       icon: Truck,
-      live: false,
+      live: true,
     },
     {
       key: 'vessels',
@@ -96,7 +110,7 @@ export function MasterDataPage() {
     {
       key: 'surveyors',
       label: 'Surveyors',
-      description: 'Container surveyors printed on the Container Release Order.',
+      description: 'Container surveyors printed on the Container Release Order. Also reachable inside the Vendors group.',
       icon: UserCheck,
       live: true,
     },
@@ -114,7 +128,8 @@ export function MasterDataPage() {
       <div>
         <h1 className="text-2xl font-bold">Master Data</h1>
         <p className="mt-1 text-sm text-muted">
-          The shared reference data every module autofills from. Five masters — built one at a time.
+          The shared reference data every module autofills from. Identity is shared by both
+          companies; terms, credit and bookings stay inside each one.
         </p>
       </div>
 
