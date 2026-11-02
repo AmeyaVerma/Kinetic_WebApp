@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Building2, Briefcase, UserCheck, Contact, Truck, Ship, Container, Wallet, Anchor, LayoutGrid, ChevronRight, Globe2 } from 'lucide-react'
+import { Building2, Briefcase, UserCheck, Contact, Truck, Ship, Container, Wallet, Anchor, LayoutGrid, ChevronRight, Globe2, Barcode } from 'lucide-react'
 import { Card } from '../components/ui/Card'
 import { useDataStore } from '../store/useDataStore'
 import { supabase } from '../lib/supabaseClient'
@@ -24,6 +24,7 @@ export function MasterDataPage() {
   // head-only count query, not a full fetch.
   const [vesselsCount, setVesselsCount] = useState<number | null>(null)
   const [agentCount, setAgentCount] = useState<number | null>(null)
+  const [hsCount, setHsCount] = useState<number | null>(null)
 
   useEffect(() => {
     fetchParties()
@@ -36,6 +37,10 @@ export function MasterDataPage() {
       .from('agents')
       .select('*', { count: 'exact', head: true })
       .then(({ count }) => setAgentCount(count ?? 0))
+    supabase
+      .from('hs_codes')
+      .select('*', { count: 'exact', head: true })
+      .then(({ count }) => setHsCount(count ?? 0))
   }, [fetchParties, fetchContainers])
 
   const tiles: MasterTile[] = [
@@ -85,6 +90,15 @@ export function MasterDataPage() {
       description: 'Chart of accounts / ledger heads used for invoicing and charge posting.',
       icon: Wallet,
       live: false,
+    },
+    {
+      key: 'hs-codes',
+      label: 'HS codes',
+      description:
+        'The universal six-digit WCO nomenclature, plus each country’s own extension. A booking or BL can carry several codes.',
+      icon: Barcode,
+      live: true,
+      count: hsCount ?? undefined,
     },
     {
       key: 'ports',
