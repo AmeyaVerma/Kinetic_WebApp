@@ -23,6 +23,7 @@ export function EmptyYardsGroupPage() {
         description:
           'The depot master. Read by the Empty Pickup Depot and Empty Drop-off Depot fields on a booking and printed on the CRO. Shared by both companies as identity data only.',
         backTo: '/master/vendors',
+        mergeRpc: 'merge_empty_depots',
       }}
     />
   )

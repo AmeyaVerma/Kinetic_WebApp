@@ -73,6 +73,9 @@ export interface GroupMasterConfig {
   /** Agents carry sanctions screening; the others do not. */
   compliance?: boolean
   backTo?: string
+  /** Name of the database function that merges one record into another.
+      Only set where merging is supported (depots). */
+  mergeRpc?: string
 }
 
 const STATUS_TONE: Record<string, BadgeTone> = {
@@ -100,6 +103,7 @@ export function VendorGroupMasterPage({ config }: { config: GroupMasterConfig })
   const [contacts, setContacts] = useState<Contact[]>([])
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -139,9 +143,32 @@ export function VendorGroupMasterPage({ config }: { config: GroupMasterConfig })
     }
   }, [openId, config.branchTable, config.contactTable, config.parentKey])
 
+  /** Merge record `removeId` into `keepId`. The database does the moving; this
+      only reports its answer and reloads. */
+  const merge = async (keepId: string, removeId: string) => {
+    if (!config.mergeRpc) return
+    setSaving(true)
+    setError(null)
+    const { data, error: err } = await supabase.rpc(config.mergeRpc, { p_keep: keepId, p_remove: removeId })
+    setSaving(false)
+    if (err) {
+      setError(err.message)
+      return
+    }
+    const m = data as { branches: number; contacts: number; documents: number; bookings: number }
+    setNotice(
+      `Merged. Moved ${m.branches} branch(es), ${m.contacts} contact(s), ${m.documents} document(s) and repointed ${m.bookings} booking(s).`,
+    )
+    setOpenId(null)
+    await load()
+  }
+
   const needsReview = useMemo(() => rows.filter((r) => r.review_status === 'Needs review'), [rows])
   const duplicates = useMemo(
-    () => rows.filter((r) => (r.review_note ?? '').toLowerCase().includes('duplicate')),
+    () =>
+      rows.filter(
+        (r) => r.review_status !== 'Merged' && (r.review_note ?? '').toLowerCase().includes('duplicate'),
+      ),
     [rows],
   )
 
@@ -220,6 +247,7 @@ export function VendorGroupMasterPage({ config }: { config: GroupMasterConfig })
       </div>
 
       {error && <p className="text-sm text-red-600">{error}</p>}
+      {notice && <p className="text-sm text-primary">{notice}</p>}
 
       <Card className="overflow-hidden">
         <div className="overflow-x-auto">
@@ -265,6 +293,8 @@ export function VendorGroupMasterPage({ config }: { config: GroupMasterConfig })
                       <td className="px-3 py-3">
                         {r.review_status === 'Needs review' ? (
                           <Badge tone="warn" label="Needs review" />
+                        ) : r.review_status === 'Merged' ? (
+                          <Badge tone="neutral" label="Merged" />
                         ) : (
                           <Badge tone="success" label="Ready" />
                         )}
@@ -281,6 +311,8 @@ export function VendorGroupMasterPage({ config }: { config: GroupMasterConfig })
                             isAdmin={isAdmin}
                             saving={saving}
                             onPatch={(changes) => void patch(r.id, changes)}
+                            mergeTargets={config.mergeRpc ? rows.filter((o) => o.id !== r.id && o.review_status !== 'Merged') : []}
+                            onMerge={config.mergeRpc ? (keepId) => void merge(keepId, r.id) : undefined}
                           />
                         </td>
                       </tr>
@@ -328,6 +360,8 @@ function Detail({
   isAdmin,
   saving,
   onPatch,
+  mergeTargets,
+  onMerge,
 }: {
   record: GroupRecord
   branches: Branch[]
@@ -336,7 +370,10 @@ function Detail({
   isAdmin: boolean
   saving: boolean
   onPatch: (changes: Partial<GroupRecord>) => void
+  mergeTargets: GroupRecord[]
+  onMerge?: (keepId: string) => void
 }) {
+  const [keepId, setKeepId] = useState('')
   return (
     <div className="space-y-4">
       {record.review_note && (
@@ -448,6 +485,11 @@ function Detail({
           >
             <option value="Needs review">Needs review</option>
             <option value="Ready">Ready</option>
+            {record.review_status === 'Merged' && (
+              <option value="Merged" disabled>
+                Merged
+              </option>
+            )}
           </Select>
         </label>
 
@@ -458,6 +500,48 @@ function Detail({
           </p>
         )}
       </div>
+
+      {onMerge && isAdmin && record.review_status !== 'Merged' && (
+        <div className="space-y-2 rounded-btn border border-line bg-surface px-3 py-2">
+          <p className="font-mono text-[10px] uppercase tracking-wide text-muted">
+            Same yard as another record?
+          </p>
+          <div className="flex flex-wrap items-center gap-2">
+            <Select value={keepId} onChange={(e) => setKeepId(e.target.value)} className="max-w-sm">
+              <option value="">Merge this record into…</option>
+              {mergeTargets.map((o) => (
+                <option key={o.id} value={o.id}>
+                  {o.name}
+                </option>
+              ))}
+            </Select>
+            <Button
+              size="sm"
+              variant="secondary"
+              disabled={!keepId || saving}
+              onClick={() => {
+                const target = mergeTargets.find((o) => o.id === keepId)
+                if (
+                  target &&
+                  window.confirm(
+                    `Merge "${record.name}" into "${target.name}"? Its branches, contacts and bookings move to "${target.name}", and "${record.name}" stays on record as Merged and Inactive.`,
+                  )
+                )
+                  onMerge(keepId)
+              }}
+            >
+              Merge
+            </Button>
+          </div>
+          <p className="text-[11px] text-muted">
+            Nothing is deleted. This record is kept, marked Merged and Inactive, and no longer offered on a booking.
+          </p>
+        </div>
+      )}
+
+      {record.review_status === 'Merged' && (
+        <p className="text-xs text-muted">This record was merged into another and is kept only for the trace.</p>
+      )}
 
       {compliance && record.compliance_status === 'Blocked' && (
         <p className="flex items-center gap-1.5 text-xs text-red-600">
