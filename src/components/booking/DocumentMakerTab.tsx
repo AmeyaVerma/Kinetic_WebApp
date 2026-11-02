@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { PDFViewer, pdf } from '@react-pdf/renderer'
 import { AlertTriangle, FileText, History } from 'lucide-react'
 import { Card } from '../ui/Card'
@@ -95,12 +95,17 @@ type VersionRow = {
 }
 
 type BlRow = {
+  id: string
+  /** What the document IS. Separate from bl_type, which is how it PRINTS. */
+  role: 'House' | 'Master'
   bl_number: string | null
   bl_type: BlType
   print_mode: 'Original' | 'Scan'
-  status: 'Draft' | 'Issued'
+  status: 'Draft' | 'Issued' | 'Released' | 'Cancelled'
   issued_at: string | null
   mbl_number: string | null
+  carrier_name: string | null
+  master_bl_id: string | null
   use_container_sheet: boolean
 }
 
@@ -115,7 +120,17 @@ export function DocumentMakerTab({ booking }: { booking: Booking }) {
 
   const [company, setCompany] = useState<CompanySettingsLite | null>(null)
   const [versions, setVersions] = useState<VersionRow[]>([])
-  const [bl, setBl] = useState<BlRow | null>(null)
+  const [bls, setBls] = useState<BlRow[]>([])
+  const [selectedBlId, setSelectedBlId] = useState<string | null>(null)
+  const bl = bls.find((b) => b.id === selectedBlId) ?? null
+  /* `load` needs to know which BL is open so a reload keeps it open, but it
+     must not DEPEND on it: a dependency would rebuild load on every
+     selection, and every effect that calls load would fire again. A ref
+     carries the value without entering the dependency list. */
+  const selectedBlRef = useRef<string | null>(null)
+  useEffect(() => {
+    selectedBlRef.current = selectedBlId
+  }, [selectedBlId])
   const [masters, setMasters] = useState<ResolvedMasters>({})
   const [issuedSnapshot, setIssuedSnapshot] = useState<BlSnapshot | null>(null)
   // Signed URL for the BL backside artwork. The bucket is private; a narrow
@@ -131,14 +146,21 @@ export function DocumentMakerTab({ booking }: { booking: Booking }) {
 
   const load = useCallback(async () => {
     if (!dbId) return
-    const [{ data: cs }, { data: vers }, { data: blRow }] = await Promise.all([
+    const [{ data: cs }, { data: vers }, { data: blRows }] = await Promise.all([
       supabase.from('company_settings').select('*').limit(1).maybeSingle(),
       supabase
         .from('document_versions')
         .select('id, doc_type, equipment_group, version, file_name, storage_path, generated_at')
         .eq('booking_id', dbId)
         .order('version', { ascending: false }),
-      supabase.from('bl_state').select('*').eq('booking_id', dbId).maybeSingle(),
+      // Every BL on this booking. It used to be the one bl_state row, whose
+      // primary key WAS booking_id -- see migration 0088.
+      supabase
+        .from('bls')
+        .select('*')
+        .eq('booking_id', dbId)
+        .order('role', { ascending: true })
+        .order('created_at', { ascending: true }),
     ])
     setCompany((cs as CompanySettingsLite | null) ?? null)
 
@@ -156,9 +178,16 @@ export function DocumentMakerTab({ booking }: { booking: Booking }) {
     setLogoSrc(await signArt(paths?.logo_path))
     setLogoGreySrc(await signArt(paths?.logo_grey_path))
     setVersions((vers as VersionRow[]) ?? [])
-    setBl((blRow as BlRow | null) ?? null)
+    const rows = (blRows as BlRow[] | null) ?? []
+    setBls(rows)
+    // Keep whatever was open; otherwise open the first, which is the House BL
+    // because the query orders House before Master.
+    const keep = selectedBlRef.current
+    const nextId = keep && rows.some((r) => r.id === keep) ? keep : rows[0]?.id ?? null
+    setSelectedBlId(nextId)
+    const blRow = rows.find((r) => r.id === nextId) ?? null
 
-    if (blRow && (blRow as BlRow).status === 'Issued') {
+    if (blRow && blRow.status === 'Issued') {
       const { data: ver } = await supabase
         .from('document_versions')
         .select('snapshot')
@@ -287,7 +316,7 @@ export function DocumentMakerTab({ booking }: { booking: Booking }) {
             : 'OFFLOADING'
 
   /** Allocates the permanent BL number and creates the Draft. */
-  const handleGenerateBl = async () => {
+  const handleGenerateBl = async (role: 'House' | 'Master' = 'House') => {
     if (!dbId) return
     setBusy(true)
     setError(null)
@@ -311,32 +340,40 @@ export function DocumentMakerTab({ booking }: { booking: Booking }) {
       fyCodeFor(),
       seq as number,
     )
-    const blColumns = { bl_number: blNumber, bl_type: 'Draft' as const, status: 'Draft' as const }
-    const { data: existing } = await supabase
-      .from('bl_state')
-      .select('booking_id')
-      .eq('booking_id', dbId)
-      .maybeSingle()
+    // A new BL is ADDED, never an update of "the" BL -- a booking can carry
+    // several (migration 0088). Each takes its own number from the BL series.
+    const { data: created, error: upErr } = await supabase
+      .from('bls')
+      .insert({
+        booking_id: dbId,
+        role,
+        lifecycle: 'Draft',
+        current_fields: {},
+        bl_number: blNumber,
+        bl_type: 'Draft',
+        status: 'Draft',
+        created_by: user?.name ?? null,
+      })
+      .select('id')
+      .single()
 
-    const { error: upErr } = existing
-      ? await supabase.from('bl_state').update(blColumns).eq('booking_id', dbId)
-      : await supabase
-          .from('bl_state')
-          .insert({ booking_id: dbId, lifecycle: 'Draft', current_fields: {}, ...blColumns })
-
-    if (upErr) setError(upErr.message)
-    else if (!booking.hblNo) {
+    if (upErr) {
+      // The database refuses a Master BL with no House to cover, so the
+      // message it gives is the one worth showing.
+      setError(upErr.message)
+    } else if (role === 'House' && !booking.hblNo) {
       await supabase.from('bookings').update({ hbl_no: blNumber }).eq('id', dbId)
     }
     setBusy(false)
     await load()
+    if (created) setSelectedBlId((created as { id: string }).id)
     setOpen({ type: 'bl', group: '' })
   }
 
   const patchBl = async (changes: Partial<BlRow>) => {
-    if (!dbId) return
+    if (!dbId || !selectedBlId) return
     setBusy(true)
-    const { error: err } = await supabase.from('bl_state').update(changes).eq('booking_id', dbId)
+    const { error: err } = await supabase.from('bls').update(changes).eq('id', selectedBlId)
     if (err) setError(err.message)
     setBusy(false)
     load()
@@ -406,9 +443,9 @@ export function DocumentMakerTab({ booking }: { booking: Booking }) {
       const blob = await pdf(<BlDocument snapshot={blSnapshot} backsideSrc={backsideSrc} />).toBlob()
       await storeVersion('bl', '', blSnapshot, fileName, blob)
       await supabase
-        .from('bl_state')
+        .from('bls')
         .update({ status: 'Issued', issued_at: new Date().toISOString() })
-        .eq('booking_id', dbId)
+        .eq('id', bl.id)
       download(blob, fileName)
       await load()
     } catch (e) {
@@ -445,6 +482,11 @@ export function DocumentMakerTab({ booking }: { booking: Booking }) {
   const blMissing = [...(blSnapshot ? missingBlFields(blSnapshot) : []), ...bookingMissing]
   const opMissing = opSnapshot ? missingDocFields(opSnapshot) : []
   const blIssued = bl?.status === 'Issued'
+  const houseCount = bls.filter((b) => b.role === 'House').length
+  const masterCount = bls.filter((b) => b.role === 'Master').length
+  const issuedCount = bls.filter(
+    (b) => b.status === 'Issued' || b.status === 'Released' || b.status === 'Cancelled',
+  ).length
 
   return (
     <div className="space-y-4">
@@ -464,25 +506,72 @@ export function DocumentMakerTab({ booking }: { booking: Booking }) {
             return (
               <Card key="bl" className="space-y-2 p-3">
                 <CardHead card={card} mismatch={false} />
-                {bl?.bl_number ? (
-                  <>
-                    <p className="font-mono text-xs">{bl.bl_number}</p>
-                    <p className="text-xs text-muted">
-                      {BL_TYPE_LABEL[bl.bl_type]} · {bl.status}
-                    </p>
-                    <Button size="sm" variant="ghost" onClick={() => setOpen({ type: 'bl', group: '' })}>
-                      Open
-                    </Button>
-                  </>
+                {/* A list, not one BL (spec v2). A booking can carry one BL,
+                    several House BLs, or House BLs plus the Master that
+                    covers them. Each row opens that BL in the editor below. */}
+                {bls.length === 0 ? (
+                  <p className="text-xs text-muted">
+                    None yet. Adding one allocates a permanent number from the BL series.
+                  </p>
                 ) : (
-                  <>
-                    <p className="text-xs text-muted">
-                      Not created. Generating allocates a permanent MTD number.
-                    </p>
-                    <Button size="sm" onClick={handleGenerateBl} disabled={!canWrite || busy}>
-                      {busy ? 'Generating…' : 'Generate BL Draft'}
+                  <ul className="space-y-1">
+                    {bls.map((row) => (
+                      <li key={row.id}>
+                        <button
+                          onClick={() => {
+                            setSelectedBlId(row.id)
+                            setOpen({ type: 'bl', group: '' })
+                          }}
+                          className={`flex w-full items-center justify-between gap-2 rounded-btn border px-2 py-1.5 text-left transition ${
+                            row.id === selectedBlId
+                              ? 'border-primary/50 bg-primary/5'
+                              : 'border-line hover:bg-surface-2/60'
+                          }`}
+                        >
+                          <span>
+                            <span className="font-mono text-xs text-heading">
+                              {row.bl_number ?? 'No number'}
+                            </span>
+                            <span className="ml-1.5 text-[10px] uppercase tracking-wide text-muted">
+                              {row.role}
+                            </span>
+                          </span>
+                          <span className="shrink-0 text-[10px] text-muted">
+                            {BL_TYPE_LABEL[row.bl_type]} · {row.status}
+                          </span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+
+                <div className="flex flex-wrap gap-1.5">
+                  <Button
+                    size="sm"
+                    onClick={() => void handleGenerateBl('House')}
+                    disabled={!canWrite || busy}
+                  >
+                    {busy ? 'Adding…' : bls.length === 0 ? 'Add BL' : 'Add House BL'}
+                  </Button>
+                  {/* The database refuses a Master with no House to cover, so
+                      the button only appears once there is one. */}
+                  {houseCount > 0 && masterCount === 0 && (
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => void handleGenerateBl('Master')}
+                      disabled={!canWrite || busy}
+                    >
+                      Add Master BL
                     </Button>
-                  </>
+                  )}
+                </div>
+
+                {bls.length > 0 && (
+                  <p className="text-[10px] text-muted">
+                    {issuedCount} of {bls.length} issued. The booking cannot close until every BL
+                    is issued, released or cancelled.
+                  </p>
                 )}
               </Card>
             )

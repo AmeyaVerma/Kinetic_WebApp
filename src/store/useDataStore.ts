@@ -604,21 +604,37 @@ function persistBlStateUpsert(
 ) {
   if (!dbId) return
   ;(async () => {
+    // Writes the booking's HOUSE BL. A booking can now carry several BLs
+    // (migration 0088), and this path -- the customer/ops field edit -- always
+    // concerns the house document; the Master is internal and edited from the
+    // BL screen itself. bl_state is no longer written: it was keyed one-to-one
+    // by booking and keeping both in step would be two sources of truth.
+    const { data: house } = await supabase
+      .from('bls')
+      .select('id')
+      .eq('booking_id', dbId)
+      .eq('role', 'House')
+      .order('created_at', { ascending: true })
+      .limit(1)
+      .maybeSingle()
+    if (!house) return
     const { error } = await supabase
-      .from('bl_state')
-      .upsert(
-        { booking_id: dbId, lifecycle, release_type: releaseType, current_fields: currentFields },
-        { onConflict: 'booking_id' },
-      )
-    if (error) console.error('saveBl: failed to persist bl_state', error)
+      .from('bls')
+      .update({ lifecycle, release_type: releaseType, current_fields: currentFields })
+      .eq('id', (house as { id: string }).id)
+    if (error) console.error('saveBl: failed to persist the house BL', error)
   })()
 }
 
 function persistBlStatePatch(dbId: string | undefined, patch: Record<string, unknown>, label: string) {
   if (!dbId) return
   ;(async () => {
-    const { error } = await supabase.from('bl_state').update(patch).eq('booking_id', dbId)
-    if (error) console.error(`${label}: failed to persist bl_state`, error)
+    const { error } = await supabase
+      .from('bls')
+      .update(patch)
+      .eq('booking_id', dbId)
+      .eq('role', 'House')
+    if (error) console.error(`${label}: failed to persist the house BL`, error)
   })()
 }
 
@@ -1718,11 +1734,24 @@ export const useDataStore = create<DataState>((set, get) => ({
   },
 
   fetchBlStates: async () => {
-    const { data, error } = await supabase.from('bl_state').select('*')
+    // The HOUSE BL per booking. The store's BlState is one-per-booking, and
+    // the house document is the one every other screen means by "the BL" --
+    // the Overview, the BL Drafts figure, the documentation status. A Master
+    // BL is shown on the BL screen itself, which reads `bls` directly.
+    const { data, error } = await supabase
+      .from('bls')
+      .select('*')
+      .eq('role', 'House')
+      .order('created_at', { ascending: true })
     if (error || !data) return
     set((s) => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const byDbId = new Map<string, any>((data as any[]).map((row) => [row.booking_id, row]))
+      const byDbId = new Map<string, any>()
+      // First house BL wins, matching the order above.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      for (const row of data as any[]) {
+        if (!byDbId.has(row.booking_id)) byDbId.set(row.booking_id, row)
+      }
       const merged = [...s.blStates]
       for (const b of s.bookings) {
         if (!b.dbId) continue

@@ -104,9 +104,10 @@ export function GlobalSearch() {
       const safe = q.trim().replace(/[,%]/g, ' ')
       void (async () => {
         const [bls, invs, cons] = await Promise.all([
+          // Any BL number finds its shipment, house or master (spec v2).
           supabase
-            .from('bl_state')
-            .select('booking_id, bl_number, lifecycle, bookings(booking_ref)')
+            .from('bls')
+            .select('booking_id, bl_number, lifecycle, role, bookings(booking_ref)')
             .ilike('bl_number', `%${safe}%`)
             .limit(MAX_PER_GROUP),
           supabase
@@ -127,7 +128,7 @@ export function GlobalSearch() {
           id: r.booking_id,
           group: 'Bills of Lading' as const,
           title: r.bl_number,
-          subtitle: [r.bookings?.booking_ref, r.lifecycle].filter(Boolean).join(' · '),
+          subtitle: [r.bookings?.booking_ref, r.role, r.lifecycle].filter(Boolean).join(' · '),
           to: `/nvocc/${r.bookings?.booking_ref ?? r.booking_id}`,
         }))
 
