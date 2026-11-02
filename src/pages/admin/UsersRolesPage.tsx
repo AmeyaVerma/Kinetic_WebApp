@@ -5,6 +5,7 @@ import { Button } from '../../components/ui/Button'
 import { CsvButton } from '../../components/ui/CsvButton'
 import { AuditTrailTab } from '../../components/admin/AuditTrailTab'
 import { PortalAccountsTab } from '../../components/admin/PortalAccountsTab'
+import { OutboxTab } from '../../components/admin/OutboxTab'
 import { Badge, type BadgeTone } from '../../components/ui/Badge'
 import { Tabs } from '../../components/ui/Tabs'
 import { Modal } from '../../components/ui/Modal'
@@ -62,6 +63,7 @@ export function UsersRolesPage() {
           { key: 'portal', label: 'Portal accounts' },
           { key: 'roles', label: 'Roles & permissions' },
           { key: 'audit', label: 'Audit trail', badge: undefined },
+          { key: 'outbox', label: 'Notification outbox' },
         ]}
         active={tab}
         onChange={setTab}
@@ -72,6 +74,7 @@ export function UsersRolesPage() {
       {tab === 'portal' && <PortalAccountsTab />}
       {tab === 'roles' && <RolesTab />}
       {tab === 'audit' && <AuditTrailTab />}
+      {tab === 'outbox' && <OutboxTab />}
     </div>
   )
 }
