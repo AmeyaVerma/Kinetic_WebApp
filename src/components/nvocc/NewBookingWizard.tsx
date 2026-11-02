@@ -170,7 +170,10 @@ export function NewBookingWizard({ open, onClose, onCreated }: Props) {
     ])
   }
 
-  const submit = () => {
+  const [createError, setCreateError] = useState<string | null>(null)
+
+  const submit = async () => {
+    setCreateError(null)
     if (!vesselId || !customerId) return
     const charges: Omit<ChargeLine, 'id' | 'bookingId'>[] = chargeLines
       .filter((c) => c.amount > 0)
@@ -182,7 +185,7 @@ export function NewBookingWizard({ open, onClose, onCreated }: Props) {
         currency: c.currency,
         vendorId: c.vendorId,
       }))
-    const id = createBooking(
+    const id = await createBooking(
       {
         direction,
         bookingPartyId: customerId,
@@ -227,6 +230,16 @@ export function NewBookingWizard({ open, onClose, onCreated }: Props) {
       charges,
       { actor, isAdmin },
     )
+    // A booking with no server-allocated reference is exactly the collision
+    // this change exists to stop, so nothing is created rather than falling
+    // back to a number made up in the browser.
+    if (!id) {
+      setCreateError(
+        'Could not allocate a booking number. Nothing was created — check your connection and try again.',
+      )
+      return
+    }
+
     reset()
     onCreated(id)
   }
@@ -253,7 +266,10 @@ export function NewBookingWizard({ open, onClose, onCreated }: Props) {
               Next — costing
             </Button>
           ) : (
-            <Button onClick={submit}>Create booking</Button>
+            <div className="flex items-center gap-3">
+              {createError && <p className="text-sm text-red-600">{createError}</p>}
+              <Button onClick={() => void submit()}>Create booking</Button>
+            </div>
           )}
         </>
       }

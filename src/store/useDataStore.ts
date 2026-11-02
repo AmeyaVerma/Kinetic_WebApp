@@ -1051,7 +1051,7 @@ interface DataState {
     b: Omit<Booking, 'id' | 'bookingRef' | 'hblNo' | 'cancelled' | 'createdAt' | 'module'>,
     charges: Omit<ChargeLine, 'id' | 'bookingId'>[],
     opts?: { actor?: string; isAdmin?: boolean },
-  ) => string
+  ) => Promise<string | null>
   /** Cancelling and voiding are different events and the spec keeps them
       apart (F5). A booking is CANCELLED when it was real and the customer
       called it off; it is VOID when it should never have existed. Both need
@@ -1945,7 +1945,7 @@ export const useDataStore = create<DataState>((set, get) => ({
     return data.signedUrl
   },
 
-  createBooking: (b, chargeLines, opts) => {
+  createBooking: async (b, chargeLines, opts) => {
     const actor = opts?.actor ?? 'Ops'
     const isAdmin = opts?.isAdmin ?? false
     // Booking placement itself is never gated — only the initial costing is.
@@ -1954,21 +1954,36 @@ export const useDataStore = create<DataState>((set, get) => ({
     // booking exists, via requestChargeApproval).
     const applyChargesDirectly = isAdmin || chargeLines.length === 0
 
-    // Real numbering scheme from the live tracker: KLNVO2627XXXXXX
-    const existing = get().bookings
-    const maxSeq = existing.reduce((max, x) => {
-      const m = x.bookingRef.match(/^KLNVO2627(\d{6})$/)
-      return m ? Math.max(max, +m[1]) : max
-    }, 0)
-    const bookingRef = `KLNVO2627${String(maxSeq + 1).padStart(6, '0')}`
+    // The reference is allocated by the database, never computed here.
+    //
+    // This used to scan the bookings loaded in the store, take the highest
+    // sequence it could see and add one, with the financial year written in
+    // as the literal '2627'. Two people booking at the same moment both read
+    // the same maximum and minted the same reference; a browser mid-fetch saw
+    // a lower one and reused a number already issued; and every booking made
+    // after March 2027 would have carried the wrong year for ever.
+    //
+    // allocate_booking_ref() uses the same atomic per-tenant, per-year
+    // counter that numbers invoices and BLs (migration 0085).
+    const { data: allocated, error: refErr } = await supabase.rpc('allocate_booking_ref')
+    if (refErr || !allocated) {
+      console.error('createBooking: could not allocate a booking reference', refErr)
+      return null
+    }
+    const bookingRef = allocated as string
     const id = bookingRef
-    const num = maxSeq + 1
     const booking: Booking = {
       ...b,
       id,
       module: 'nvocc',
       bookingRef,
-      hblNo: `KLHBL25${String(num).padStart(4, '0')}`,
+      // No HBL number is invented at creation. The old one was
+      // `KLHBL25` + the booking's own sequence -- a second number meaning the
+      // same thing as the BL's, with the year wrong and the counter borrowed.
+      // A house BL number is allocated from the BL series when a BL is
+      // actually made (see DocumentMakerTab), which is the only moment an
+      // HBL exists.
+      hblNo: null,
       cancelled: false,
       createdAt: now(),
       workflowStatus: 'Booked',
