@@ -16,6 +16,7 @@ import { BookingOverviewTab } from '../components/booking/BookingOverviewTab'
 import { DepotPicker } from '../components/booking/DepotPicker'
 import { PodAgentPicker } from '../components/booking/PodAgentPicker'
 import { HsLines } from '../components/booking/HsLines'
+import { containerNoProblem } from '../lib/containerNo'
 import { StopBookingDialog, type StopKind } from '../components/booking/StopBookingDialog'
 import { PortSearchField } from '../components/nvocc/PortSearchField'
 // Lazy: these pull in @react-pdf/renderer, which is ~470 kB gzipped. Loading
@@ -733,6 +734,9 @@ function ContainerNoCell({
         disabled={disabled}
         className={`${cellInputCls} disabled:cursor-not-allowed disabled:opacity-60`}
       />
+      {!open && containerNoProblem(value) && (
+        <p className="mt-0.5 text-[10px] leading-tight text-amber-600">{containerNoProblem(value)}</p>
+      )}
       {open && results.length > 0 && (
         <div className="absolute z-10 mt-1 w-full min-w-[160px] overflow-hidden rounded-btn border border-line bg-surface shadow-lg">
           {results.map((c) => (

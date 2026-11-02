@@ -1,3 +1,4 @@
+import { containerNoProblem } from '../lib/containerNo'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
@@ -774,6 +775,9 @@ function GateInModal({ open, onClose, onCreated }: { open: boolean; onClose: () 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Field label="Container number (OCR scan / manual)">
           <TextInput value={containerNo} onChange={(e) => setContainerNo(e.target.value.toUpperCase())} placeholder="e.g. DFSU2995398" />
+          {containerNoProblem(containerNo) && (
+            <p className="mt-1 text-[11px] text-amber-600">{containerNoProblem(containerNo)}</p>
+          )}
         </Field>
         <Field label="Expected booking (auto-match)">
           <Select value={bookingRef} onChange={(e) => setBookingRef(e.target.value)}>
