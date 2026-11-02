@@ -15,6 +15,7 @@ import { BookingAuditLog } from '../components/booking/BookingAuditLog'
 import { BookingOverviewTab } from '../components/booking/BookingOverviewTab'
 import { DepotPicker } from '../components/booking/DepotPicker'
 import { PodAgentPicker } from '../components/booking/PodAgentPicker'
+import { HsLines } from '../components/booking/HsLines'
 import { StopBookingDialog, type StopKind } from '../components/booking/StopBookingDialog'
 import { PortSearchField } from '../components/nvocc/PortSearchField'
 // Lazy: these pull in @react-pdf/renderer, which is ~470 kB gzipped. Loading
@@ -934,6 +935,8 @@ function ProductInfoTab({ booking }: { booking: import('../lib/types').Booking }
           onChange={(v) => setHaz('specialProductText', v)}
         />
       </div>
+
+      <HsLines bookingDbId={booking.dbId} disabled={!binding.canType} />
 
       {hazStatus === 'Haz' && (
         <div>

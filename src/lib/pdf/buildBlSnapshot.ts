@@ -36,6 +36,7 @@ export function buildBlSnapshot({
   issuedAt,
   logoSrc,
   deliveryAgent,
+  hsLines,
   overrides,
 }: {
   booking: Booking
@@ -51,6 +52,8 @@ export function buildBlSnapshot({
   /** The POD agent from the Agents master, already formatted for the box.
       Never typed on the BL: it comes from the booking's Parties tab. */
   deliveryAgent?: string
+  /** The booking's HS lines, printed under the cargo. */
+  hsLines?: { code: string; cargo: string }[]
   /** Fields edited on the BL itself. They never write back to the booking. */
   overrides?: Partial<BlSnapshot>
 }): BlSnapshot {
@@ -91,7 +94,9 @@ export function buildBlSnapshot({
     marksAndNumbers: lines.marks,
     useContainerSheet,
     containers: buildContainerRows(booking),
-    packagesAndDescription: describeCargo(booking),
+    packagesAndDescription: [describeCargo(booking), ...(hsLines ?? []).map((h) => 'HS CODE ' + h.code + (h.cargo ? ' - ' + h.cargo.toUpperCase() : ''))]
+      .filter(Boolean)
+      .join('\n'),
     grossWeightKgs: lines.grossTotal,
     measurementM3: booking.measurementM3 ? String(booking.measurementM3) : '',
 

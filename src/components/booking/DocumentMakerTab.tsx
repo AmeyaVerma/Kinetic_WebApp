@@ -146,6 +146,30 @@ export function DocumentMakerTab({ booking }: { booking: Booking }) {
   // The POD agent, formatted for the BL's Overseas Agent box. Read from the
   // Agents master, so the box is never typed by hand.
   const [deliveryAgent, setDeliveryAgent] = useState('')
+  // HS lines for the booking, printed under the cargo on the BL.
+  const [hsLines, setHsLines] = useState<{ code: string; cargo: string }[]>([])
+  useEffect(() => {
+    if (!dbId) return
+    let cancelled = false
+    void (async () => {
+      const { data } = await supabase
+        .from('booking_hs_lines')
+        .select('cargo_description, hs_codes(code_dotted)')
+        .eq('booking_id', dbId)
+        .order('sort_order')
+        .order('created_at')
+      if (cancelled) return
+      setHsLines(
+        ((data as unknown as { cargo_description: string | null; hs_codes: { code_dotted: string } | null }[]) ?? []).map((r) => ({
+          code: r.hs_codes?.code_dotted ?? '',
+          cargo: r.cargo_description ?? '',
+        })),
+      )
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [dbId])
   const podAgentId = booking.podAgentId
   useEffect(() => {
     if (!podAgentId) {
@@ -294,6 +318,7 @@ export function DocumentMakerTab({ booking }: { booking: Booking }) {
       useContainerSheet: bl?.use_container_sheet ?? false,
       issuedAt: bl?.issued_at ?? null,
       deliveryAgent,
+      hsLines,
       // Scan Copy prints everything black and white, so it takes the
       // greyscale masthead; a colour logo on a mono page would be the one
       // thing that gave it away as not a photocopy.
@@ -305,7 +330,7 @@ export function DocumentMakerTab({ booking }: { booking: Booking }) {
           ? (logoGreySrc ?? logoSrc)
           : logoSrc,
     })
-  }, [booking, company, bl, issuedSnapshot, logoSrc, logoGreySrc, deliveryAgent])
+  }, [booking, company, bl, issuedSnapshot, logoSrc, logoGreySrc, deliveryAgent, hsLines])
 
   const opSnapshot = useMemo(() => {
     if (!open || open.type === 'bl' || !docCompany) return null
