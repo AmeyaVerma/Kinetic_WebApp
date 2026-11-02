@@ -22,6 +22,7 @@ import { AgentsMasterPage } from './pages/master/AgentsMasterPage'
 import { CfsMasterPage } from './pages/master/CfsMasterPage'
 import { EmptyYardsGroupPage } from './pages/master/EmptyYardsGroupPage'
 import { HsCodesMasterPage } from './pages/master/HsCodesMasterPage'
+import { DocumentFeesMasterPage } from './pages/master/DocumentFeesMasterPage'
 import { VesselsMasterPage } from './pages/master/VesselsMasterPage'
 import { VesselDetailPage } from './pages/master/VesselDetailPage'
 import { AddVesselPage } from './pages/master/AddVesselPage'
@@ -196,6 +197,7 @@ export default function App() {
           <Route path="/master/vendors/empty-yards" element={<Guard module="master"><EmptyYardsGroupPage /></Guard>} />
           <Route path="/master/agents" element={<Guard module="master"><AgentsMasterPage /></Guard>} />
           <Route path="/master/hs-codes" element={<Guard module="master"><HsCodesMasterPage /></Guard>} />
+          <Route path="/master/document-fees" element={<Guard module="master"><DocumentFeesMasterPage /></Guard>} />
           <Route path="/master/vessels" element={<Guard module="master"><VesselsMasterPage /></Guard>} />
           <Route path="/master/vessels/new" element={<Guard module="master"><AddVesselPage /></Guard>} />
           <Route path="/master/vessels/:id" element={<Guard module="master"><VesselDetailPage /></Guard>} />

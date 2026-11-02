@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Building2, Briefcase, UserCheck, Contact, Truck, Ship, Container, Wallet, Anchor, LayoutGrid, ChevronRight, Globe2, Barcode } from 'lucide-react'
+import { Building2, Briefcase, UserCheck, Contact, Truck, Ship, Container, Wallet, Anchor, LayoutGrid, ChevronRight, Globe2, Barcode, ReceiptText } from 'lucide-react'
 import { Card } from '../components/ui/Card'
 import { useDataStore } from '../store/useDataStore'
 import { supabase } from '../lib/supabaseClient'
@@ -25,6 +25,7 @@ export function MasterDataPage() {
   const [vesselsCount, setVesselsCount] = useState<number | null>(null)
   const [agentCount, setAgentCount] = useState<number | null>(null)
   const [hsCount, setHsCount] = useState<number | null>(null)
+  const [feeCount, setFeeCount] = useState<number | null>(null)
 
   useEffect(() => {
     fetchParties()
@@ -41,6 +42,10 @@ export function MasterDataPage() {
       .from('hs_codes')
       .select('*', { count: 'exact', head: true })
       .then(({ count }) => setHsCount(count ?? 0))
+    supabase
+      .from('document_fees')
+      .select('*', { count: 'exact', head: true })
+      .then(({ count }) => setFeeCount(count ?? 0))
   }, [fetchParties, fetchContainers])
 
   const tiles: MasterTile[] = [
@@ -99,6 +104,15 @@ export function MasterDataPage() {
       icon: Barcode,
       live: true,
       count: hsCount ?? undefined,
+    },
+    {
+      key: 'document-fees',
+      label: 'Document fees',
+      description:
+        'What each document costs when a customer requests it. No price is set yet — every row reads Test Data.',
+      icon: ReceiptText,
+      live: true,
+      count: feeCount ?? undefined,
     },
     {
       key: 'ports',
