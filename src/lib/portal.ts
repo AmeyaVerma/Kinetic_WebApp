@@ -24,17 +24,21 @@ export interface PortalIdentity {
 export async function loadPortalIdentity(): Promise<PortalIdentity | null> {
   const { data, error } = await supabase
     .from('portal_accounts')
-    .select('kind, party_id, parties(legal_name, display_name)')
+    .select('kind, party_id, agent_id, parties(legal_name, display_name), agents(name)')
     .maybeSingle()
   if (error || !data) return null
+  // A portal login speaks for a PARTY (customer) or an AGENT -- v2 moved
+  // agents into their own master, so an agent login has no party at all.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const party = (data as any).parties
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const agent = (data as any).agents
   return {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     kind: (data as any).kind,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    partyId: (data as any).party_id,
-    partyName: party?.display_name || party?.legal_name || 'your account',
+    partyId: (data as any).party_id ?? (data as any).agent_id,
+    partyName: agent?.name || party?.display_name || party?.legal_name || 'your account',
   }
 }
 

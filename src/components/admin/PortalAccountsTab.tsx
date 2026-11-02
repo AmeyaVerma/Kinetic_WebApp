@@ -12,7 +12,8 @@ interface PortalAccountRow {
   id: string
   user_id: string
   kind: 'customer' | 'agent'
-  party_id: string
+  party_id: string | null
+  agent_id: string | null
   created_at: string
   created_by: string | null
 }
@@ -43,6 +44,7 @@ export function PortalAccountsTab() {
   const [loading, setLoading] = useState(true)
   const [userId, setUserId] = useState('')
   const [partyId, setPartyId] = useState('')
+  const [agents, setAgents] = useState<{ id: string; name: string; code: string | null }[]>([])
   const [kind, setKind] = useState<'customer' | 'agent'>('customer')
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
@@ -51,7 +53,7 @@ export function PortalAccountsTab() {
     setLoading(true)
     const { data } = await supabase
       .from('portal_accounts')
-      .select('id, user_id, kind, party_id, created_at, created_by')
+      .select('id, user_id, kind, party_id, agent_id, created_at, created_by')
       .order('created_at', { ascending: false })
     setRows((data as PortalAccountRow[]) ?? [])
     setLoading(false)
@@ -60,6 +62,12 @@ export function PortalAccountsTab() {
   useEffect(() => {
     void load()
     void fetchParties()
+    // Agents come from their own master (spec v2), not from Parties.
+    void supabase
+      .from('agents')
+      .select('id, name, code')
+      .order('name')
+      .then(({ data }) => setAgents((data as { id: string; name: string; code: string | null }[]) ?? []))
   }, [load, fetchParties])
 
   // Only external logins can hold a portal account. A staff member linked to
@@ -75,10 +83,13 @@ export function PortalAccountsTab() {
 
   const nameOfUser = (id: string) => users.find((u) => u.id === id)?.name ?? id
   const emailOfUser = (id: string) => users.find((u) => u.id === id)?.email ?? ''
-  const nameOfParty = (id: string) =>
-    parties.find((p) => p.id === id)?.displayName ??
-    parties.find((p) => p.id === id)?.legalName ??
-    id
+  const nameOfParty = (r: PortalAccountRow) =>
+    r.kind === 'agent'
+      ? agents.find((a) => a.id === r.agent_id)?.name ?? r.agent_id ?? '—'
+      : parties.find((p) => p.id === r.party_id)?.displayName ??
+        parties.find((p) => p.id === r.party_id)?.legalName ??
+        r.party_id ??
+        '—'
 
   const link = async () => {
     setError(null)
@@ -91,7 +102,10 @@ export function PortalAccountsTab() {
       user_id: userId,
       tenant_id: activeCompanyId,
       kind,
-      party_id: partyId,
+      // Exactly one identity (a database constraint): a customer login is
+      // linked to a party, an agent login to a record in the Agents master.
+      party_id: kind === 'customer' ? partyId : null,
+      agent_id: kind === 'agent' ? partyId : null,
       created_by: currentUser?.name ?? null,
     })
     setSaving(false)
@@ -147,20 +161,30 @@ export function PortalAccountsTab() {
               <Field label="Sees shipments as">
                 <Select
                   value={kind}
-                  onChange={(e) => setKind(e.target.value as 'customer' | 'agent')}
+                  onChange={(e) => {
+                    setKind(e.target.value as 'customer' | 'agent')
+                    setPartyId('')
+                  }}
                 >
                   <option value="customer">Customer — bookings they placed</option>
                   <option value="agent">Agent — bookings they handle</option>
                 </Select>
               </Field>
-              <Field label="Party">
+              <Field label={kind === 'agent' ? 'Agent' : 'Party'}>
                 <Select value={partyId} onChange={(e) => setPartyId(e.target.value)}>
-                  <option value="">Choose a party…</option>
-                  {parties.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.displayName || p.legalName}
-                    </option>
-                  ))}
+                  <option value="">{kind === 'agent' ? 'Choose an agent…' : 'Choose a party…'}</option>
+                  {kind === 'agent'
+                    ? agents.map((a) => (
+                        <option key={a.id} value={a.id}>
+                          {a.code ? `${a.code} · ` : ''}
+                          {a.name}
+                        </option>
+                      ))
+                    : parties.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.displayName || p.legalName}
+                        </option>
+                      ))}
                 </Select>
               </Field>
             </div>
@@ -202,7 +226,7 @@ export function PortalAccountsTab() {
                   <td className={TD}>
                     <Badge tone={r.kind === 'agent' ? 'info' : 'success'} label={r.kind} />
                   </td>
-                  <td className={TD}>{nameOfParty(r.party_id)}</td>
+                  <td className={TD}>{nameOfParty(r)}</td>
                   <td className={`${TD} text-muted`}>{r.created_by ?? '—'}</td>
                   <td className={TD}>
                     <Button variant="ghost" size="sm" onClick={() => void unlink(r.id)}>
