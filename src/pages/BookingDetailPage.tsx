@@ -12,6 +12,7 @@ import { DocumentFieldsSection } from '../components/booking/DocumentFieldsSecti
 import { BookingEditProvider, useBookingEdit, useFieldBinding } from '../components/booking/BookingEditContext'
 import { BookingEditBar } from '../components/booking/BookingEditBar'
 import { BookingAuditLog } from '../components/booking/BookingAuditLog'
+import { BookingOverviewTab } from '../components/booking/BookingOverviewTab'
 import { StopBookingDialog, type StopKind } from '../components/booking/StopBookingDialog'
 import { PortSearchField } from '../components/nvocc/PortSearchField'
 // Lazy: these pull in @react-pdf/renderer, which is ~470 kB gzipped. Loading
@@ -76,6 +77,9 @@ const MILESTONE_TAB_LABEL: Record<'activities' | 'documents' | 'invoicing', stri
 }
 
 const TABS = [
+  // Overview first, and the tab a booking opens on (spec U2). It used to open
+  // on Container info, which answers a question nobody asks first.
+  { key: 'overview', label: 'Overview' },
   { key: 'agents', label: 'Parties' },
   { key: 'shipment', label: 'Shipment details (O+D)' },
   { key: 'product', label: 'Product info' },
@@ -89,7 +93,7 @@ const TABS = [
 
 export function BookingDetailPage() {
   const { id } = useParams<{ id: string }>()
-  const [tab, setTab] = useState('container')
+  const [tab, setTab] = useState('overview')
   const [stopKind, setStopKind] = useState<StopKind | null>(null)
   const viewAsRole = useAuthStore((st) => st.viewAsRole)
   const currentUser = useCurrentUser()
@@ -267,6 +271,7 @@ export function BookingDetailPage() {
       <Tabs tabs={TABS} active={tab} onChange={setTab} />
 
       <Card className="p-5">
+        {tab === 'overview' && <BookingOverviewTab booking={booking} />}
         {tab === 'container' && <ContainerInfoTab booking={booking} />}
         {tab === 'product' && (
           <div className="space-y-5">

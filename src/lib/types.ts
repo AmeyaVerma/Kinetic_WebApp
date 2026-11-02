@@ -749,6 +749,12 @@ export interface BlState {
   lifecycle: BlLifecycle
   releaseType: 'Original' | 'Telex' | 'Seaway' | null
   currentFields: BlFields
+  /** The allocated BL number, from the `bl_number` COLUMN.
+      It is NOT inside currentFields -- that holds the editable BL fields and
+      never carried the number, which is why global search could not find a
+      BL and the booking Overview showed the old hbl_no instead. */
+  blNumber?: string | null
+  blType?: string | null
 }
 
 /* ── Container activities (doc §2/§9, container_activities) ──── */

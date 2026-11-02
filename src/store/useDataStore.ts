@@ -1717,6 +1717,8 @@ export const useDataStore = create<DataState>((set, get) => ({
           lifecycle: row.lifecycle,
           releaseType: row.release_type,
           currentFields: row.current_fields,
+          blNumber: row.bl_number,
+          blType: row.bl_type,
         }
         const idx = merged.findIndex((x) => x.bookingId === b.id)
         if (idx >= 0) merged[idx] = state
