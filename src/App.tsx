@@ -23,6 +23,7 @@ import { CfsMasterPage } from './pages/master/CfsMasterPage'
 import { EmptyYardsGroupPage } from './pages/master/EmptyYardsGroupPage'
 import { HsCodesMasterPage } from './pages/master/HsCodesMasterPage'
 import { DocumentFeesMasterPage } from './pages/master/DocumentFeesMasterPage'
+import { RequestsPage } from './pages/RequestsPage'
 import { VesselsMasterPage } from './pages/master/VesselsMasterPage'
 import { VesselDetailPage } from './pages/master/VesselDetailPage'
 import { AddVesselPage } from './pages/master/AddVesselPage'
@@ -264,6 +265,7 @@ export default function App() {
           <Route path="/master/misc/package-types" element={<Guard module="master"><PackageTypesMasterPage /></Guard>} />
           <Route path="/master/misc/currencies" element={<Guard module="master"><CurrenciesMasterPage /></Guard>} />
           <Route path="/approvals" element={<Guard module="approvals"><ApprovalsPage /></Guard>} />
+          <Route path="/requests" element={<Guard module="approvals"><RequestsPage /></Guard>} />
           <Route path="/portal/customer" element={<Guard module="customers"><CustomersPage /></Guard>} />
           <Route path="/portal/agent" element={<Guard module="agents"><AgentsPage /></Guard>} />
           <Route path="/reports" element={<Guard module="reports"><ReportsPage /></Guard>} />
