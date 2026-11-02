@@ -6,7 +6,7 @@ import { Button } from '../components/ui/Button'
 import { Badge, type BadgeTone } from '../components/ui/Badge'
 import { Tabs } from '../components/ui/Tabs'
 import { TextInput } from '../components/ui/Field'
-import { useAuthStore, useCurrentUser } from '../store/useAuthStore'
+import { useAuthStore, useCurrentUser, useIsApprover } from '../store/useAuthStore'
 import { supabase } from '../lib/supabaseClient'
 
 interface BookingRequest {
@@ -19,6 +19,15 @@ interface BookingRequest {
   created_at: string
   parties?: { display_name: string | null; legal_name: string } | null
   bookings?: { booking_ref: string } | null
+}
+
+interface DocInvoice {
+  id: string
+  invoice_no: string
+  total_inr: number | string | null
+  published_to_portal: boolean
+  paid_at: string | null
+  document_request_id: string
 }
 
 interface DocumentRequest {
@@ -60,10 +69,14 @@ export function RequestsPage() {
   const user = useCurrentUser()
   const viewAsRole = useAuthStore((s) => s.viewAsRole)
   const isAdmin = (viewAsRole ?? user?.role) === 'admin'
+  // Admin, or an Approver an Admin appointed in this company. Staff may still
+  // raise and publish an invoice; only an approver decides a request.
+  const canDecide = useIsApprover()
 
   const [tab, setTab] = useState('bookings')
   const [bookingReqs, setBookingReqs] = useState<BookingRequest[]>([])
   const [docReqs, setDocReqs] = useState<DocumentRequest[]>([])
+  const [docInvoices, setDocInvoices] = useState<DocInvoice[]>([])
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -83,7 +96,17 @@ export function RequestsPage() {
         .order('created_at', { ascending: false }),
     ])
     setBookingReqs((b.data as unknown as BookingRequest[]) ?? [])
-    setDocReqs((d.data as unknown as DocumentRequest[]) ?? [])
+    const docs = (d.data as unknown as DocumentRequest[]) ?? []
+    setDocReqs(docs)
+    if (docs.length > 0) {
+      const { data: inv } = await supabase
+        .from('invoices')
+        .select('id, invoice_no, total_inr, published_to_portal, paid_at, document_request_id')
+        .in('document_request_id', docs.map((x) => x.id))
+      setDocInvoices((inv as DocInvoice[]) ?? [])
+    } else {
+      setDocInvoices([])
+    }
     setLoading(false)
   }, [])
 
@@ -126,6 +149,22 @@ export function RequestsPage() {
       p_reason: reasons[r.id] ?? '',
       p_decided_by: user?.name ?? 'Admin',
     })
+    setBusy(null)
+    if (err) {
+      setError(err.message)
+      return
+    }
+    await load()
+  }
+
+  /** Calls one of the document-release functions and shows its refusal.
+      The database decides; this only reports, so a fee that still reads
+      Test Data produces the database's own explanation, not a guess. */
+  const docAction = async (id: string, fn: () => PromiseLike<{ error: { message: string } | null }>) => {
+    setBusy(id)
+    setError(null)
+    setNote(null)
+    const { error: err } = await fn()
     setBusy(null)
     if (err) {
       setError(err.message)
@@ -285,6 +324,112 @@ export function RequestsPage() {
                   {r.reject_reason && (
                     <p className="mt-2 text-[13px] text-red-600">Rejected: {r.reject_reason}</p>
                   )}
+
+                  {(() => {
+                    const inv = docInvoices.find((i) => i.document_request_id === r.id)
+                    const open = r.status === 'Submitted' || r.status === 'Under review'
+                    return (
+                      <div className="mt-3 space-y-2 border-t border-line pt-3">
+                        {inv && (
+                          <p className="text-[13px]">
+                            <span className="font-mono">{inv.invoice_no}</span>
+                            <span className="ml-2 text-muted">
+                              ₹{Number(inv.total_inr ?? 0).toLocaleString('en-IN')}
+                            </span>
+                            <span className="ml-2">
+                              <Badge
+                                tone={inv.paid_at ? 'success' : inv.published_to_portal ? 'info' : 'warn'}
+                                label={inv.paid_at ? 'Paid' : inv.published_to_portal ? 'Published' : 'Not published'}
+                              />
+                            </span>
+                          </p>
+                        )}
+
+                        <div className="flex flex-wrap items-center gap-2">
+                          {open && canDecide && (
+                            <>
+                              <Button
+                                size="sm"
+                                disabled={busy === r.id}
+                                onClick={() =>
+                                  void docAction(r.id, () =>
+                                    supabase.rpc('decide_document_request', { p_request: r.id, p_approve: true }),
+                                  )
+                                }
+                              >
+                                <Check size={13} /> Approve
+                              </Button>
+                              <div className="w-56">
+                                <TextInput
+                                  placeholder="Reason, which the customer sees"
+                                  value={reasons[r.id] ?? ''}
+                                  onChange={(e) => setReasons((x) => ({ ...x, [r.id]: e.target.value }))}
+                                />
+                              </div>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                disabled={busy === r.id}
+                                onClick={() =>
+                                  void docAction(r.id, () =>
+                                    supabase.rpc('decide_document_request', {
+                                      p_request: r.id,
+                                      p_approve: false,
+                                      p_reason: reasons[r.id] ?? '',
+                                    }),
+                                  )
+                                }
+                              >
+                                <X size={13} /> Reject
+                              </Button>
+                            </>
+                          )}
+
+                          {r.status === 'Approved' && !inv && (
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              disabled={busy === r.id}
+                              onClick={() =>
+                                void docAction(r.id, () =>
+                                  supabase.rpc('raise_document_invoice', { p_request: r.id }),
+                                )
+                              }
+                            >
+                              Raise the document invoice
+                            </Button>
+                          )}
+
+                          {inv && !inv.published_to_portal && (
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              disabled={busy === r.id}
+                              onClick={() =>
+                                void docAction(r.id, () =>
+                                  supabase.rpc('publish_invoice', { p_invoice: inv.id }),
+                                )
+                              }
+                            >
+                              Publish to portal
+                            </Button>
+                          )}
+                        </div>
+
+                        {open && !canDecide && (
+                          <p className="text-[11px] text-muted">
+                            Only an Admin or an Approver can decide a request.
+                          </p>
+                        )}
+                        {r.status === 'Approved' && !inv && (
+                          <p className="text-[11px] text-muted">
+                            The invoice is priced from the Document fees master. If that fee still
+                            reads Test Data the database refuses it and says so.
+                          </p>
+                        )}
+                      </div>
+                    )
+                  })()}
                 </Card>
               ))}
             </div>
