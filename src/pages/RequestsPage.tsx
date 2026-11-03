@@ -32,6 +32,8 @@ interface DocInvoice {
 
 interface DocumentRequest {
   id: string
+  booking_id: string
+  released_file_name?: string | null
   status: string
   doc_type: string
   reject_reason: string | null
@@ -416,6 +418,29 @@ export function RequestsPage() {
                           )}
                         </div>
 
+                        {r.status === 'Paid' && (
+                          <ReleaseFile
+                            requestId={r.id}
+                            bookingId={r.booking_id}
+                            busy={busy === r.id}
+                            onRelease={(path, name) =>
+                              void docAction(r.id, () =>
+                                supabase.rpc('release_document_request', {
+                                  p_request: r.id,
+                                  p_path: path,
+                                  p_file_name: name,
+                                }),
+                              )
+                            }
+                            onError={setError}
+                          />
+                        )}
+                        {r.status === 'Ready to download' && (
+                          <p className="text-[11px] text-muted">
+                            Released{r.released_file_name ? `: ${r.released_file_name}` : ''}. The customer can download it.
+                          </p>
+                        )}
+
                         {open && !canDecide && (
                           <p className="text-[11px] text-muted">
                             Only an Admin or an Approver can decide a request.
@@ -462,4 +487,55 @@ function EmptyNote({ children }: { children: React.ReactNode }) {
 function humanise(key: string): string {
   const spaced = key.replace(/_/g, ' ').replace(/([a-z])([A-Z])/g, '$1 $2')
   return spaced.charAt(0).toUpperCase() + spaced.slice(1).toLowerCase()
+}
+
+/**
+ * Attach the final file to a Paid document request, which releases it.
+ *
+ * The file is uploaded first, into the private generated-documents bucket
+ * under the booking's id, and only then is the release function called; the
+ * database checks the file really is there and that the request is Paid.
+ */
+function ReleaseFile({
+  requestId,
+  bookingId,
+  busy,
+  onRelease,
+  onError,
+}: {
+  requestId: string
+  bookingId: string
+  busy: boolean
+  onRelease: (path: string, name: string) => void
+  onError: (m: string | null) => void
+}) {
+  const [file, setFile] = useState<File | null>(null)
+  const [uploading, setUploading] = useState(false)
+
+  const go = async () => {
+    if (!file) return
+    onError(null)
+    setUploading(true)
+    const safe = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
+    const path = `${bookingId}/released/${requestId}_${safe}`
+    const { error } = await supabase.storage
+      .from('generated-documents')
+      .upload(path, file, { contentType: file.type || 'application/pdf', upsert: true })
+    setUploading(false)
+    if (error) {
+      onError(error.message)
+      return
+    }
+    onRelease(path, file.name)
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <input type="file" accept="application/pdf" className="text-[11px]" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
+      <Button size="sm" variant="secondary" disabled={!file || uploading || busy} onClick={() => void go()}>
+        {uploading ? 'Uploading…' : 'Attach file and release'}
+      </Button>
+      <span className="text-[11px] text-muted">The invoice is paid; attach the final document to release it.</span>
+    </div>
+  )
 }

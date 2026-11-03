@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Send, FileText, PackagePlus } from 'lucide-react'
+import { Send, FileText, PackagePlus, Download } from 'lucide-react'
 import { Card } from '../ui/Card'
 import { Button } from '../ui/Button'
 import { Badge, type BadgeTone } from '../ui/Badge'
@@ -97,6 +97,29 @@ export function PortalRequests({
     void load()
   }, [load])
 
+  /** Ask the server for a link. It checks the whole release chain again, so a
+      stale screen cannot fetch a file that has since been blocked. The link
+      lasts about a minute. */
+  const download = async (requestId: string) => {
+    setError(null)
+    const { data, error: err } = await supabase.functions.invoke('portal-download', {
+      body: { request_id: requestId },
+    })
+    if (err) {
+      // A refusal comes back as an HTTP error whose body holds the reason.
+      let message = err.message
+      try {
+        const body = await (err as unknown as { context?: Response }).context?.json()
+        if (body?.error) message = body.error
+      } catch {
+        /* keep the generic message */
+      }
+      setError(message)
+      return
+    }
+    if (data?.url) window.location.href = data.url as string
+  }
+
   const refOf = (id: string) => bookings.find((b) => b.id === id)?.bookingRef ?? '—'
 
   return (
@@ -176,9 +199,9 @@ export function PortalRequests({
                   </ol>
                 )}
                 {r.status === 'Ready to download' && (
-                  <p className="text-[11px] text-muted">
-                    The file is ready, but the secure download link is not built yet.
-                  </p>
+                  <Button size="sm" variant="secondary" onClick={() => void download(r.id)}>
+                    <Download size={13} /> Download
+                  </Button>
                 )}
               </li>
             )
