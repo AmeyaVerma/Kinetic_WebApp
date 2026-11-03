@@ -17,10 +17,35 @@ import type { BlSnapshot } from '../blSnapshot'
  * than no sheet at all.
  */
 
+const ROUTE: [string, string][] = [
+  ['VESSEL', '17%'],
+  ['VOYAGE', '10%'],
+  ['POR', '17%'],
+  ['POL', '17%'],
+  ['POD', '22%'],
+  ['FINAL DESTINATION', '17%'],
+]
+
 /** Rows that fit under the header on one sheet. */
 const ROWS_PER_SHEET = 28
 
+/**
+ * The sheet as a standalone document, for downloading on its own.
+ */
 export function ContainerAttachSheet({ snapshot }: { snapshot: BlSnapshot }) {
+  return (
+    <Document title={(snapshot.blNumber || 'BL') + ' container sheet'}>
+      <ContainerAttachPages snapshot={snapshot} />
+    </Document>
+  )
+}
+
+/**
+ * The sheet's pages, without a Document around them, so the BL can include
+ * them between its front sheet and the terms. The real BLs are one PDF:
+ * front, container sheet, terms.
+ */
+export function ContainerAttachPages({ snapshot }: { snapshot: BlSnapshot }) {
   const scan = snapshot.printMode === 'Scan'
   const c = palette(scan)
   const rule = '0.5pt solid ' + c.rule
@@ -122,47 +147,41 @@ export function ContainerAttachSheet({ snapshot }: { snapshot: BlSnapshot }) {
   )
 
   return (
-    <Document title={(snapshot.blNumber || 'BL') + ' container sheet'}>
+    <>
       {Array.from({ length: sheets }, (_, i) => {
         const slice = rows.slice(i * ROWS_PER_SHEET, (i + 1) * ROWS_PER_SHEET)
         const isLast = i === sheets - 1
         return (
-          <DocPage
-            key={i}
-            scan={scan}
-            padding={22}
-            footerLeft={snapshot.blNumber}
-            footerRight={'Page ' + (i + 1) + ' of ' + sheets}
-          >
+          // The real sheet has no footer; BL NO. at the top identifies it.
+          <DocPage key={i} scan={scan} padding={22} numbered={false}>
             {isDraft && <Text style={s.draft}>DRAFT</Text>}
             <Text style={s.band}>ATTACH CONTAINER SHEET</Text>
             <Text style={s.blNo}>BL NO.: {snapshot.blNumber}</Text>
 
-            <View style={s.strip}>
-              <Text style={s.stripItem}>
-                <Text style={s.stripLabel}>VESSEL: </Text>
-                {snapshot.oceanVessel.toUpperCase()}
-              </Text>
-              <Text style={s.stripItem}>
-                <Text style={s.stripLabel}>VOYAGE: </Text>
-                {snapshot.voyageNo.toUpperCase()}
-              </Text>
-              <Text style={s.stripItem}>
-                <Text style={s.stripLabel}>POR: </Text>
-                {snapshot.portOfReceipt.toUpperCase()}
-              </Text>
-              <Text style={s.stripItem}>
-                <Text style={s.stripLabel}>POL: </Text>
-                {snapshot.portOfLoading.toUpperCase()}
-              </Text>
-              <Text style={s.stripItem}>
-                <Text style={s.stripLabel}>POD: </Text>
-                {snapshot.portOfDischarge.toUpperCase()}
-              </Text>
-              <Text style={s.stripItem}>
-                <Text style={s.stripLabel}>FINAL DESTINATION: </Text>
-                {snapshot.finalPortOfDelivery.toUpperCase()}
-              </Text>
+            {/* The real sheet shows the route as a small table with a blue
+                header row, values underneath. */}
+            <View style={[s.table, { marginBottom: 8 }]}>
+              <View style={s.row}>
+                {ROUTE.map(([label, w]) => (
+                  <Text key={label} style={[s.th, { width: w }]}>
+                    {label}
+                  </Text>
+                ))}
+              </View>
+              <View style={s.row}>
+                {[
+                  snapshot.oceanVessel,
+                  snapshot.voyageNo,
+                  snapshot.portOfReceipt,
+                  snapshot.portOfLoading,
+                  snapshot.portOfDischarge,
+                  snapshot.finalPortOfDelivery,
+                ].map((v, k) => (
+                  <Text key={k} style={[s.td, { width: ROUTE[k][1], textAlign: 'center' }]}>
+                    {v.toUpperCase()}
+                  </Text>
+                ))}
+              </View>
             </View>
 
             <View style={s.table}>
@@ -218,6 +237,6 @@ export function ContainerAttachSheet({ snapshot }: { snapshot: BlSnapshot }) {
           </DocPage>
         )
       })}
-    </Document>
+    </>
   )
 }

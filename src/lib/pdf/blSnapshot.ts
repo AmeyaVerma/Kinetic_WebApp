@@ -66,6 +66,9 @@ export interface BlSnapshot {
   containers: ContainerSheetRow[]
   packagesAndDescription: string
   grossWeightKgs: string
+  /** Total net weight, printed under the gross weight as the real BLs do.
+      Optional so a snapshot frozen before this existed still reads. */
+  netWeightKgs?: string
   measurementM3: string
 
   freightTerms: string

@@ -98,13 +98,22 @@ export function buildBlSnapshot({
       .filter(Boolean)
       .join('\n'),
     grossWeightKgs: lines.grossTotal,
+    netWeightKgs: netTotal(booking),
     measurementM3: booking.measurementM3 ? String(booking.measurementM3) : '',
 
     freightTerms: booking.freightTerms ?? '',
     freightPayableAt: booking.freightPayableAt ?? '',
     // The blank format stamps place and date only when the BL is issued.
+    // As on the real BLs: the place is the port of loading ("SOHAR", not the
+    // company's office) and the date is the shipped-on-board date, falling back
+    // to the day of issue when that has not been entered yet.
     placeAndDateOfIssue: issuedAt
-      ? company.place_of_issue + ', ' + fmtDate(issuedAt)
+      ? [
+          placeOf(booking.pol) || company.place_of_issue,
+          fmtDate(booking.shippedOnBoard || issuedAt),
+        ]
+          .filter(Boolean)
+          .join(' ')
       : '',
     otherParticulars: booking.otherParticulars ?? '',
 
@@ -120,6 +129,29 @@ export function buildBlSnapshot({
   }
 
   return { ...base, ...overrides }
+}
+
+/**
+ * Net weight for the weight column: the containers' own net weights when they
+ * have been entered, otherwise the booking's. Empty when neither exists, so
+ * the BL prints no net line rather than a made-up one.
+ */
+function netTotal(booking: Booking): string {
+  const filled = (booking.containerDetails ?? []).filter((d) => (d.containerNo ?? '').trim() !== '')
+  const total = filled.reduce((a, d) => a + num(d.netWeight), 0)
+  return total > 0 ? fmtWeight(total) : fmtWeight(booking.netWeightKg)
+}
+
+/**
+ * The place of issue from a port of loading: the name without the country or
+ * a trailing "PORT" ("JEBEL ALI ,UAE" -> "JEBEL ALI", "SOHAR PORT" -> "SOHAR").
+ */
+export function placeOf(port: string | null | undefined): string {
+  return (port ?? '')
+    .split(/[,(]/)[0]
+    .replace(/\s+PORT\s*$/i, '')
+    .trim()
+    .toUpperCase()
 }
 
 /**

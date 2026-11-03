@@ -4,6 +4,7 @@ import { A4, FONT_SIZE, palette } from '../theme'
 import { BL_STRINGS as S, BL_TYPE_LABEL, numberOfOriginals, printsBackside } from '../strings/bl'
 import type { BlSnapshot } from '../blSnapshot'
 import { paginateBlCargo, type BlCargoPage } from '../paginateBl'
+import { ContainerAttachPages } from './ContainerAttachSheet'
 
 /**
  * The Kinetic Line Multi-Modal Transport Document front sheet, matching
@@ -50,7 +51,9 @@ export function BlFrontSheet({
     cell: { padding: 3, borderRight: rule, borderBottom: rule },
     lastCell: { padding: 3, borderBottom: rule },
     label: { fontSize: FONT_SIZE.tiny, color: c.muted },
-    value: { fontSize: FONT_SIZE.small, marginTop: 1 },
+    // The real BLs print everything typed in a typewriter face; the form's
+    // own labels stay sans-serif.
+    value: { fontSize: FONT_SIZE.small, marginTop: 1, fontFamily: 'Courier-Bold' },
 
     company: { alignItems: 'center', paddingVertical: 4 },
     brand: { fontSize: 16, fontFamily: 'Helvetica-Bold', letterSpacing: 1 },
@@ -237,7 +240,19 @@ export function BlFrontSheet({
             )}
           </View>
           <View style={[s.cell, { width: COL.gross }]}>
-            <Text style={s.value}>{snapshot.grossWeightKgs}</Text>
+            {/* As on the real BLs: gross, then net, each with its unit. */}
+            {snapshot.grossWeightKgs ? (
+              <>
+                <Text style={s.value}>GROSS WEIGHT</Text>
+                <Text style={s.value}>{snapshot.grossWeightKgs} KGS</Text>
+              </>
+            ) : null}
+            {snapshot.netWeightKgs ? (
+              <>
+                <Text style={[s.value, { marginTop: 4 }]}>NET WEIGHT</Text>
+                <Text style={s.value}>{snapshot.netWeightKgs} KGS</Text>
+              </>
+            ) : null}
           </View>
           <View style={[s.lastCell, { width: COL.meas }]}>
             <Text style={s.value}>{snapshot.measurementM3}</Text>
@@ -269,7 +284,7 @@ export function BlFrontSheet({
           <View style={{ width: '50%', padding: 3, minHeight: 74 }}>
             <Text style={[s.agent, { color: c.bandBg }]}>{S.asAgent}</Text>
             <Text style={[s.agent, { color: c.bandBg }]}>{snapshot.company.legalName}</Text>
-            <Text style={[s.value, { marginTop: 'auto', textAlign: 'right' }]}>
+            <Text style={[s.value, { marginTop: 'auto', textAlign: 'right', fontFamily: 'Helvetica' }]}>
               {S.labels.authorisedSignatory}
             </Text>
           </View>
@@ -309,12 +324,22 @@ export function BlDocument({
           key={page.pageNumber}
           scan={scan}
           padding={18}
-          footerLeft={snapshot.blNumber}
-          footerRight={'Page ' + page.pageNumber + ' of ' + totalFrontSheets}
+          // The real BLs carry no footer. It is kept only when the cargo
+          // runs onto continuation sheets, where "Page X of Y" is needed to
+          // see that nothing is missing.
+          numbered={false}
+          footerLeft={totalFrontSheets > 1 ? snapshot.blNumber : undefined}
+          footerRight={totalFrontSheets > 1 ? 'Page ' + page.pageNumber + ' of ' + totalFrontSheets : undefined}
         >
           <BlFrontSheet snapshot={snapshot} page={page} />
         </DocPage>
       ))}
+
+      {/* The container sheet is part of the same document, between the front
+          and the terms, as on the real BLs. */}
+      {snapshot.useContainerSheet && snapshot.containers.length > 0 && (
+        <ContainerAttachPages snapshot={snapshot} />
+      )}
 
       {withBackside && <BlBackside scan={scan} src={backsideSrc} />}
     </Document>
