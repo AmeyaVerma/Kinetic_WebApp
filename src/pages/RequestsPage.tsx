@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { Inbox, Check, X, Info } from 'lucide-react'
 import { Card } from '../components/ui/Card'
 import { DOC_LABEL } from '../lib/documentTypes'
+import { BlDraftQueue } from '../components/booking/BlDraftQueue'
 import { Button } from '../components/ui/Button'
 import { Badge, type BadgeTone } from '../components/ui/Badge'
 import { Tabs } from '../components/ui/Tabs'
@@ -196,6 +197,7 @@ export function RequestsPage() {
         tabs={[
           { key: 'bookings', label: 'Booking requests', badge: openBookings.length },
           { key: 'documents', label: 'Document requests', badge: openDocs.length },
+          { key: 'bldrafts', label: 'BL draft inputs' },
         ]}
         active={tab}
         onChange={setTab}
@@ -279,6 +281,8 @@ export function RequestsPage() {
           )}
         </>
       )}
+
+      {tab === 'bldrafts' && <BlDraftQueue canDecide={canDecide} onError={setError} />}
 
       {tab === 'documents' && (
         <>

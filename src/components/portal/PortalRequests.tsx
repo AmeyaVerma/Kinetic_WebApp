@@ -7,6 +7,7 @@ import { Field, Select, TextInput } from '../ui/Field'
 import { supabase } from '../../lib/supabaseClient'
 import type { PortalBooking, PortalIdentity } from '../../lib/portal'
 import { DOC_TYPES, DOC_LABEL } from '../../lib/documentTypes'
+import { BlDraftForm } from './BlDraftForm'
 
 /**
  * What a portal user can ask for.
@@ -41,6 +42,14 @@ interface BookingReq {
   reject_reason: string | null
   created_at: string
 }
+interface DraftInput {
+  id: string
+  booking_id: string
+  status: string
+  reject_reason: string | null
+  file_path: string | null
+  created_at: string
+}
 interface DocReq {
   id: string
   booking_id: string
@@ -63,11 +72,12 @@ export function PortalRequests({
 }) {
   const [bookingReqs, setBookingReqs] = useState<BookingReq[]>([])
   const [docReqs, setDocReqs] = useState<DocReq[]>([])
+  const [drafts, setDrafts] = useState<DraftInput[]>([])
   const [error, setError] = useState<string | null>(null)
   const [note, setNote] = useState<string | null>(null)
 
   const load = useCallback(async () => {
-    const [b, d] = await Promise.all([
+    const [b, d, dr] = await Promise.all([
       supabase
         .from('booking_requests')
         .select('id, status, payload, reject_reason, created_at')
@@ -76,7 +86,12 @@ export function PortalRequests({
         .from('document_requests')
         .select('id, booking_id, doc_type, status, reject_reason, created_at')
         .order('created_at', { ascending: false }),
+      supabase
+        .from('bl_draft_inputs')
+        .select('id, booking_id, status, reject_reason, file_path, created_at')
+        .order('created_at', { ascending: false }),
     ])
+    setDrafts((dr.data as DraftInput[]) ?? [])
     setBookingReqs((b.data as BookingReq[]) ?? [])
     setDocReqs((d.data as DocReq[]) ?? [])
   }, [])
@@ -88,10 +103,10 @@ export function PortalRequests({
   /** Ask the server for a link. It checks the whole release chain again, so a
       stale screen cannot fetch a file that has since been blocked. The link
       lasts about a minute. */
-  const download = async (requestId: string) => {
+  const download = async (requestId: string, kind: 'request' | 'draft' = 'request') => {
     setError(null)
     const { data, error: err } = await supabase.functions.invoke('portal-download', {
-      body: { request_id: requestId },
+      body: kind === 'draft' ? { draft_input_id: requestId } : { request_id: requestId },
     })
     if (err) {
       // A refusal comes back as an HTTP error whose body holds the reason.
@@ -138,6 +153,41 @@ export function PortalRequests({
           await load()
         }}
       />
+
+      <BlDraftForm
+        userId={userId}
+        bookings={bookings}
+        onError={setError}
+        onDone={async () => {
+          setError(null)
+          setNote('Sent. Kinetic will review it and share a draft BL once it is approved.')
+          await load()
+        }}
+      />
+
+      {drafts.length > 0 && (
+        <Card className="space-y-3 p-5">
+          <h3 className="text-[15px] font-semibold">Your BL drafts</h3>
+          <ul className="space-y-2">
+            {drafts.map((d) => (
+              <li key={d.id} className="flex flex-wrap items-center gap-2 text-sm">
+                <Badge tone={REQ_TONE[d.status] ?? 'neutral'} label={d.status} />
+                <span className="font-mono text-xs">{refOf(d.booking_id)}</span>
+                <span className="font-mono text-[11px] text-muted">{day(d.created_at)}</span>
+                {d.reject_reason && <span className="text-xs text-red-600">Rejected: {d.reject_reason}</span>}
+                {d.status === 'Approved' && !d.file_path && (
+                  <span className="text-[11px] text-muted">Approved. The draft BL is being prepared.</span>
+                )}
+                {d.file_path && (
+                  <Button size="sm" variant="secondary" onClick={() => void download(d.id, 'draft')}>
+                    <Download size={13} /> Download draft BL
+                  </Button>
+                )}
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
 
       {identity.kind === 'customer' && (
         <Card className="space-y-3 p-5">

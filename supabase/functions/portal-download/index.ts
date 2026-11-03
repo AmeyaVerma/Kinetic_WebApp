@@ -40,6 +40,24 @@ Deno.serve(async (req) => {
     if (userErr || !userData?.user) return fail(401, 'Not signed in')
 
     const body = await req.json().catch(() => ({}))
+
+    // A draft BL a customer asked for is released once Kinetic has approved the
+    // inputs and attached the draft. It has no invoice, so the chain is shorter:
+    // the submission must be Approved and carry a file.
+    if (body.draft_input_id !== undefined) {
+      const draftId = String(body.draft_input_id ?? '')
+      if (!/^[0-9a-f-]{36}$/i.test(draftId)) return fail(400, 'A draft id is needed')
+      const { data: d } = await asUser
+        .from('bl_draft_inputs')
+        .select('id, tenant_id, status, file_path, file_name')
+        .eq('id', draftId)
+        .maybeSingle()
+      if (!d) return fail(404, 'That draft was not found')
+      if (d.status !== 'Approved') return fail(403, 'This draft has not been approved yet.')
+      if (!d.file_path) return fail(403, 'The draft BL has not been prepared yet.')
+      return await sign(userData.user.id, d.tenant_id, 'bl_draft_inputs', draftId, d.file_path, d.file_name)
+    }
+
     const requestId = String(body.request_id ?? '')
     if (!/^[0-9a-f-]{36}$/i.test(requestId)) return fail(400, 'A request id is needed')
 
@@ -59,30 +77,14 @@ Deno.serve(async (req) => {
     if (why) return fail(403, String(why))
     if (!reqRow.released_file_path) return fail(403, 'The document has not been generated yet.')
 
-    const admin = createClient(SUPABASE_URL, SERVICE_KEY)
-    const { data: signed, error: signErr } = await admin.storage
-      .from('generated-documents')
-      .createSignedUrl(reqRow.released_file_path, LINK_SECONDS, {
-        download: reqRow.released_file_name ?? true,
-      })
-    if (signErr || !signed?.signedUrl) return fail(500, 'Could not prepare the download')
-
-    const { error: auditErr } = await admin.from('audit_log').insert({
-      tenant_id: reqRow.tenant_id,
-      table_name: 'document_requests',
-      record_id: requestId,
-      action: 'DOCUMENT_DOWNLOADED',
-      actor_id: userData.user.id,
-      actor_role: null,
-      new_data: { file: reqRow.released_file_name ?? reqRow.released_file_path },
-    })
-    if (auditErr) {
-      // Refuse rather than hand out a document nobody can later trace.
-      console.error('audit write failed', auditErr.message)
-      return fail(500, 'Could not record the download, so it was not released')
-    }
-
-    return ok({ url: signed.signedUrl, expires_in: LINK_SECONDS })
+    return await sign(
+      userData.user.id,
+      reqRow.tenant_id,
+      'document_requests',
+      requestId,
+      reqRow.released_file_path,
+      reqRow.released_file_name,
+    )
   } catch (e) {
     return fail(500, e instanceof Error ? e.message : 'Unexpected error')
   }
@@ -99,4 +101,37 @@ function fail(status: number, message: string) {
     status,
     headers: { ...cors, 'Content-Type': 'application/json' },
   })
+}
+
+/** Signs a short-lived link and records the download. The service role is used
+    for this and nothing else. */
+async function sign(
+  userId: string,
+  tenantId: string,
+  table: string,
+  recordId: string,
+  path: string,
+  fileName: string | null,
+) {
+  const admin = createClient(SUPABASE_URL, SERVICE_KEY)
+  const { data: signed, error: signErr } = await admin.storage
+    .from('generated-documents')
+    .createSignedUrl(path, LINK_SECONDS, { download: fileName ?? true })
+  if (signErr || !signed?.signedUrl) return fail(500, 'Could not prepare the download')
+
+  const { error: auditErr } = await admin.from('audit_log').insert({
+    tenant_id: tenantId,
+    table_name: table,
+    record_id: recordId,
+    action: 'DOCUMENT_DOWNLOADED',
+    actor_id: userId,
+    actor_role: null,
+    new_data: { file: fileName ?? path },
+  })
+  if (auditErr) {
+    // Refuse rather than hand out a document nobody can later trace.
+    console.error('audit write failed', auditErr.message)
+    return fail(500, 'Could not record the download, so it was not released')
+  }
+  return ok({ url: signed.signedUrl, expires_in: LINK_SECONDS })
 }
