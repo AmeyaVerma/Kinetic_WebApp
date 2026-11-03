@@ -909,6 +909,22 @@ function ProductInfoTab({ booking }: { booking: import('../lib/types').Booking }
               Required before a non-draft BL. Not the same as the Incoterm.
             </p>
           )}
+          {/* A suggestion only: CIF and CFR usually mean the shipper pays the
+              freight, FOB that the consignee does. Nothing is set until the
+              user chooses it. */}
+          {!binding.value('freightTerms') && binding.canType && !blLocked && (() => {
+            const term = (booking.shipmentTerms ?? '').trim().toUpperCase()
+            const suggested = term === 'CIF' || term === 'CFR' ? 'Prepaid' : term === 'FOB' ? 'Collect' : null
+            return suggested ? (
+              <button
+                type="button"
+                className="mt-1 text-[11px] text-link hover:underline"
+                onClick={() => editField('freightTerms', 'Freight terms')(suggested)}
+              >
+                {term} usually means {suggested.toUpperCase()} — use {suggested.toUpperCase()}
+              </button>
+            ) : null
+          })()}
           {blLocked && (
             <p className="mt-1 text-[11px] text-amber-600">
               A BL is issued, so this is locked. Request an amendment on the Documents tab.
