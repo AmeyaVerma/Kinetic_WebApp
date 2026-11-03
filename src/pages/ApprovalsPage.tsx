@@ -21,6 +21,8 @@ const CATEGORY_TABS: { key: ApprovalEntityType | 'all'; label: string }[] = [
   { key: 'booking_field_edit', label: 'Booking field edits' },
   { key: 'ff_field_edit', label: 'FF field edits' },
   { key: 'party_document', label: 'Party documents' },
+  { key: 'mark_as_paid', label: 'Payments' },
+  { key: 'amendment_request', label: 'BL amendments' },
 ]
 
 const TYPE_LABEL: Record<ApprovalEntityType, string> = {
@@ -37,6 +39,24 @@ const TYPE_LABEL: Record<ApprovalEntityType, string> = {
   ff_field_edit: 'FF field edit',
   party_document: 'Party document',
   booking_costing: 'Costing',
+  mark_as_paid: 'Mark as paid',
+  amendment_request: 'BL amendment',
+}
+
+/** One payload value as text. A payload can hold nested values (an amendment
+    carries from/to pairs); printing one as a React child used to throw and
+    blank the whole queue, so every value is turned into a string here. */
+function showValue(v: unknown): string {
+  if (v === null || v === undefined || v === '') return '—'
+  if (Array.isArray(v)) return v.map(showValue).join(', ')
+  if (typeof v === 'object') {
+    const o = v as Record<string, unknown>
+    if ('to' in o) return `${showValue(o.fromLabel ?? o.from)} → ${showValue(o.toLabel ?? o.to)}`
+    return Object.entries(o)
+      .map(([k, x]) => `${k}: ${showValue(x)}`)
+      .join('; ')
+  }
+  return String(v)
 }
 
 export function ApprovalsPage() {
@@ -193,9 +213,11 @@ function ApprovalRow({
           {a.payload && (
             <div className="mt-2 rounded-btn border border-line bg-surface-2/50 p-2.5">
               <p className="mb-1 font-mono text-[10px] uppercase tracking-wide text-muted">Proposed changes</p>
-              {Object.entries(a.payload).map(([k, v]) => (
+              {Object.entries(a.payload as Record<string, unknown>)
+                .filter(([k]) => k !== 'amendmentId' && k !== 'blId')
+                .map(([k, v]) => (
                 <p key={k} className="text-xs text-body">
-                  <span className="font-medium text-heading">{k}:</span> {v}
+                  <span className="font-medium text-heading">{k}:</span> {showValue(v)}
                 </p>
               ))}
             </div>

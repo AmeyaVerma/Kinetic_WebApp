@@ -830,6 +830,8 @@ export type ApprovalEntityType =
   | 'ff_field_edit'
   | 'party_document'
   | 'booking_costing'
+  | 'mark_as_paid'
+  | 'amendment_request'
 
 export type ApprovalStatus = 'Pending' | 'Approved' | 'Rejected'
 

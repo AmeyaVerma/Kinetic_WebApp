@@ -16,6 +16,7 @@ import { BookingOverviewTab } from '../components/booking/BookingOverviewTab'
 import { DepotPicker } from '../components/booking/DepotPicker'
 import { PodAgentPicker } from '../components/booking/PodAgentPicker'
 import { HsLines } from '../components/booking/HsLines'
+import { useHasIssuedBl } from '../components/booking/useHasIssuedBl'
 import { containerNoProblem } from '../lib/containerNo'
 import { StopBookingDialog, type StopKind } from '../components/booking/StopBookingDialog'
 import { PortSearchField } from '../components/nvocc/PortSearchField'
@@ -778,6 +779,7 @@ function ProductInfoTab({ booking }: { booking: import('../lib/types').Booking }
   // the draft until Save, so Cancel discards it. Non-admins keep the
   // approval-request path they had.
   const { editing, valueOf, setField } = useBookingEdit()
+  const blLocked = useHasIssuedBl(booking.dbId)
   const binding = useFieldBinding(booking, (field, label, v) =>
     isAdmin
       ? updateContainerInfoField(
@@ -894,7 +896,7 @@ function ProductInfoTab({ booking }: { booking: import('../lib/types').Booking }
               Labelled in capitals as v2 writes them; stored as it always was. */}
           <select
             value={binding.value('freightTerms')}
-            disabled={!!pendingFor('freightTerms') || !binding.canType}
+            disabled={!!pendingFor('freightTerms') || !binding.canType || blLocked}
             onChange={(e) => editField('freightTerms', 'Freight terms')(e.target.value)}
             className="mt-0.5 w-full bg-transparent text-[13px] text-heading focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
           >
@@ -905,6 +907,11 @@ function ProductInfoTab({ booking }: { booking: import('../lib/types').Booking }
           {!binding.value('freightTerms') && (
             <p className="mt-1 text-[11px] text-amber-600">
               Required before a non-draft BL. Not the same as the Incoterm.
+            </p>
+          )}
+          {blLocked && (
+            <p className="mt-1 text-[11px] text-amber-600">
+              A BL is issued, so this is locked. Request an amendment on the Documents tab.
             </p>
           )}
           {hintFor('freightTerms') && <p className="mt-1 text-[11px] text-accent-orange">{hintFor('freightTerms')}</p>}
@@ -1173,6 +1180,7 @@ function AgentDetailsTab({ booking }: { booking: import('../lib/types').Booking 
      Container info: an Admin edits directly, anyone else raises an approval.
      They were previously read-only here, which meant a wrong consignee could
      only be fixed by rebuilding the booking. */
+  const blLocked = useHasIssuedBl(booking.dbId)
   const binding = useFieldBinding(booking, (field, label, value) =>
     isAdmin
       ? updateContainerInfoField(
@@ -1258,13 +1266,18 @@ function AgentDetailsTab({ booking }: { booking: import('../lib/types').Booking 
           </span>
           <PodAgentPicker
             value={booking.podAgentId}
-            disabled={!binding.canType}
+            disabled={!binding.canType || blLocked}
             onChange={(id) => updateBookingPodAgent(booking.id, id, 'Ops')}
           />
           <span className="block text-[10px] text-muted">
             Prints in the BL&rsquo;s Overseas Agent box. The BL maker cannot type over it — to
             change it, change it here.
           </span>
+          {blLocked && (
+            <span className="block text-[10px] text-amber-600">
+              A BL is issued, so this is locked. Request an amendment on the Documents tab.
+            </span>
+          )}
         </div>
 
         <label className="space-y-1">

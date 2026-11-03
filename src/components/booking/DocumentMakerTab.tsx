@@ -36,6 +36,8 @@ import {
 import { BL_TYPE_LABEL, printsBackside, type BlType } from '../../lib/pdf/strings/bl'
 import { SigningPanel } from './SigningPanel'
 import { BlMasterLink } from './BlMasterLink'
+import { BlAmendments } from './BlAmendments'
+import { useDataStore } from '../../store/useDataStore'
 import { BlContainerSplit } from './BlContainerSplit'
 
 /**
@@ -114,6 +116,25 @@ type BlRow = {
 
 const BL_TYPES: BlType[] = ['Draft', 'Original', 'Surrender', 'Seaway', 'RFS']
 
+/** The POD agent as it prints in the BL's Overseas Agent box: name, then the
+    first branch's address, in capitals. Read from the Agents master. */
+async function agentBoxText(agentId: string | null | undefined): Promise<string> {
+  if (!agentId) return ''
+  const { data } = await supabase
+    .from('agents')
+    .select('name, agent_branches(address_raw, city, country)')
+    .eq('id', agentId)
+    .maybeSingle()
+  if (!data) return ''
+  const a = data as unknown as {
+    name: string
+    agent_branches?: { address_raw: string | null; city: string | null; country: string | null }[]
+  }
+  const br = a.agent_branches?.[0]
+  const addr = br?.address_raw || [br?.city, br?.country].filter(Boolean).join(', ')
+  return [a.name, addr].filter(Boolean).join('\n').toUpperCase()
+}
+
 export function DocumentMakerTab({ booking }: { booking: Booking }) {
   const user = useCurrentUser()
   const viewAsRole = useAuthStore((s) => s.viewAsRole)
@@ -172,26 +193,10 @@ export function DocumentMakerTab({ booking }: { booking: Booking }) {
   }, [dbId])
   const podAgentId = booking.podAgentId
   useEffect(() => {
-    if (!podAgentId) {
-      setDeliveryAgent('')
-      return
-    }
     let cancelled = false
-    void (async () => {
-      const { data } = await supabase
-        .from('agents')
-        .select('name, agent_branches(address_raw, city, country)')
-        .eq('id', podAgentId)
-        .maybeSingle()
-      if (cancelled || !data) return
-      const a = data as unknown as {
-        name: string
-        agent_branches?: { address_raw: string | null; city: string | null; country: string | null }[]
-      }
-      const br = a.agent_branches?.[0]
-      const addr = br?.address_raw || [br?.city, br?.country].filter(Boolean).join(', ')
-      setDeliveryAgent([a.name, addr].filter(Boolean).join('\n').toUpperCase())
-    })()
+    void agentBoxText(podAgentId).then((t) => {
+      if (!cancelled) setDeliveryAgent(t)
+    })
     return () => {
       cancelled = true
     }
@@ -490,6 +495,48 @@ export function DocumentMakerTab({ booking }: { booking: Booking }) {
       setError(e instanceof Error ? e.message : 'Could not generate')
     }
     setBusy(false)
+  }
+
+  /**
+   * Re-issue after an approved amendment. The booking now carries the approved
+   * POD agent and freight terms, but the page's copy of it may be older, so the
+   * two amended values are read fresh from the database and the snapshot is
+   * built from those. The BL keeps its number and original issue date; it gains
+   * the next document version, and only then is the amendment marked Reissued.
+   */
+  const handleReissue = async (amendmentId: string) => {
+    if (!company || !dbId || !bl) throw new Error('The BL is not ready to re-issue.')
+    const { data: fresh } = await supabase
+      .from('bookings')
+      .select('pod_agent_id, freight_terms')
+      .eq('id', dbId)
+      .maybeSingle()
+    if (!fresh) throw new Error('Could not read the booking.')
+    const freshAgent = (fresh as { pod_agent_id: string | null }).pod_agent_id
+    const freshTerms = (fresh as { freight_terms: string | null }).freight_terms
+    const snapshot = buildBlSnapshot({
+      booking: { ...booking, podAgentId: freshAgent, freightTerms: freshTerms } as typeof booking,
+      company,
+      blNumber: bl.bl_number ?? '',
+      blType: bl.bl_type,
+      printMode: bl.print_mode,
+      useContainerSheet: bl.use_container_sheet,
+      issuedAt: bl.issued_at,
+      logoSrc: bl.print_mode === 'Scan' && bl.bl_type === 'Original' ? (logoGreySrc ?? logoSrc) : logoSrc,
+      deliveryAgent: await agentBoxText(freshAgent),
+      hsLines,
+    })
+    const fileName = (bl.bl_number ?? 'BL') + '_' + bl.bl_type.toUpperCase() + '_AMENDED.pdf'
+    const blob = await pdf(<BlDocument snapshot={snapshot} backsideSrc={backsideSrc} />).toBlob()
+    const version = await storeVersion('bl', '', snapshot, fileName, blob)
+    const { error: err } = await supabase.rpc('record_bl_reissue', {
+      p_amendment: amendmentId,
+      p_version: version,
+    })
+    if (err) throw new Error(err.message)
+    download(blob, fileName)
+    await load()
+    void useDataStore.getState().fetchBookings()
   }
 
   const handleIssueBl = async () => {
@@ -799,6 +846,17 @@ export function DocumentMakerTab({ booking }: { booking: Booking }) {
             disabled={!canWrite || blIssued || bl.status === 'Released'}
             onChanged={load}
           />
+
+          {(bl.status === 'Issued' || bl.status === 'Released') && (
+            <BlAmendments
+              key={bl.id}
+              blId={bl.id}
+              currentAgentId={booking.podAgentId}
+              currentFreightTerms={booking.freightTerms}
+              disabled={!canWrite}
+              onReissue={handleReissue}
+            />
+          )}
 
           <BlContainerSplit
             booking={booking}
