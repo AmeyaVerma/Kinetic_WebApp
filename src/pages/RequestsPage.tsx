@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Inbox, Check, X, Info } from 'lucide-react'
 import { Card } from '../components/ui/Card'
+import { DOC_LABEL } from '../lib/documentTypes'
 import { Button } from '../components/ui/Button'
 import { Badge, type BadgeTone } from '../components/ui/Badge'
 import { Tabs } from '../components/ui/Tabs'
@@ -297,7 +298,7 @@ export function RequestsPage() {
               {docReqs.map((r) => (
                 <Card key={r.id} className="p-4">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-medium">{humanise(r.doc_type)}</span>
+                    <span className="font-medium">{DOC_LABEL[r.doc_type] ?? humanise(r.doc_type)}</span>
                     <Badge tone={TONE[r.status] ?? 'neutral'} label={r.status} />
                     {r.bookings?.booking_ref && (
                       <Link

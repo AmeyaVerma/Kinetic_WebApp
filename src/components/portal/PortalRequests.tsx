@@ -6,6 +6,7 @@ import { Badge, type BadgeTone } from '../ui/Badge'
 import { Field, Select, TextInput } from '../ui/Field'
 import { supabase } from '../../lib/supabaseClient'
 import type { PortalBooking, PortalIdentity } from '../../lib/portal'
+import { DOC_TYPES, DOC_LABEL } from '../../lib/documentTypes'
 
 /**
  * What a portal user can ask for.
@@ -19,19 +20,6 @@ import type { PortalBooking, PortalIdentity } from '../../lib/portal'
  * Document names come from the Document fees master, because that is the list
  * the price lookup understands; the portal cannot read the prices.
  */
-
-const DOC_TYPES: { key: string; label: string }[] = [
-  { key: 'obl_original', label: 'OBL original copy' },
-  { key: 'obl_scan', label: 'OBL scan copy' },
-  { key: 'surrender', label: 'Surrender BL' },
-  { key: 'onboard', label: 'Onboard Confirmation' },
-  { key: 'cro', label: 'Container Release Order' },
-  { key: 'do', label: 'Delivery Order' },
-  { key: 'can', label: 'Cargo Arrival Notice' },
-  { key: 'offloading', label: 'Off Loading Letter' },
-  { key: 'other', label: 'Other document' },
-]
-const DOC_LABEL = Object.fromEntries(DOC_TYPES.map((d) => [d.key, d.label]))
 
 /** The v2 tracker, in order. Rejected sits outside it. */
 const STEPS = ['Submitted', 'Approved', 'Invoice sent', 'Paid', 'Ready to download'] as const
