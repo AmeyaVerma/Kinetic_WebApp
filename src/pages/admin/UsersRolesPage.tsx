@@ -466,13 +466,16 @@ function CompanyAccess({ user: u, isSelf }: { user: AppUser; isSelf: boolean }) 
   const setMembership = useAuthStore((s) => s.setMembership)
   const setApprover = useAuthStore((s) => s.setApprover)
   const [busy, setBusy] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
   const roleIn = (tenantId: string) =>
     u.memberships?.find((m) => m.tenantId === tenantId)?.role ?? null
 
   const change = async (tenantId: string, role: Role | null) => {
     setBusy(tenantId)
-    await setMembership(u.id, tenantId, role)
+    setError(null)
+    const refused = await setMembership(u.id, tenantId, role)
+    if (refused) setError(refused)
     setBusy(null)
   }
 
@@ -485,6 +488,7 @@ function CompanyAccess({ user: u, isSelf }: { user: AppUser; isSelf: boolean }) 
         A person can hold a different role in each company. Removing access here stops their
         data reaching them, not just the menu item.
       </p>
+      {error && <p className="mb-2 text-xs text-red-600">{error}</p>}
       <div className="space-y-2">
         {companies.map((c) => {
           const role = roleIn(c.id)

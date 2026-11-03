@@ -110,7 +110,9 @@ interface AuthState {
   usersLoading: boolean
   /** Grants or revokes a person's access to a company, with their role there.
       Siddharth: "admin can also choose who can login to which company." */
-  setMembership: (userId: string, tenantId: string, role: Role | null) => Promise<void>
+  /** Resolves to the database's refusal, or null on success -- so the screen
+      can say why, for example that this is the company's last Admin. */
+  setMembership: (userId: string, tenantId: string, role: Role | null) => Promise<string | null>
   /** Admin-only: give or remove the Approver role for one person in one company. */
   setApprover: (userId: string, tenantId: string, isApprover: boolean) => Promise<void>
   /** Switches company for the session. Row-level security reads the same
@@ -264,20 +266,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         .delete()
         .eq('user_id', userId)
         .eq('tenant_id', tenantId)
-      if (error) {
-        set({ authError: error.message })
-        return
-      }
+      if (error) return error.message
     } else {
       const { error } = await supabase
         .from('memberships')
         .upsert({ user_id: userId, tenant_id: tenantId, role }, { onConflict: 'user_id,tenant_id' })
-      if (error) {
-        set({ authError: error.message })
-        return
-      }
+      if (error) return error.message
     }
     await get().fetchUsers()
+    return null
   },
 
   setApprover: async (userId, tenantId, isApprover) => {
