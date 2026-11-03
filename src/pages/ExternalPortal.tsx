@@ -5,6 +5,7 @@ import { Tabs } from '../components/ui/Tabs'
 import { StatusChip } from '../components/ui/StatusChip'
 import { ProgressBar } from '../components/ui/ProgressBar'
 import { Badge } from '../components/ui/Badge'
+import { PortalRequests } from '../components/portal/PortalRequests'
 import { useAuthStore } from '../store/useAuthStore'
 import { useUiStore } from '../store/useUiStore'
 import { cyclePct, deriveStatus, toChipStatus, milestoneDefs } from '../lib/milestones'
@@ -71,13 +72,16 @@ export function ExternalPortal({ user }: { user: AppUser }) {
     return map
   }, [bookings])
 
-  const outstanding = useMemo(
-    () =>
-      invoices
-        .filter((i) => i.status !== 'Paid' && i.status !== 'Cancelled')
-        .reduce((a, i) => a + i.totalInr, 0),
-    [invoices],
-  )
+  // Never summed across currencies: a dollar invoice and a rupee invoice are
+  // two balances, not one.
+  const outstanding = useMemo(() => {
+    const by = new Map<string, number>()
+    for (const i of invoices) {
+      if (i.status === 'Paid' || i.status === 'Cancelled') continue
+      by.set(i.currency, (by.get(i.currency) ?? 0) + i.amount)
+    }
+    return [...by.entries()]
+  }, [invoices])
 
   return (
     <div className="min-h-screen bg-bg">
@@ -142,6 +146,7 @@ export function ExternalPortal({ user }: { user: AppUser }) {
                 tabs={[
                   { key: 'shipments', label: 'Shipments', badge: bookings.length },
                   { key: 'documents', label: 'Documents', badge: documents.length },
+                  { key: 'requests', label: 'Requests' },
                   ...(identity?.kind === 'customer'
                     ? [{ key: 'soa', label: 'Statement of account', badge: invoices.length }]
                     : []),
@@ -269,12 +274,18 @@ export function ExternalPortal({ user }: { user: AppUser }) {
               </Card>
             )}
 
+            {tab === 'requests' && identity && (
+              <PortalRequests userId={user.id} identity={identity} bookings={bookings} />
+            )}
+
             {tab === 'soa' && (
               <div className="mt-5 space-y-4">
                 <Card className="p-5">
                   <p className="text-xs uppercase tracking-wide text-muted">Outstanding</p>
                   <p className="mt-1 font-display text-2xl font-bold text-primary">
-                    ₹{inr(outstanding)}
+                    {outstanding.length === 0
+                      ? 'Nothing'
+                      : outstanding.map(([c, n]) => `${c === 'USD' ? '$' : '₹'}${inr(n)}`).join('  ·  ')}
                   </p>
                   <p className="mt-1 text-xs text-muted">
                     Across {invoices.length} invoice{invoices.length === 1 ? '' : 's'} raised to you.
@@ -289,7 +300,7 @@ export function ExternalPortal({ user }: { user: AppUser }) {
                           <th className={TH}>Kind</th>
                           <th className={TH}>Date</th>
                           <th className={TH}>Due</th>
-                          <th className={TH}>Amount (₹)</th>
+                          <th className={TH}>Amount</th>
                           <th className={TH}>Status</th>
                         </tr>
                       </thead>
@@ -300,9 +311,17 @@ export function ExternalPortal({ user }: { user: AppUser }) {
                             <td className={TD}>{i.docKind ?? '—'}</td>
                             <td className={`${TD} font-mono`}>{day(i.invoiceDate)}</td>
                             <td className={`${TD} font-mono`}>{day(i.dueDate)}</td>
-                            <td className={`${TD} font-mono`}>{inr(i.totalInr)}</td>
+                            <td className={`${TD} font-mono`}>
+                              {i.currency === 'USD' ? '$' : '₹'}
+                              {inr(i.amount)}
+                            </td>
                             <td className={TD}>
                               <Badge tone={i.status === 'Paid' ? 'success' : 'warn'} label={i.status} />
+                              {i.status !== 'Paid' && i.status !== 'Cancelled' && (
+                                <p className="mt-1 text-[10px] text-muted">
+                                  Online payment is not connected yet. Pay as your Kinetic contact has advised.
+                                </p>
+                              )}
                             </td>
                           </tr>
                         ))}

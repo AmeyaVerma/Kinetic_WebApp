@@ -77,8 +77,13 @@ export interface PortalInvoice {
   invoiceDate: string | null
   dueDate: string | null
   totalInr: number
+  /** The invoice's own amount in its own currency. total_inr holds 0 for a
+      USD invoice, so showing it would read as a free invoice. */
+  amount: number
+  currency: string
   status: string
   docKind: string | null
+  published: boolean
 }
 
 /**
@@ -105,7 +110,7 @@ export async function loadPortalData() {
       .order('uploaded_at', { ascending: false }),
     supabase
       .from('invoices')
-      .select('invoice_no, invoice_date, due_date, total_inr, status, doc_kind')
+      .select('invoice_no, invoice_date, due_date, total_inr, subtotal, currency, status, doc_kind, published_to_portal')
       .order('invoice_date', { ascending: false }),
   ])
 
@@ -148,6 +153,9 @@ export async function loadPortalData() {
     invoiceDate: r.invoice_date,
     dueDate: r.due_date,
     totalInr: Number(r.total_inr ?? 0),
+    amount: Number(r.subtotal ?? r.total_inr ?? 0),
+    currency: r.currency ?? 'INR',
+    published: !!r.published_to_portal,
     status: r.status,
     docKind: r.doc_kind,
   }))
