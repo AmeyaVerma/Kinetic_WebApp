@@ -1,3 +1,5 @@
+import type { ContainerLineItem } from './types'
+
 /**
  * ISO 6346 container number check.
  *
@@ -39,4 +41,48 @@ export function containerNoProblem(raw: string): string | null {
     return `The check digit does not match (it should be ${check}). This number may be mistyped.`
   }
   return null
+}
+
+/**
+ * Container numbers live in the booking's per-container table
+ * (containerDetails). The flat containerNos list is derived from it -- the
+ * database keeps the two equal -- and these two helpers do the same job in the
+ * browser so the screen agrees with the database before the save returns.
+ */
+
+export function numbersInDetails(details: ContainerLineItem[] | undefined): string[] {
+  return (details ?? []).map((d) => (d.containerNo ?? '').trim().toUpperCase()).filter(Boolean)
+}
+
+/** Adds a number to the table: into the first blank row, else a new row. */
+export function withContainerNumber(
+  details: ContainerLineItem[] | undefined,
+  containerNo: string,
+): ContainerLineItem[] {
+  const no = containerNo.trim().toUpperCase()
+  const rows = [...(details ?? [])]
+  if (!no || rows.some((r) => (r.containerNo ?? '').trim().toUpperCase() === no)) return rows
+  const blank = rows.findIndex((r) => !(r.containerNo ?? '').trim())
+  if (blank >= 0) {
+    rows[blank] = { ...rows[blank], containerNo: no }
+    return rows
+  }
+  return [
+    ...rows,
+    {
+      containerNo: no,
+      containerType: '',
+      emptyLaden: 'Laden',
+      noOfPkgs: '',
+      pkgUnit: '',
+      grossWeight: '',
+      netWeight: '',
+      cargoWeight: '',
+      sealNo: '',
+      customSealNo: '',
+      pickupDate: null,
+      gateIn: null,
+      sob: null,
+    },
+  ]
 }

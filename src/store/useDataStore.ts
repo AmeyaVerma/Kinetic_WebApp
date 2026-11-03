@@ -3,6 +3,7 @@
    mirroring the actions the Supabase layer will expose later.
    State resets on refresh (same contract as the v5 prototype).  */
 
+import { numbersInDetails, withContainerNumber } from '../lib/containerNo'
 import { create } from 'zustand'
 import { supabase } from '../lib/supabaseClient'
 import { syncApprovals, markSynced, rowToApproval } from './approvalSync'
@@ -2352,7 +2353,9 @@ export const useDataStore = create<DataState>((set, get) => ({
       if (!booking) return s
       persistBookingUpdate(booking.dbId, { container_details: details }, 'updateContainerDetails')
       return {
-        bookings: s.bookings.map((b) => (b.id === bookingId ? { ...b, containerDetails: details } : b)),
+        bookings: s.bookings.map((b) =>
+          b.id === bookingId ? { ...b, containerDetails: details, containerNos: numbersInDetails(details) } : b,
+        ),
         activities: log(s.activities, bookingId, actor, 'Container details updated'),
       }
     }),
@@ -2514,13 +2517,18 @@ export const useDataStore = create<DataState>((set, get) => ({
       persistCroUpdate(dbId, 'Container picked up', containerNo)
       persistMilestoneUpsert(dbId, 'container_picked_up', now(), 'MNR')
       persistContainerActivityUpsert(dbId, 'gate_out', now())
-      if (booking) persistBookingUpdate(dbId, { container_nos: [...booking.containerNos, containerNo] }, 'croPickup')
+      // The number goes into the per-container table, which is the one place
+      // container numbers live; the flat list is derived from it.
+      const pickedDetails = withContainerNumber(booking?.containerDetails, containerNo)
+      if (booking) persistBookingUpdate(dbId, { container_details: pickedDetails }, 'croPickup')
       return {
         cros: s.cros.map((c) =>
           c.bookingId === bookingId ? { ...c, status: 'Container picked up', containerNo } : c,
         ),
         bookings: s.bookings.map((b) =>
-          b.id === bookingId ? { ...b, containerNos: [...b.containerNos, containerNo] } : b,
+          b.id === bookingId
+            ? { ...b, containerDetails: pickedDetails, containerNos: numbersInDetails(pickedDetails) }
+            : b,
         ),
         milestones: [
           ...s.milestones.filter((m) => !(m.bookingId === bookingId && m.key === 'container_picked_up')),
